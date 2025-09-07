@@ -163,6 +163,9 @@ export function usePOS() {
           cashierId: paymentData.cashierId || null,
         };
 
+        console.log("🚀 POS Hook - Sale data being sent:", saleData);
+        console.log("🛒 POS Hook - Cart items:", cartItems);
+
         // Process sale through service
         const transaction = await salesService.processSale(saleData);
 

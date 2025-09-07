@@ -207,6 +207,18 @@ export class SalesService {
     try {
       logDebug("Processing sale transaction", saleData);
 
+      // Debug: Log the mapped sale items
+      const mappedItems = saleData.items.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.unit_quantity, // Use unit_quantity for the actual sale quantity
+        unit_type: item.unit_type,
+        unit_price: item.price_per_unit,
+        total_price: item.total_price,
+      }));
+
+      console.log("🔍 Sales Service - Mapped sale items:", mappedItems);
+      console.log("🔍 Sales Service - Original items:", saleData.items);
+
       // Use stored procedure for atomic operation
       const { data, error } = await supabase.rpc("create_sale_with_items", {
         sale_data: {
@@ -217,13 +229,7 @@ export class SalesService {
           customer_phone: saleData.customer?.phone || null,
           notes: saleData.notes || null,
         },
-        sale_items: saleData.items.map((item) => ({
-          product_id: item.id,
-          quantity: item.quantity,
-          unit_type: item.unit || "piece",
-          unit_price: item.price_per_piece,
-          total_price: item.quantity * item.price_per_piece,
-        })),
+        sale_items: mappedItems,
       });
 
       if (error) throw error;
@@ -287,7 +293,21 @@ export class SalesService {
 
       const { data, error } = await supabase
         .from("sales")
-        .select("*")
+        .select(
+          `
+          *,
+          sale_items (
+            *,
+            products (
+              id,
+              name,
+              brand,
+              category
+            )
+          ),
+          users (first_name, last_name)
+        `
+        )
         .gte("created_at", startDate.toISOString())
         .lte("created_at", endDate.toISOString())
         .order("created_at", { ascending: false });

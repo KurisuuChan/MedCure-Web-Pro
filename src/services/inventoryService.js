@@ -31,6 +31,32 @@ export const inventoryService = {
     return await ProductService.deleteProduct(id);
   },
 
+  // Archive product
+  archiveProduct: async (id, userId = null) => {
+    return await ProductService.updateProduct(id, {
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archived_by: userId,
+      is_active: false,
+    });
+  },
+
+  // Restore archived product
+  restoreProduct: async (id) => {
+    return await ProductService.updateProduct(id, {
+      is_archived: false,
+      archived_at: null,
+      archived_by: null,
+      is_active: true,
+    });
+  },
+
+  // Get archived products
+  getArchivedProducts: async () => {
+    const products = await ProductService.getProducts();
+    return products.filter((product) => product.is_archived);
+  },
+
   // Get low stock products
   getLowStockProducts: async () => {
     return await ProductService.getLowStockProducts();

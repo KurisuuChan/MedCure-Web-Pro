@@ -23,6 +23,23 @@ export function useInventory() {
     setIsLoading(true);
     try {
       const data = await inventoryService.getProducts();
+
+      // Debug logging for development
+      if (import.meta.env.DEV) {
+        console.log("🗃️ Loaded Products:", {
+          count: data.length,
+          firstFewProducts: data.slice(0, 3).map((p) => ({
+            id: p.id,
+            name: p.name,
+            stock: p.stock_in_pieces,
+            price: p.price_per_piece,
+            reorder_level: p.reorder_level,
+            expiry_date: p.expiry_date,
+            is_archived: p.is_archived,
+          })),
+        });
+      }
+
       setProducts(data);
     } catch (error) {
       console.error("Error loading products:", error);
@@ -34,6 +51,9 @@ export function useInventory() {
   // Filter and search products
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
+
+    // Filter out archived products by default
+    filtered = filtered.filter((product) => !product.is_archived);
 
     // Apply search filter
     if (searchTerm) {
@@ -134,16 +154,28 @@ export function useInventory() {
 
   // Analytics
   const analytics = useMemo(() => {
-    const totalProducts = products.length;
-    const lowStockProducts = products.filter(
+    // Filter out archived products for analytics
+    const activeProducts = products.filter((product) => !product.is_archived);
+
+    // Debug logging for development
+    if (import.meta.env.DEV) {
+      console.log("📊 Analytics Debug:", {
+        totalProductsInDB: products.length,
+        archivedProducts: products.filter((p) => p.is_archived).length,
+        activeProducts: activeProducts.length,
+      });
+    }
+
+    const totalProducts = activeProducts.length;
+    const lowStockProducts = activeProducts.filter(
       (p) => p.stock_in_pieces > 0 && p.stock_in_pieces <= p.reorder_level
     ).length;
-    const outOfStockProducts = products.filter(
+    const outOfStockProducts = activeProducts.filter(
       (p) => p.stock_in_pieces <= 0
     ).length;
 
     const today = new Date();
-    const expiringProducts = products.filter((p) => {
+    const expiringProducts = activeProducts.filter((p) => {
       if (!p.expiry_date) return false;
       const expiry = new Date(p.expiry_date);
       const daysUntilExpiry = Math.ceil(
@@ -152,16 +184,28 @@ export function useInventory() {
       return daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
     }).length;
 
-    const expiredProducts = products.filter((p) => {
+    const expiredProducts = activeProducts.filter((p) => {
       if (!p.expiry_date) return false;
       const expiry = new Date(p.expiry_date);
       return expiry < today;
     }).length;
 
-    const totalValue = products.reduce(
-      (sum, p) => sum + p.price_per_piece * p.stock_in_pieces,
+    const totalValue = activeProducts.reduce(
+      (sum, p) => sum + (p.price_per_piece || 0) * (p.stock_in_pieces || 0),
       0
     );
+
+    // Debug logging for development
+    if (import.meta.env.DEV) {
+      console.log("📊 Analytics Results:", {
+        totalProducts,
+        lowStockProducts,
+        outOfStockProducts,
+        expiringProducts,
+        expiredProducts,
+        totalValue: `₱${totalValue.toLocaleString()}`,
+      });
+    }
 
     return {
       totalProducts,
@@ -276,6 +320,7 @@ export function useInventory() {
     updateProduct,
     deleteProduct,
     bulkUpdateStock,
+    loadProducts,
     handleSearch,
     handleFilter,
     handleSort,

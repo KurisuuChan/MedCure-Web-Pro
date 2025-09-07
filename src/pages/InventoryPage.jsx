@@ -12,9 +12,9 @@ import {
   List,
   Edit,
   Eye,
-  Trash2,
-  AlertTriangle,
+  Archive,
   X,
+  DollarSign,
 } from "lucide-react";
 import {
   getStockStatus,
@@ -30,26 +30,53 @@ import ProductCard from "../features/inventory/components/ProductCard";
 import { useInventory } from "../features/inventory/hooks/useInventory";
 import { ExportModal } from "../components/ui/ExportModal";
 import { ImportModal } from "../components/ui/ImportModal";
+import { ArchiveService } from "../services/enhancedServices";
+import { useAuth } from "../hooks/useAuth";
+
+// Enhanced scrollbar styles
+const scrollbarStyles = `
+  .modal-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+  }
+  
+  .modal-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .modal-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  
+  .modal-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+  }
+  
+  .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+`;
 
 export default function InventoryPage() {
   const {
     products: filteredProducts,
     allProducts,
     analytics,
-    searchTerm,
-    filters,
-    sortBy,
-    sortOrder,
     isLoading,
     addProduct,
     updateProduct,
-    deleteProduct,
     handleSearch,
     handleFilter,
-    handleSort,
+    loadProducts,
   } = useInventory();
 
-  const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
+  // Get current authenticated user
+  const { user } = useAuth();
+
+  const [viewMode, setViewMode] = useState("table"); // "grid" or "table" - Default to table (list) view
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -58,6 +85,17 @@ export default function InventoryPage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
+
+  // Inject scrollbar styles
+  React.useEffect(() => {
+    const styleElement = document.createElement("style");
+    styleElement.textContent = scrollbarStyles;
+    document.head.appendChild(styleElement);
+
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
 
   // Pagination
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -87,13 +125,24 @@ export default function InventoryPage() {
     setShowEditModal(true);
   };
 
-  const handleDeleteProduct = async (product) => {
-    if (confirm(`Are you sure you want to delete ${product.name}?`)) {
+  const handleArchiveProduct = async (product) => {
+    if (
+      confirm(
+        `Are you sure you want to archive ${product.name}? Archived products will be moved to the Management section and won't appear in active inventory.`
+      )
+    ) {
       try {
-        await deleteProduct(product.id);
-        // Success feedback could go here
+        // Use current user ID if available, otherwise use a default system user ID
+        const userId = user?.id || "550e8400-e29b-41d4-a716-446655440001"; // Default admin user ID
+        const result = await ArchiveService.archiveProduct(product.id, userId);
+        if (result.success) {
+          // Reload products to update the list and analytics
+          await loadProducts();
+        } else {
+          alert("Error archiving product: " + result.error);
+        }
       } catch (error) {
-        alert("Error deleting product: " + error.message);
+        alert("Error archiving product: " + error.message);
       }
     }
   };
@@ -114,24 +163,24 @@ export default function InventoryPage() {
         <div className="flex items-center space-x-3 mt-4 lg:mt-0">
           <button
             onClick={() => setShowExportModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            className="group flex items-center space-x-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:border-green-300 hover:bg-green-50 hover:text-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
           >
-            <Download className="h-4 w-4" />
-            <span>Export</span>
+            <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+            <span className="font-medium">Export</span>
           </button>
           <button
             onClick={() => setShowImportModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            className="group flex items-center space-x-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
           >
-            <Upload className="h-4 w-4" />
-            <span>Import</span>
+            <Upload className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+            <span className="font-medium">Import</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="group flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
           >
-            <Plus className="h-4 w-4" />
-            <span>Add Product</span>
+            <Plus className="h-4 w-4 group-hover:rotate-90 transition-transform duration-200" />
+            <span className="font-semibold">Add Product</span>
           </button>
         </div>
       </div>
@@ -183,30 +232,40 @@ export default function InventoryPage() {
         </p>
 
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+          <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl p-1 shadow-sm">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-md transition-colors ${
+              className={`group flex items-center justify-center p-2.5 rounded-lg transition-all duration-200 ${
                 viewMode === "grid"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
               }`}
+              title="Grid View"
             >
-              <Grid className="h-4 w-4" />
+              <Grid
+                className={`h-4 w-4 ${
+                  viewMode === "grid" ? "scale-110" : "group-hover:scale-110"
+                } transition-transform duration-200`}
+              />
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`p-2 rounded-md transition-colors ${
+              className={`group flex items-center justify-center p-2.5 rounded-lg transition-all duration-200 ${
                 viewMode === "table"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
               }`}
+              title="Table View"
             >
-              <List className="h-4 w-4" />
+              <List
+                className={`h-4 w-4 ${
+                  viewMode === "table" ? "scale-110" : "group-hover:scale-110"
+                } transition-transform duration-200`}
+              />
             </button>
           </div>
 
-          <button className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800">
+          <button className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-all duration-200">
             <RefreshCw className="h-4 w-4" />
             <span>Refresh</span>
           </button>
@@ -223,7 +282,7 @@ export default function InventoryPage() {
               product={transformProduct(product)}
               onEdit={handleEditProduct}
               onView={handleViewProduct}
-              onDelete={handleDeleteProduct}
+              onDelete={handleArchiveProduct}
             />
           ))}
         </div>
@@ -261,7 +320,7 @@ export default function InventoryPage() {
                     product={product}
                     onView={() => handleViewProduct(product)}
                     onEdit={() => handleEditProduct(product)}
-                    onDelete={() => handleDeleteProduct(product)}
+                    onDelete={() => handleArchiveProduct(product)}
                   />
                 ))}
               </tbody>
@@ -292,27 +351,30 @@ export default function InventoryPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-white px-4 py-3 border border-gray-200 rounded-lg sm:px-6">
+        <div className="bg-white px-6 py-4 border-2 border-gray-200 rounded-xl shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
+            <div className="text-sm font-medium text-gray-700">
+              Page{" "}
+              <span className="text-blue-600 font-semibold">{currentPage}</span>{" "}
+              of{" "}
+              <span className="text-blue-600 font-semibold">{totalPages}</span>
             </div>
             <div className="flex space-x-2">
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group flex items-center space-x-1 px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 transition-all duration-200"
               >
-                Previous
+                <span>Previous</span>
               </button>
               <button
                 onClick={() =>
                   setCurrentPage(Math.min(totalPages, currentPage + 1))
                 }
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group flex items-center space-x-1 px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 transition-all duration-200"
               >
-                Next
+                <span>Next</span>
               </button>
             </div>
           </div>
@@ -401,7 +463,7 @@ export default function InventoryPage() {
 }
 
 // Summary Card Component
-function SummaryCard({ title, value, icon: IconComponent, color, alert }) {
+function SummaryCard({ title, value, icon: Icon, color, alert }) {
   const colorClasses = {
     blue: "bg-blue-50 text-blue-600",
     yellow: "bg-yellow-50 text-yellow-600",
@@ -421,7 +483,7 @@ function SummaryCard({ title, value, icon: IconComponent, color, alert }) {
             alert ? "animate-pulse" : ""
           }`}
         >
-          <IconComponent className="h-6 w-6" />
+          <Icon className="h-6 w-6" />
         </div>
       </div>
     </div>
@@ -519,28 +581,30 @@ function ProductRow({ product, onView, onEdit, onDelete }) {
           {expiryStatus.replace("_", " ")}
         </span>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-        <button
-          onClick={onView}
-          className="text-blue-600 hover:text-blue-900"
-          title="View Details"
-        >
-          <Eye className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onEdit}
-          className="text-gray-600 hover:text-gray-900"
-          title="Edit Product"
-        >
-          <Edit className="h-4 w-4" />
-        </button>
-        <button
-          onClick={onDelete}
-          className="text-red-600 hover:text-red-900"
-          title="Delete Product"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={onView}
+            className="group flex items-center justify-center p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all duration-200"
+            title="View Details"
+          >
+            <Eye className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+          </button>
+          <button
+            onClick={onEdit}
+            className="group flex items-center justify-center p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-all duration-200"
+            title="Edit Product"
+          >
+            <Edit className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="group flex items-center justify-center p-2 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-lg transition-all duration-200"
+            title="Archive Product"
+          >
+            <Archive className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -553,7 +617,10 @@ function ProductModal({ title, product, onClose, onSave }) {
     description: product?.description || "",
     category: product?.category || "Pain Relief",
     brand: product?.brand || "",
+    cost_price: product?.cost_price || "",
+    base_price: product?.base_price || "",
     price_per_piece: product?.price_per_piece || "",
+    margin_percentage: product?.margin_percentage || "",
     pieces_per_sheet: product?.pieces_per_sheet || 1,
     sheets_per_box: product?.sheets_per_box || 1,
     stock_in_pieces: product?.stock_in_pieces || "",
@@ -562,219 +629,443 @@ function ProductModal({ title, product, onClose, onSave }) {
     expiry_date: product?.expiry_date?.split("T")[0] || "",
   });
 
+  // Calculate margin percentage when cost price or selling price changes
+  const calculateMargin = (cost, sell) => {
+    if (!cost || cost <= 0 || !sell || sell <= 0) return 0;
+    return (((sell - cost) / cost) * 100).toFixed(2);
+  };
+
+  // Calculate selling price from cost price and margin
+  const calculateSellPrice = (cost, margin) => {
+    if (!cost || cost <= 0 || !margin || margin <= 0) return 0;
+    return (cost * (1 + margin / 100)).toFixed(2);
+  };
+
+  // Handle cost price change
+  const handleCostPriceChange = (value) => {
+    const costPrice = parseFloat(value) || 0;
+    const sellPrice = parseFloat(formData.price_per_piece) || 0;
+
+    setFormData({
+      ...formData,
+      cost_price: value,
+      margin_percentage: calculateMargin(costPrice, sellPrice),
+    });
+  };
+
+  // Handle selling price change
+  const handleSellPriceChange = (value) => {
+    const sellPrice = parseFloat(value) || 0;
+    const costPrice = parseFloat(formData.cost_price) || 0;
+
+    setFormData({
+      ...formData,
+      price_per_piece: value,
+      margin_percentage: calculateMargin(costPrice, sellPrice),
+    });
+  };
+
+  // Handle margin change
+  const handleMarginChange = (value) => {
+    const margin = parseFloat(value) || 0;
+    const costPrice = parseFloat(formData.cost_price) || 0;
+
+    setFormData({
+      ...formData,
+      margin_percentage: value,
+      price_per_piece: calculateSellPrice(costPrice, margin),
+    });
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
+
+    // Sanitize numeric fields - convert empty strings to null or proper numbers
+    const sanitizedData = {
+      ...formData,
+      cost_price:
+        formData.cost_price === ""
+          ? null
+          : parseFloat(formData.cost_price) || null,
+      base_price:
+        formData.base_price === ""
+          ? null
+          : parseFloat(formData.base_price) || null,
+      price_per_piece:
+        formData.price_per_piece === ""
+          ? 0
+          : parseFloat(formData.price_per_piece) || 0,
+      margin_percentage:
+        formData.margin_percentage === ""
+          ? 0
+          : parseFloat(formData.margin_percentage) || 0,
+      pieces_per_sheet:
+        formData.pieces_per_sheet === ""
+          ? 1
+          : parseInt(formData.pieces_per_sheet) || 1,
+      sheets_per_box:
+        formData.sheets_per_box === ""
+          ? 1
+          : parseInt(formData.sheets_per_box) || 1,
+      stock_in_pieces:
+        formData.stock_in_pieces === ""
+          ? 0
+          : parseInt(formData.stock_in_pieces) || 0,
+      reorder_level:
+        formData.reorder_level === ""
+          ? 0
+          : parseInt(formData.reorder_level) || 0,
+      expiry_date: formData.expiry_date === "" ? null : formData.expiry_date,
+    };
+
+    onSave(sanitizedData);
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center z-50 p-4 py-8 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full min-h-[90vh] max-h-fit flex flex-col my-auto">
+        <div className="flex flex-col h-full min-h-0">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-xl">
+                <Package className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+            </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="group p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
             >
-              <X className="h-6 w-6" />
+              <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Product Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+          {/* Modal Body */}
+          <div className="flex-1 overflow-y-auto p-6 modal-scrollbar">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="space-y-8">
+                {/* Basic Information Section */}
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                    <Package className="h-5 w-5 mr-2 text-gray-600" />
+                    Basic Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Product Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="Enter product name"
+                      />
+                    </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Category *
+                      </label>
+                      <select
+                        required
+                        value={formData.category}
+                        onChange={(e) =>
+                          setFormData({ ...formData, category: e.target.value })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      >
+                        <option value="">Select category</option>
+                        {productCategories.slice(1).map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category *
-                </label>
-                <select
-                  required
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {productCategories.slice(1).map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        value={formData.description}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            description: e.target.value,
+                          })
+                        }
+                        rows={3}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300 resize-none"
+                        placeholder="Enter product description"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Brand
-                </label>
-                <input
-                  type="text"
-                  value={formData.brand}
-                  onChange={(e) =>
-                    setFormData({ ...formData, brand: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Brand
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.brand}
+                        onChange={(e) =>
+                          setFormData({ ...formData, brand: e.target.value })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="Enter brand name"
+                      />
+                    </div>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Price per Piece *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.price_per_piece}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      price_per_piece: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+                {/* Enhanced Pricing Section */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                    <DollarSign className="h-6 w-6 mr-2 text-blue-600" />
+                    Enhanced Pricing Structure
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Cost Price (₱)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.cost_price}
+                        onChange={(e) => handleCostPriceChange(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="0.00"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock (Pieces) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  value={formData.stock_in_pieces}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      stock_in_pieces: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Selling Price (₱) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={formData.price_per_piece}
+                        onChange={(e) => handleSellPriceChange(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300 bg-white"
+                        placeholder="0.00"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pieces per Sheet
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.pieces_per_sheet}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      pieces_per_sheet: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Margin (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.margin_percentage}
+                        onChange={(e) => handleMarginChange(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="0.00"
+                        readOnly={
+                          !formData.cost_price || formData.cost_price <= 0
+                        }
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sheets per Box
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.sheets_per_box}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sheets_per_box: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+                  {/* Enhanced Pricing Summary */}
+                  {formData.cost_price && formData.price_per_piece && (
+                    <div className="mt-6 p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-blue-200">
+                      <h5 className="text-sm font-semibold text-gray-700 mb-3">
+                        Pricing Summary
+                      </h5>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <div className="text-xs text-gray-500 uppercase tracking-wide">
+                            Cost Price
+                          </div>
+                          <div className="text-lg font-bold text-gray-900">
+                            ₱{parseFloat(formData.cost_price).toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="text-center p-3 bg-blue-50 rounded-lg">
+                          <div className="text-xs text-blue-600 uppercase tracking-wide">
+                            Selling Price
+                          </div>
+                          <div className="text-lg font-bold text-blue-900">
+                            ₱{parseFloat(formData.price_per_piece).toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="text-center p-3 bg-green-50 rounded-lg">
+                          <div className="text-xs text-green-600 uppercase tracking-wide">
+                            Profit per Unit
+                          </div>
+                          <div className="text-lg font-bold text-green-700">
+                            ₱
+                            {(
+                              parseFloat(formData.price_per_piece) -
+                              parseFloat(formData.cost_price)
+                            ).toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="text-center p-3 bg-purple-50 rounded-lg">
+                          <div className="text-xs text-purple-600 uppercase tracking-wide">
+                            Margin
+                          </div>
+                          <div className="text-lg font-bold text-purple-700">
+                            {formData.margin_percentage}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reorder Level
-                </label>
-                <input
-                  type="number"
-                  value={formData.reorder_level}
-                  onChange={(e) =>
-                    setFormData({ ...formData, reorder_level: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+                {/* Stock and Inventory Section */}
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                    <Package className="h-5 w-5 mr-2 text-gray-600" />
+                    Stock Management
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Stock (Pieces) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        value={formData.stock_in_pieces}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            stock_in_pieces: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="Enter stock quantity"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Supplier
-                </label>
-                <input
-                  type="text"
-                  value={formData.supplier}
-                  onChange={(e) =>
-                    setFormData({ ...formData, supplier: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Pieces per Sheet
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.pieces_per_sheet}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            pieces_per_sheet: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="1"
+                      />
+                    </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Expiry Date
-                </label>
-                <input
-                  type="date"
-                  value={formData.expiry_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, expiry_date: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Sheets per Box
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.sheets_per_box}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            sheets_per_box: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="1"
+                      />
+                    </div>
 
-            <div className="flex justify-end space-x-3 pt-6 border-t">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Reorder Level
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.reorder_level}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            reorder_level: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Supplier
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.supplier}
+                        onChange={(e) =>
+                          setFormData({ ...formData, supplier: e.target.value })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="Enter supplier name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Expiry Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.expiry_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            expiry_date: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex-shrink-0">
+            <div className="flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="group px-6 py-2.5 border-2 border-gray-200 text-gray-700 font-medium rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={handleSubmit}
+                className="group px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
               >
-                {product ? "Update Product" : "Add Product"}
+                <span className="flex items-center space-x-2">
+                  <span>{product ? "Update Product" : "Add Product"}</span>
+                </span>
               </button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>
@@ -788,227 +1079,279 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
   const stockBreakdown = getStockBreakdown(product.stock_in_pieces, product);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-900">
-              Product Details
-            </h3>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center z-50 p-4 py-8 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full min-h-[90vh] max-h-fit flex flex-col my-auto">
+        <div className="flex flex-col h-full min-h-0">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-100 rounded-xl">
+                <Eye className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">
+                Product Details
+              </h3>
+            </div>
             <div className="flex items-center space-x-2">
               <button
                 onClick={onEdit}
-                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="group flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
               >
-                <Edit className="h-4 w-4" />
+                <Edit className="h-4 w-4 group-hover:rotate-12 transition-transform duration-200" />
                 <span>Edit</span>
               </button>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600"
+                className="group p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
               >
-                <X className="h-6 w-6" />
+                <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
               </button>
             </div>
           </div>
 
-          <div className="space-y-6">
-            {/* Basic Information */}
-            <div>
-              <h4 className="text-lg font-medium text-gray-900 mb-4">
-                Basic Information
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Product Name
-                  </span>
-                  <p className="text-sm text-gray-900">{product.name}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Brand
-                  </span>
-                  <p className="text-sm text-gray-900">{product.brand}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Category
-                  </span>
-                  <p className="text-sm text-gray-900">{product.category}</p>
-                </div>
-                <div className="md:col-span-2">
-                  <span className="text-sm font-medium text-gray-500">
-                    Description
-                  </span>
-                  <p className="text-sm text-gray-900">{product.description}</p>
+          {/* Modal Body */}
+          <div className="flex-1 overflow-y-auto p-6 modal-scrollbar">
+            <div className="space-y-8">
+              {/* Basic Information */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                  <Package className="h-6 w-6 mr-3 text-blue-600" />
+                  Basic Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Product Name
+                    </span>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      {product.name}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Brand
+                    </span>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      {product.brand || "Not specified"}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Category
+                    </span>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        {product.category}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-1">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Status
+                    </span>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        Active
+                      </span>
+                    </p>
+                  </div>
+                  {product.description && (
+                    <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-2">
+                      <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                        Description
+                      </span>
+                      <p className="text-base text-gray-800 mt-2 leading-relaxed">
+                        {product.description}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
 
-            {/* Stock Information */}
-            <div>
-              <h4 className="text-lg font-medium text-gray-900 mb-4">
-                Stock Information
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Current Stock
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {product.stock_in_pieces} pieces
-                    <span
-                      className={`ml-2 inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        stockStatus === "critical_stock"
-                          ? "bg-red-100 text-red-800"
-                          : stockStatus === "low_stock"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {stockStatus.replace("_", " ")}
+              {/* Stock Information */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                  <Package className="h-6 w-6 mr-3 text-indigo-600" />
+                  Stock Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Current Stock
                     </span>
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Stock Breakdown
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {stockBreakdown.boxes > 0 &&
-                      `${stockBreakdown.boxes} boxes, `}
-                    {stockBreakdown.sheets > 0 &&
-                      `${stockBreakdown.sheets} sheets, `}
-                    {stockBreakdown.pieces} pieces
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Reorder Level
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {product.reorder_level} pieces
-                  </p>
+                    <div className="mt-3">
+                      <p className="text-2xl font-bold text-gray-900">
+                        {product.stock_in_pieces.toLocaleString()} pieces
+                      </p>
+                      <span
+                        className={`mt-2 inline-flex px-4 py-2 text-sm font-bold rounded-xl ${
+                          stockStatus === "critical_stock"
+                            ? "bg-red-100 text-red-800 border border-red-200"
+                            : stockStatus === "low_stock"
+                            ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                            : "bg-green-100 text-green-800 border border-green-200"
+                        }`}
+                      >
+                        {stockStatus.replace("_", " ").toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Stock Breakdown
+                    </span>
+                    <div className="mt-3 space-y-2">
+                      <p className="text-lg font-semibold text-gray-900">
+                        {stockBreakdown.boxes} boxes, {stockBreakdown.sheets}{" "}
+                        sheets, {stockBreakdown.pieces} pieces
+                      </p>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p>
+                          •{" "}
+                          <span className="font-medium">
+                            {product.pieces_per_sheet}
+                          </span>{" "}
+                          pieces per sheet
+                        </p>
+                        <p>
+                          •{" "}
+                          <span className="font-medium">
+                            {product.sheets_per_box}
+                          </span>{" "}
+                          sheets per box
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Reorder Level
+                    </span>
+                    <p className="text-xl font-bold text-gray-900 mt-2">
+                      {product.reorder_level} pieces
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Stock Status
+                    </span>
+                    <p className="text-lg font-semibold text-gray-900 mt-2">
+                      {product.stock_in_pieces <= product.reorder_level ? (
+                        <span className="text-red-600">⚠️ Needs Reorder</span>
+                      ) : (
+                        <span className="text-green-600">
+                          ✅ Adequate Stock
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Pricing Information */}
-            <div>
-              <h4 className="text-lg font-medium text-gray-900 mb-4">
-                Pricing Information
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Price per Piece
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {formatCurrency(product.price_per_piece)}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Total Stock Value
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {formatCurrency(
-                      product.stock_in_pieces * product.price_per_piece
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Price per Sheet
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {formatCurrency(
-                      product.price_per_piece * product.pieces_per_sheet
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Price per Box
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {formatCurrency(
-                      product.price_per_piece *
-                        product.pieces_per_sheet *
-                        product.sheets_per_box
-                    )}
-                  </p>
+              {/* Pricing Information */}
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
+                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                  <DollarSign className="h-6 w-6 mr-3 text-green-600" />
+                  Pricing Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Price per Piece
+                    </span>
+                    <p className="text-2xl font-bold text-green-700 mt-2">
+                      {formatCurrency(product.price_per_piece)}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Price per Sheet
+                    </span>
+                    <p className="text-xl font-bold text-gray-900 mt-2">
+                      {formatCurrency(
+                        product.price_per_piece * product.pieces_per_sheet
+                      )}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Price per Box
+                    </span>
+                    <p className="text-xl font-bold text-gray-900 mt-2">
+                      {formatCurrency(
+                        product.price_per_piece *
+                          product.pieces_per_sheet *
+                          product.sheets_per_box
+                      )}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Total Stock Value
+                    </span>
+                    <p className="text-2xl font-bold text-green-700 mt-2">
+                      {formatCurrency(
+                        product.stock_in_pieces * product.price_per_piece
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Additional Information */}
-            <div>
-              <h4 className="text-lg font-medium text-gray-900 mb-4">
-                Additional Information
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Supplier
-                  </span>
-                  <p className="text-sm text-gray-900">{product.supplier}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Batch Number
-                  </span>
-                  <p className="text-sm text-gray-900 font-mono">
-                    {product.batch_number}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Expiry Date
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {formatDate(product.expiry_date)}
-                    <span
-                      className={`ml-2 inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        expiryStatus === "expired"
-                          ? "bg-red-100 text-red-800"
-                          : expiryStatus === "expiring_soon"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : expiryStatus === "expiring_warning"
-                          ? "bg-orange-100 text-orange-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {expiryStatus.replace("_", " ")}
+              {/* Additional Information */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                  <Package className="h-6 w-6 mr-3 text-purple-600" />
+                  Additional Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Supplier
                     </span>
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Status
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                      {product.is_active ? "active" : "inactive"}
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      {product.supplier || "Not specified"}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Batch Number
                     </span>
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Created
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {formatDate(product.created_at)}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Last Updated
-                  </span>
-                  <p className="text-sm text-gray-900">
-                    {formatDate(product.updated_at)}
-                  </p>
+                    <p className="text-lg font-mono font-bold text-gray-900 mt-1 bg-gray-100 px-2 py-1 rounded">
+                      {product.batch_number}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Expiry Date
+                    </span>
+                    <div className="mt-2">
+                      <p className="text-lg font-semibold text-gray-900">
+                        {formatDate(product.expiry_date)}
+                      </p>
+                      <span
+                        className={`mt-1 inline-flex px-3 py-1 text-sm font-bold rounded-xl ${
+                          expiryStatus === "expired"
+                            ? "bg-red-100 text-red-800 border border-red-200"
+                            : expiryStatus === "expiring_soon"
+                            ? "bg-orange-100 text-orange-800 border border-orange-200"
+                            : expiryStatus === "expiring_warning"
+                            ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                            : "bg-green-100 text-green-800 border border-green-200"
+                        }`}
+                      >
+                        {expiryStatus.replace("_", " ").toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Last Updated
+                    </span>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      {formatDate(new Date())}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

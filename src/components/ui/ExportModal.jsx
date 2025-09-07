@@ -161,240 +161,247 @@ export function ExportModal({ isOpen, onClose, products = [] }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] overflow-hidden">
+        <div className="flex flex-col h-full">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-xl">
                 <Download className="h-6 w-6 text-blue-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900">
+              <h3 className="text-xl font-bold text-gray-900">
                 Export Inventory
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="group p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
             >
-              <X className="h-6 w-6" />
+              <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
             </button>
           </div>
 
-          <div className="space-y-6">
-            {/* Export Format */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Export Format
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() =>
-                    setExportOptions({ ...exportOptions, format: "csv" })
-                  }
-                  className={`p-4 border-2 rounded-lg flex items-center space-x-3 transition-colors ${
-                    exportOptions.format === "csv"
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <FileText className="h-5 w-5" />
-                  <div className="text-left">
-                    <div className="font-medium">CSV</div>
-                    <div className="text-xs text-gray-500">
-                      Comma-separated values
-                    </div>
-                  </div>
-                  {exportOptions.format === "csv" && (
-                    <Check className="h-5 w-5 text-blue-600 ml-auto" />
-                  )}
-                </button>
-                <button
-                  onClick={() =>
-                    setExportOptions({ ...exportOptions, format: "json" })
-                  }
-                  className={`p-4 border-2 rounded-lg flex items-center space-x-3 transition-colors ${
-                    exportOptions.format === "json"
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <FileText className="h-5 w-5" />
-                  <div className="text-left">
-                    <div className="font-medium">JSON</div>
-                    <div className="text-xs text-gray-500">
-                      JavaScript Object Notation
-                    </div>
-                  </div>
-                  {exportOptions.format === "json" && (
-                    <Check className="h-5 w-5 text-blue-600 ml-auto" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Columns to Export */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Columns to Export
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {Object.entries({
-                  name: "Product Name",
-                  category: "Category",
-                  brand: "Brand",
-                  stock: "Stock Level",
-                  price: "Price",
-                  expiry: "Expiry Date",
-                  supplier: "Supplier",
-                  batchNumber: "Batch Number",
-                }).map(([key, label]) => (
-                  <label
-                    key={key}
-                    className="flex items-center space-x-2 cursor-pointer"
+          {/* Modal Body */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="space-y-6">
+              {/* Export Format */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Export Format
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() =>
+                      setExportOptions({ ...exportOptions, format: "csv" })
+                    }
+                    className={`p-4 border-2 rounded-lg flex items-center space-x-3 transition-colors ${
+                      exportOptions.format === "csv"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={exportOptions.columns[key]}
+                    <FileText className="h-5 w-5" />
+                    <div className="text-left">
+                      <div className="font-medium">CSV</div>
+                      <div className="text-xs text-gray-500">
+                        Comma-separated values
+                      </div>
+                    </div>
+                    {exportOptions.format === "csv" && (
+                      <Check className="h-5 w-5 text-blue-600 ml-auto" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() =>
+                      setExportOptions({ ...exportOptions, format: "json" })
+                    }
+                    className={`p-4 border-2 rounded-lg flex items-center space-x-3 transition-colors ${
+                      exportOptions.format === "json"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <FileText className="h-5 w-5" />
+                    <div className="text-left">
+                      <div className="font-medium">JSON</div>
+                      <div className="text-xs text-gray-500">
+                        JavaScript Object Notation
+                      </div>
+                    </div>
+                    {exportOptions.format === "json" && (
+                      <Check className="h-5 w-5 text-blue-600 ml-auto" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Columns to Export */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Columns to Export
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries({
+                    name: "Product Name",
+                    category: "Category",
+                    brand: "Brand",
+                    stock: "Stock Level",
+                    price: "Price",
+                    expiry: "Expiry Date",
+                    supplier: "Supplier",
+                    batchNumber: "Batch Number",
+                  }).map(([key, label]) => (
+                    <label
+                      key={key}
+                      className="flex items-center space-x-2 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.columns[key]}
+                        onChange={(e) =>
+                          setExportOptions({
+                            ...exportOptions,
+                            columns: {
+                              ...exportOptions.columns,
+                              [key]: e.target.checked,
+                            },
+                          })
+                        }
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Filters
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={exportOptions.filters.category}
                       onChange={(e) =>
                         setExportOptions({
                           ...exportOptions,
-                          columns: {
-                            ...exportOptions.columns,
-                            [key]: e.target.checked,
+                          filters: {
+                            ...exportOptions.filters,
+                            category: e.target.value,
                           },
                         })
                       }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span className="text-sm text-gray-700">{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="all">All Categories</option>
+                      {categories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-            {/* Filters */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Filters
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Category
-                  </label>
-                  <select
-                    value={exportOptions.filters.category}
-                    onChange={(e) =>
-                      setExportOptions({
-                        ...exportOptions,
-                        filters: {
-                          ...exportOptions.filters,
-                          category: e.target.value,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  >
-                    <option value="all">All Categories</option>
-                    {categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Stock Status
+                    </label>
+                    <select
+                      value={exportOptions.filters.stockStatus}
+                      onChange={(e) =>
+                        setExportOptions({
+                          ...exportOptions,
+                          filters: {
+                            ...exportOptions.filters,
+                            stockStatus: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="all">All Stock Levels</option>
+                      <option value="low">Low Stock</option>
+                      <option value="out">Out of Stock</option>
+                      <option value="normal">Normal Stock</option>
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Stock Status
-                  </label>
-                  <select
-                    value={exportOptions.filters.stockStatus}
-                    onChange={(e) =>
-                      setExportOptions({
-                        ...exportOptions,
-                        filters: {
-                          ...exportOptions.filters,
-                          stockStatus: e.target.value,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  >
-                    <option value="all">All Stock Levels</option>
-                    <option value="low">Low Stock</option>
-                    <option value="out">Out of Stock</option>
-                    <option value="normal">Normal Stock</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Expiry Status
-                  </label>
-                  <select
-                    value={exportOptions.filters.expiryStatus}
-                    onChange={(e) =>
-                      setExportOptions({
-                        ...exportOptions,
-                        filters: {
-                          ...exportOptions.filters,
-                          expiryStatus: e.target.value,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  >
-                    <option value="all">All Products</option>
-                    <option value="expired">Expired</option>
-                    <option value="expiring">Expiring Soon</option>
-                    <option value="fresh">Fresh Products</option>
-                  </select>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Expiry Status
+                    </label>
+                    <select
+                      value={exportOptions.filters.expiryStatus}
+                      onChange={(e) =>
+                        setExportOptions({
+                          ...exportOptions,
+                          filters: {
+                            ...exportOptions.filters,
+                            expiryStatus: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="all">All Products</option>
+                      <option value="expired">Expired</option>
+                      <option value="expiring">Expiring Soon</option>
+                      <option value="fresh">Fresh Products</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Summary */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Products to export:</span>
-                <span className="font-semibold text-gray-900">
-                  {products.length} products
-                </span>
+              {/* Summary */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Products to export:</span>
+                  <span className="font-semibold text-gray-900">
+                    {products.length} products
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-6 border-t mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              disabled={isExporting}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleExport}
-              disabled={
-                isExporting ||
-                Object.values(exportOptions.columns).every((v) => !v)
-              }
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isExporting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Exporting...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4" />
-                  <span>Export Data</span>
-                </>
-              )}
-            </button>
+          {/* Modal Footer */}
+          <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2.5 border-2 border-gray-200 text-gray-700 font-medium rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
+                disabled={isExporting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={
+                  isExporting ||
+                  Object.values(exportOptions.columns).every((v) => !v)
+                }
+                className="group flex items-center space-x-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                {isExporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                    <span>Export Data</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

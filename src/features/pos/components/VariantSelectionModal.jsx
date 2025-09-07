@@ -96,49 +96,29 @@ export default function VariantSelectionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header with Enhanced Professional Design */}
-        <div className="relative bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex-shrink-0">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 bg-black/5">
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='3' cy='3' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E")`,
-                backgroundSize: "20px 20px",
-              }}
-            ></div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 p-3 bg-white/30 backdrop-blur-sm hover:bg-white/50 rounded-full border border-white/50 transition-all duration-200 z-10"
-            title="Close"
-          >
-            <X className="h-6 w-6 text-white" />
-          </button>
-
-          <div className="relative flex items-start space-x-5">
-            <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl border border-white/30">
-              <Package className="h-8 w-8" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-3xl font-bold mb-2">{product.name}</h2>
-              <div className="flex items-center space-x-3 mb-3">
-                <span className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-semibold border border-white/30">
-                  {product.brand}
-                </span>
-                <span className="text-blue-100 font-medium">
-                  {product.category}
-                </span>
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 p-6 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="bg-blue-100 p-2 rounded-lg">
+                <Package className="h-5 w-5 text-blue-600" />
               </div>
-              <div className="flex items-center space-x-4">
-                <span className="bg-green-400/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-semibold border border-green-300/30">
-                  📦 Stock: {product.stock_in_pieces} pieces
-                </span>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Select Product Unit
+                </h2>
+                <p className="text-sm text-gray-600">{product.name}</p>
               </div>
             </div>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
 
