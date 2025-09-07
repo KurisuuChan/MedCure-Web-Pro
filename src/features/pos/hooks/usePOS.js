@@ -24,12 +24,12 @@ export function usePOS() {
   const loadAvailableProducts = useCallback(async () => {
     setIsLoadingProducts(true);
     try {
-      const products = await inventoryService.getProducts();
-      // Filter to only in-stock products
-      const inStockProducts = products.filter(
-        (product) => product.stock_in_pieces > 0
-      );
-      setAvailableProducts(inStockProducts);
+      // Use the dedicated method for POS-available products
+      const availableProducts = await inventoryService.getAvailableProducts();
+      console.log("🏪 [usePOS] Loaded available products for POS:", {
+        availableProducts: availableProducts.length,
+      });
+      setAvailableProducts(availableProducts);
     } catch (err) {
       console.error("Error loading products:", err);
       setError("Failed to load products");

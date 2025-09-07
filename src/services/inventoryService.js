@@ -6,6 +6,25 @@ export const inventoryService = {
     return await ProductService.getProducts();
   },
 
+  // Get only active, non-archived products (for POS and general inventory display)
+  getActiveProducts: async () => {
+    const allProducts = await ProductService.getProducts();
+    return allProducts.filter(
+      (product) => !product.is_archived && product.is_active !== false
+    );
+  },
+
+  // Get available products for POS (active, non-archived, in-stock)
+  getAvailableProducts: async () => {
+    const allProducts = await ProductService.getProducts();
+    return allProducts.filter(
+      (product) =>
+        !product.is_archived &&
+        product.is_active !== false &&
+        product.stock_in_pieces > 0
+    );
+  },
+
   // Get single product by ID
   getProductById: async (id) => {
     return await ProductService.getProductById(id);

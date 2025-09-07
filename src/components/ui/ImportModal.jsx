@@ -204,7 +204,7 @@ export function ImportModal({ isOpen, onClose, onImport }) {
           is_archived: false,
           archived_at: null,
           archived_by: null,
-          archive_reason: null,
+          // archive_reason: null, // Temporarily removed until database column is added
         };
         validData.push(transformedRow);
       }

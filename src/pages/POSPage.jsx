@@ -8,6 +8,7 @@ import {
   User,
   Clock,
   X,
+  ShoppingCart,
 } from "lucide-react";
 import ProductSelector from "../features/pos/components/ProductSelector";
 import ShoppingCartComponent from "../features/pos/components/ShoppingCart";
@@ -122,23 +123,37 @@ export default function POSPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Point of Sale</h1>
-          <p className="text-gray-600">Process customer transactions</p>
-        </div>
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="bg-emerald-100 p-3 rounded-xl">
+              <ShoppingCart className="h-8 w-8 text-emerald-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                <span>Point of Sale</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                  Live
+                </span>
+              </h1>
+              <p className="text-gray-600">
+                Process customer transactions securely and efficiently
+              </p>
+            </div>
+          </div>
 
-        <div className="flex items-center space-x-3">
-          {/* Transaction History Button */}
-          <button
-            onClick={() => setShowTransactionHistory(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <History className="h-4 w-4" />
-            <span>Today's Transactions</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            {/* Transaction History Button */}
+            <button
+              onClick={() => setShowTransactionHistory(true)}
+              className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
+            >
+              <History className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Today's Transactions</span>
+            </button>
+          </div>
         </div>
       </div>
 

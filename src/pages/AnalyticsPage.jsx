@@ -20,21 +20,49 @@ export default function AnalyticsPage() {
   const { allProducts, analytics, isLoading } = useInventory();
   const [dateRange, setDateRange] = useState("30"); // days
 
+  // Debug logging
+  console.log("🔍 [AnalyticsPage] Debug Info:", {
+    allProductsCount: allProducts?.length || 0,
+    analyticsData: analytics,
+    isLoading,
+    firstProduct: allProducts?.[0],
+  });
+
   // Calculate analytics
   const analyticsData = useMemo(() => {
-    if (!allProducts.length) return null;
+    console.log("📊 [AnalyticsPage] Debug Info:", {
+      allProductsCount: allProducts?.length || 0,
+      analyticsFromHook: analytics,
+      isLoading,
+    });
 
-    const categories = [...new Set(allProducts.map((p) => p.category))];
+    if (!allProducts || !allProducts.length) {
+      console.log("⚠️ [AnalyticsPage] No products available for analytics");
+      return {
+        categoryStats: [],
+        stockLevels: { outOfStock: 0, lowStock: 0, normalStock: 0 },
+        expiryAnalysis: { expired: 0, expiring30: 0, expiring90: 0 },
+        topProducts: [],
+      };
+    }
+
+    // Filter out archived products for analytics
+    const activeProducts = allProducts.filter((p) => !p.is_archived);
+    console.log("📊 Active products for analytics:", activeProducts.length);
+
+    const categories = [
+      ...new Set(activeProducts.map((p) => p.category || "Uncategorized")),
+    ];
     const categoryStats = categories.map((category) => {
-      const categoryProducts = allProducts.filter(
-        (p) => p.category === category
+      const categoryProducts = activeProducts.filter(
+        (p) => (p.category || "Uncategorized") === category
       );
       const totalValue = categoryProducts.reduce(
-        (sum, p) => sum + p.stock_in_pieces * p.price_per_piece,
+        (sum, p) => sum + (p.stock_in_pieces || 0) * (p.price_per_piece || 0),
         0
       );
       const totalStock = categoryProducts.reduce(
-        (sum, p) => sum + p.stock_in_pieces,
+        (sum, p) => sum + (p.stock_in_pieces || 0),
         0
       );
 
@@ -44,35 +72,47 @@ export default function AnalyticsPage() {
         totalValue,
         totalStock,
         avgPrice:
-          categoryProducts.reduce((sum, p) => sum + p.price_per_piece, 0) /
-          categoryProducts.length,
+          categoryProducts.length > 0
+            ? categoryProducts.reduce(
+                (sum, p) => sum + (p.price_per_piece || 0),
+                0
+              ) / categoryProducts.length
+            : 0,
       };
     });
 
     // Stock level distribution
     const stockLevels = {
-      outOfStock: allProducts.filter((p) => p.stock_in_pieces === 0).length,
-      lowStock: allProducts.filter(
-        (p) => p.stock_in_pieces > 0 && p.stock_in_pieces <= p.reorder_level
+      outOfStock: activeProducts.filter((p) => (p.stock_in_pieces || 0) === 0)
+        .length,
+      lowStock: activeProducts.filter(
+        (p) =>
+          (p.stock_in_pieces || 0) > 0 &&
+          (p.stock_in_pieces || 0) <= (p.reorder_level || 10)
       ).length,
-      normalStock: allProducts.filter(
-        (p) => p.stock_in_pieces > p.reorder_level
+      normalStock: activeProducts.filter(
+        (p) => (p.stock_in_pieces || 0) > (p.reorder_level || 10)
       ).length,
     };
 
     // Expiry analysis
     const now = new Date();
-    const expired = allProducts.filter(
-      (p) => new Date(p.expiry_date) < now
-    ).length;
-    const expiring30 = allProducts.filter((p) => {
+    const expired = activeProducts.filter((p) => {
+      if (!p.expiry_date) return false;
+      return new Date(p.expiry_date) < now;
+    }).length;
+
+    const expiring30 = activeProducts.filter((p) => {
+      if (!p.expiry_date) return false;
       const expiryDate = new Date(p.expiry_date);
       const daysUntilExpiry = Math.ceil(
         (expiryDate - now) / (1000 * 60 * 60 * 24)
       );
       return daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
     }).length;
-    const expiring90 = allProducts.filter((p) => {
+
+    const expiring90 = activeProducts.filter((p) => {
+      if (!p.expiry_date) return false;
       const expiryDate = new Date(p.expiry_date);
       const daysUntilExpiry = Math.ceil(
         (expiryDate - now) / (1000 * 60 * 60 * 24)
@@ -81,20 +121,23 @@ export default function AnalyticsPage() {
     }).length;
 
     // Top products by value
-    const topProducts = [...allProducts]
+    const topProducts = [...activeProducts]
       .sort(
         (a, b) =>
-          b.stock_in_pieces * b.price_per_piece -
-          a.stock_in_pieces * a.price_per_piece
+          (b.stock_in_pieces || 0) * (b.price_per_piece || 0) -
+          (a.stock_in_pieces || 0) * (a.price_per_piece || 0)
       )
       .slice(0, 10);
 
-    return {
+    const result = {
       categoryStats,
       stockLevels,
       expiryAnalysis: { expired, expiring30, expiring90 },
       topProducts,
     };
+
+    console.log("📊 [AnalyticsPage] Analytics calculated:", result);
+    return result;
   }, [allProducts]);
 
   if (isLoading) {
@@ -105,38 +148,77 @@ export default function AnalyticsPage() {
     );
   }
 
+  if (!analyticsData || !allProducts?.length) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Analytics Dashboard
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Comprehensive insights into your pharmacy operations and inventory
+              performance.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+          <Package className="mx-auto h-12 w-12 text-yellow-400 mb-4" />
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">
+            No Data Available
+          </h3>
+          <p className="text-yellow-700">
+            No products found in the inventory. Add some products to see
+            analytics data.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Analytics Dashboard
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Comprehensive insights into your pharmacy operations and inventory
-            performance.
-          </p>
-        </div>
-        <div className="flex items-center space-x-3 mt-4 lg:mt-0">
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="365">Last year</option>
-          </select>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-            <Filter className="h-4 w-4" />
-            <span>Filters</span>
-          </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            <Download className="h-4 w-4" />
-            <span>Export Report</span>
-          </button>
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="bg-purple-100 p-3 rounded-xl">
+              <BarChart3 className="h-8 w-8 text-purple-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                <span>Analytics Dashboard</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  Real-time
+                </span>
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Comprehensive insights into your pharmacy operations and
+                inventory performance
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3 mt-4 lg:mt-0">
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-700 font-medium transition-all duration-200"
+            >
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="365">Last year</option>
+            </select>
+            <button className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-all duration-200">
+              <Filter className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Filters</span>
+            </button>
+            <button className="group flex items-center space-x-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 shadow-sm hover:shadow-md">
+              <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Export Report</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -168,7 +250,11 @@ export default function AnalyticsPage() {
         />
         <MetricCard
           title="Avg. Product Value"
-          value={formatCurrency(analytics.totalValue / analytics.totalProducts)}
+          value={
+            analytics.totalProducts > 0
+              ? formatCurrency(analytics.totalValue / analytics.totalProducts)
+              : formatCurrency(0)
+          }
           change="+3.8%"
           trend="up"
           icon={TrendingUp}

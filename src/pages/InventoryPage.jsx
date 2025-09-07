@@ -30,7 +30,7 @@ import ProductCard from "../features/inventory/components/ProductCard";
 import { useInventory } from "../features/inventory/hooks/useInventory";
 import { ExportModal } from "../components/ui/ExportModal";
 import { ImportModal } from "../components/ui/ImportModal";
-import { ArchiveService } from "../services/enhancedServices";
+import { ArchiveService, CategoryService } from "../services/enhancedServices";
 import { useAuth } from "../hooks/useAuth";
 
 // Enhanced scrollbar styles
@@ -76,7 +76,7 @@ export default function InventoryPage() {
   // Get current authenticated user
   const { user } = useAuth();
 
-  const [viewMode, setViewMode] = useState("table"); // "grid" or "table" - Default to table (list) view
+  const [viewMode, setViewMode] = useState("grid"); // "grid" or "table" - Default to table (list) view
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -85,6 +85,9 @@ export default function InventoryPage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
+
+  // Dynamic categories state
+  const [dynamicCategories, setDynamicCategories] = useState([]);
 
   // Inject scrollbar styles
   React.useEffect(() => {
@@ -96,6 +99,39 @@ export default function InventoryPage() {
       document.head.removeChild(styleElement);
     };
   }, []);
+
+  // Load dynamic categories from CategoryService
+  React.useEffect(() => {
+    loadDynamicCategories();
+  }, []);
+
+  const loadDynamicCategories = async () => {
+    try {
+      console.log("🏷️ [Inventory] Loading dynamic categories...");
+
+      const result = await CategoryService.getActiveCategories();
+      if (result.success) {
+        const categoryNames = result.data.map((cat) => cat.name);
+        setDynamicCategories(categoryNames);
+        console.log("✅ [Inventory] Loaded categories:", categoryNames);
+      } else {
+        console.warn("⚠️ [Inventory] Using fallback categories:", result.error);
+        // Fallback to hardcoded categories if service fails
+        setDynamicCategories(productCategories.slice(1));
+      }
+    } catch (error) {
+      console.error("❌ [Inventory] Error loading categories:", error);
+      // Fallback to hardcoded categories
+      setDynamicCategories(productCategories.slice(1));
+    }
+  };
+
+  // Get categories to use (dynamic or fallback)
+  const getCategoriesToUse = () => {
+    return dynamicCategories.length > 0
+      ? dynamicCategories
+      : productCategories.slice(1);
+  };
 
   // Pagination
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -150,38 +186,48 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Inventory Management
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Manage your pharmacy inventory, track stock levels, and monitor
-            expiry dates.
-          </p>
-        </div>
-        <div className="flex items-center space-x-3 mt-4 lg:mt-0">
-          <button
-            onClick={() => setShowExportModal(true)}
-            className="group flex items-center space-x-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:border-green-300 hover:bg-green-50 hover:text-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-            <span className="font-medium">Export</span>
-          </button>
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="group flex items-center space-x-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            <Upload className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-            <span className="font-medium">Import</span>
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="group flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
-          >
-            <Plus className="h-4 w-4 group-hover:rotate-90 transition-transform duration-200" />
-            <span className="font-semibold">Add Product</span>
-          </button>
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="bg-blue-100 p-3 rounded-xl">
+              <Package className="h-8 w-8 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                <span>Inventory Management</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Active
+                </span>
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Manage your pharmacy inventory, track stock levels, and monitor
+                expiry dates
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3 mt-4 lg:mt-0">
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-all duration-200"
+            >
+              <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Export</span>
+            </button>
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
+            >
+              <Upload className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Import</span>
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="group flex items-center space-x-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              <Plus className="h-4 w-4 group-hover:rotate-90 transition-transform duration-200" />
+              <span className="font-semibold">Add Product</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -219,7 +265,7 @@ export default function InventoryPage() {
       <ProductSearch
         onSearch={handleSearch}
         onFilter={handleFilter}
-        categories={productCategories.slice(1)} // Remove "All Categories"
+        categories={getCategoriesToUse().slice(1)} // Remove "All Categories"
         brands={productBrands.slice(1)} // Remove "All Brands"
       />
 
@@ -385,6 +431,7 @@ export default function InventoryPage() {
       {showAddModal && (
         <ProductModal
           title="Add New Product"
+          categories={getCategoriesToUse()}
           onClose={() => setShowAddModal(false)}
           onSave={async (productData) => {
             try {
@@ -402,6 +449,7 @@ export default function InventoryPage() {
         <ProductModal
           title="Edit Product"
           product={selectedProduct}
+          categories={getCategoriesToUse()}
           onClose={() => {
             setShowEditModal(false);
             setSelectedProduct(null);
@@ -611,7 +659,7 @@ function ProductRow({ product, onView, onEdit, onDelete }) {
 }
 
 // Product Modal Component
-function ProductModal({ title, product, onClose, onSave }) {
+function ProductModal({ title, product, categories, onClose, onSave }) {
   const [formData, setFormData] = useState({
     name: product?.name || "",
     description: product?.description || "",
@@ -781,7 +829,7 @@ function ProductModal({ title, product, onClose, onSave }) {
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
                       >
                         <option value="">Select category</option>
-                        {productCategories.slice(1).map((category) => (
+                        {categories.map((category) => (
                           <option key={category} value={category}>
                             {category}
                           </option>

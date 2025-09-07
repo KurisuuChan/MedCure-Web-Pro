@@ -24,12 +24,9 @@ import {
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
 import { CategoryService, ArchiveService } from "../services/enhancedServices";
-import {
-  ProductService,
-  UserService,
-  SalesService,
-  DashboardService,
-} from "../services/dataService";
+import { UserService, DashboardService } from "../services/dataService";
+import { AuditService, ReportsService } from "../services/auditReportsService";
+import "../debug/dbDebug.js"; // Load database debug tools
 
 // Enhanced management components for the new features
 
@@ -60,15 +57,64 @@ export default function ManagementPage() {
   // Load dashboard data on component mount
   useEffect(() => {
     loadSystemStats();
+
+    // Add global debug functions for browser console
+    if (typeof window !== "undefined") {
+      window.debugManagement = {
+        refreshData: loadSystemStats,
+        checkServices: async () => {
+          console.log("🔍 Testing all services...");
+          try {
+            const dashboard = await DashboardService.getDashboardData();
+            const users = await UserService.getUsers();
+            const categories = await CategoryService.getAllCategories();
+            const archived = await ArchiveService.getArchivedProducts();
+
+            console.log("📊 Service Status:", {
+              dashboard: {
+                success: dashboard.success,
+                dataKeys: dashboard.data ? Object.keys(dashboard.data) : [],
+              },
+              users: { success: users.success, count: users.data?.length || 0 },
+              categories: {
+                success: categories.success,
+                count: categories.data?.length || 0,
+              },
+              archived: {
+                success: archived.success,
+                count: archived.data?.length || 0,
+              },
+            });
+          } catch (error) {
+            console.error("❌ Service test failed:", error);
+          }
+        },
+      };
+    }
   }, []);
 
   const loadSystemStats = async () => {
     try {
       setLoading(true);
+      console.log("🔍 [Management] Loading system stats...");
+
       const dashboardData = await DashboardService.getDashboardData();
+      console.log("📊 [Management] Dashboard response:", {
+        success: dashboardData.success,
+        hasData: !!dashboardData.data,
+        dataKeys: dashboardData.data ? Object.keys(dashboardData.data) : [],
+      });
 
       if (dashboardData.success) {
         const data = dashboardData.data;
+        console.log("✅ [Management] Setting system stats:", {
+          totalUsers: data.totalUsers || 0,
+          activeUsers: data.activeUsers || 0,
+          totalProducts: data.totalProducts || 0,
+          lowStockItems: data.lowStockItems || 0,
+          todaySales: data.todaySales || 0,
+        });
+
         setSystemStats({
           totalUsers: data.totalUsers || 0,
           activeUsers: data.activeUsers || 0,
@@ -79,41 +125,78 @@ export default function ManagementPage() {
           storageUsed: "2.3 GB",
           storageTotal: "10 GB",
         });
+      } else {
+        console.error(
+          "❌ [Management] Dashboard data failed:",
+          dashboardData.error
+        );
+        // Set default values if dashboard fails
+        setSystemStats({
+          totalUsers: 0,
+          activeUsers: 0,
+          totalProducts: 0,
+          lowStockItems: 0,
+          todaySales: 0,
+          systemUptime: "99.9%",
+          storageUsed: "2.3 GB",
+          storageTotal: "10 GB",
+        });
       }
     } catch (error) {
-      console.error("Error loading system stats:", error);
+      console.error("❌ [Management] Error loading system stats:", error);
+      // Set default values on error
+      setSystemStats({
+        totalUsers: 0,
+        activeUsers: 0,
+        totalProducts: 0,
+        lowStockItems: 0,
+        todaySales: 0,
+        systemUptime: "99.9%",
+        storageUsed: "2.3 GB",
+        storageTotal: "10 GB",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              System Management
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Manage users, settings, and system configuration
-            </p>
-          </div>
-          <div className="flex space-x-3">
-            <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
-              <Download className="h-4 w-4" />
-              <span>Export Data</span>
-            </button>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
-              <RefreshCw className="h-4 w-4" />
-              <span>Refresh</span>
-            </button>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <div className="bg-orange-100 p-3 rounded-xl">
+              <Settings className="h-8 w-8 text-orange-600" />
+            </div>
+            <div>
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                  <span>System Management</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                    Admin
+                  </span>
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  Manage users, settings, and system configuration with full
+                  administrative control
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-all duration-200">
+                <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                <span className="font-medium">Export Data</span>
+              </button>
+              <button className="group flex items-center space-x-2 px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow-md">
+                <RefreshCw className="h-4 w-4 group-hover:rotate-180 transition-transform duration-300" />
+                <span className="font-medium">Refresh</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* System Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
@@ -121,7 +204,7 @@ export default function ManagementPage() {
                 <p className="text-2xl font-bold text-gray-900">
                   {loading ? "..." : systemStats.totalUsers}
                 </p>
-              </div>
+                </div>
               <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <Users className="h-6 w-6 text-blue-600" />
               </div>
@@ -186,7 +269,7 @@ export default function ManagementPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 px-6">
               {tabs.map((tab) => {
@@ -220,7 +303,6 @@ export default function ManagementPage() {
             {activeTab === "backup" && <BackupSecurity />}
           </div>
         </div>
-      </div>
     </div>
   );
 }
@@ -239,12 +321,25 @@ function UserManagement() {
   const loadUsers = async () => {
     try {
       setLoading(true);
+      console.log("👥 [UserManagement] Loading users...");
+
       const result = await UserService.getUsers();
+      console.log("📊 [UserManagement] User service response:", {
+        success: result.success,
+        dataCount: result.data ? result.data.length : 0,
+        hasError: !!result.error,
+      });
+
       if (result.success) {
+        console.log("✅ [UserManagement] Setting users:", result.data);
+        setUsers(result.data);
+      } else {
+        console.warn("⚠️ [UserManagement] Using fallback data:", result.error);
+        // Use the fallback data from the service
         setUsers(result.data);
       }
     } catch (error) {
-      console.error("Error loading users:", error);
+      console.error("❌ [UserManagement] Error loading users:", error);
       // Fallback mock data
       setUsers([
         {
@@ -371,12 +466,29 @@ function CategoryManagement() {
   const loadCategories = async () => {
     try {
       setLoading(true);
+      console.log("🏷️ [CategoryManagement] Loading categories...");
+
       const result = await CategoryService.getAllCategories();
+      console.log("📊 [CategoryManagement] Category service response:", {
+        success: result.success,
+        dataCount: result.data ? result.data.length : 0,
+        hasError: !!result.error,
+      });
+
       if (result.success) {
+        console.log("✅ [CategoryManagement] Setting categories:", result.data);
         setCategories(result.data);
+      } else {
+        console.error(
+          "❌ [CategoryManagement] Categories failed to load:",
+          result.error
+        );
+        // Set empty array on failure
+        setCategories([]);
       }
     } catch (error) {
-      console.error("Error loading categories:", error);
+      console.error("❌ [CategoryManagement] Error loading categories:", error);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -500,12 +612,31 @@ function ArchivedProductsManagement() {
   const loadArchivedProducts = async () => {
     try {
       setLoading(true);
+      console.log("📦 [ArchivedProducts] Loading archived products...");
+
       const result = await ArchiveService.getArchivedProducts();
+      console.log("📊 [ArchivedProducts] Archive service response:", {
+        success: result.success,
+        dataCount: result.data ? result.data.length : 0,
+        hasError: !!result.error,
+      });
+
       if (result.success) {
+        console.log(
+          "✅ [ArchivedProducts] Setting archived products:",
+          result.data
+        );
         setArchivedProducts(result.data);
+      } else {
+        console.error("❌ [ArchivedProducts] Failed to load:", result.error);
+        setArchivedProducts([]);
       }
     } catch (error) {
-      console.error("Error loading archived products:", error);
+      console.error(
+        "❌ [ArchivedProducts] Error loading archived products:",
+        error
+      );
+      setArchivedProducts([]);
     } finally {
       setLoading(false);
     }
@@ -774,6 +905,86 @@ function SystemSettings() {
 
 // Reports Component
 function Reports() {
+  const [reportType, setReportType] = useState("sales");
+  const [dateRange, setDateRange] = useState("30");
+  const [loading, setLoading] = useState(false);
+  const [reportData, setReportData] = useState(null);
+
+  const generateReport = async (type) => {
+    try {
+      setLoading(true);
+      console.log("📊 [Reports] Generating report:", type);
+
+      const endDate = new Date().toISOString();
+      const startDate = new Date(
+        Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000
+      ).toISOString();
+
+      let result;
+      switch (type) {
+        case "sales":
+          result = await ReportsService.generateSalesReport({
+            startDate,
+            endDate,
+          });
+          break;
+        case "inventory":
+          result = await ReportsService.generateInventoryReport();
+          break;
+        case "financial":
+          result = await ReportsService.generateFinancialReport({
+            startDate,
+            endDate,
+          });
+          break;
+        default:
+          throw new Error("Unknown report type");
+      }
+
+      if (result.success) {
+        setReportData(result.data);
+        console.log("✅ [Reports] Report generated successfully:", result.data);
+      } else {
+        console.error("❌ [Reports] Report generation failed:", result.error);
+        alert("Error generating report: " + result.error);
+      }
+    } catch (error) {
+      console.error("❌ [Reports] Error generating report:", error);
+      alert("Error generating report: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportReport = async (type) => {
+    if (!reportData) {
+      alert("Please generate a report first");
+      return;
+    }
+
+    try {
+      console.log("📄 [Reports] Exporting report:", type);
+      const result = await ReportsService.exportReportToCSV(type, reportData);
+
+      if (result.success) {
+        // Create download link
+        const blob = new Blob([result.data], { type: "text/csv" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = result.filename;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        console.log("✅ [Reports] Report exported successfully");
+      } else {
+        alert("Error exporting report: " + result.error);
+      }
+    } catch (error) {
+      console.error("❌ [Reports] Error exporting report:", error);
+      alert("Error exporting report: " + error.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-medium text-gray-900">Reports & Analytics</h3>
@@ -788,9 +999,15 @@ function Reports() {
             </div>
             <TrendingUp className="h-8 w-8 text-blue-200" />
           </div>
-          <button className="mt-4 bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 flex items-center space-x-2">
+          <button
+            onClick={() => generateReport("sales")}
+            disabled={loading}
+            className="mt-4 bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 flex items-center space-x-2 disabled:opacity-50"
+          >
             <Download className="h-4 w-4" />
-            <span>Generate</span>
+            <span>
+              {loading && reportType === "sales" ? "Generating..." : "Generate"}
+            </span>
           </button>
         </div>
 
@@ -803,9 +1020,17 @@ function Reports() {
             </div>
             <Package className="h-8 w-8 text-green-200" />
           </div>
-          <button className="mt-4 bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-green-50 flex items-center space-x-2">
+          <button
+            onClick={() => generateReport("inventory")}
+            disabled={loading}
+            className="mt-4 bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-green-50 flex items-center space-x-2 disabled:opacity-50"
+          >
             <Download className="h-4 w-4" />
-            <span>Generate</span>
+            <span>
+              {loading && reportType === "inventory"
+                ? "Generating..."
+                : "Generate"}
+            </span>
           </button>
         </div>
 
@@ -818,9 +1043,17 @@ function Reports() {
             </div>
             <DollarSign className="h-8 w-8 text-yellow-200" />
           </div>
-          <button className="mt-4 bg-white text-yellow-600 px-4 py-2 rounded-lg hover:bg-yellow-50 flex items-center space-x-2">
+          <button
+            onClick={() => generateReport("financial")}
+            disabled={loading}
+            className="mt-4 bg-white text-yellow-600 px-4 py-2 rounded-lg hover:bg-yellow-50 flex items-center space-x-2 disabled:opacity-50"
+          >
             <Download className="h-4 w-4" />
-            <span>Generate</span>
+            <span>
+              {loading && reportType === "financial"
+                ? "Generating..."
+                : "Generate"}
+            </span>
           </button>
         </div>
       </div>
@@ -840,14 +1073,15 @@ function Reports() {
             </label>
             <select
               id="date-range"
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="quarter">This Quarter</option>
-              <option value="year">This Year</option>
-              <option value="custom">Custom Range</option>
+              <option value="1">Today</option>
+              <option value="7">This Week</option>
+              <option value="30">This Month</option>
+              <option value="90">This Quarter</option>
+              <option value="365">This Year</option>
             </select>
           </div>
           <div>
@@ -859,11 +1093,13 @@ function Reports() {
             </label>
             <select
               id="report-type"
+              value={reportType}
+              onChange={(e) => setReportType(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="summary">Summary</option>
-              <option value="detailed">Detailed</option>
-              <option value="comparative">Comparative</option>
+              <option value="sales">Sales Report</option>
+              <option value="inventory">Inventory Report</option>
+              <option value="financial">Financial Report</option>
             </select>
           </div>
           <div>
@@ -871,19 +1107,28 @@ function Reports() {
               htmlFor="format"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Format
+              Export Format
             </label>
-            <select
-              id="format"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <button
+              onClick={() => exportReport(reportType)}
+              disabled={!reportData || loading}
+              className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="pdf">PDF</option>
-              <option value="excel">Excel</option>
-              <option value="csv">CSV</option>
-            </select>
+              Export as CSV
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Report Results */}
+      {reportData && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h4 className="text-lg font-medium text-gray-900 mb-4">
+            Report Results
+          </h4>
+          <ReportDisplay data={reportData} type={reportType} />
+        </div>
+      )}
     </div>
   );
 }
@@ -892,62 +1137,170 @@ function Reports() {
 function AuditLogs() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    action_type: "all",
+    search: "",
+    limit: 50,
+  });
+  const [auditSummary, setAuditSummary] = useState(null);
 
   useEffect(() => {
-    // Load audit logs from database
-    // For now, using mock data
-    setTimeout(() => {
-      setAuditLogs([
-        {
-          id: 1,
-          action: "Product Updated",
-          user: "Sarah Pharmacist",
-          details: "Updated stock for Paracetamol 500mg",
-          timestamp: "2024-01-15T11:30:00Z",
-        },
-        {
-          id: 2,
-          action: "Sale Completed",
-          user: "Mike Cashier",
-          details: "Sale #INV-001234 - Total: ₱2,450.00",
-          timestamp: "2024-01-15T11:25:00Z",
-        },
-        {
-          id: 3,
-          action: "User Login",
-          user: "John Admin",
-          details: "Administrator logged in from 192.168.1.100",
-          timestamp: "2024-01-15T10:30:00Z",
-        },
-      ]);
+    loadAuditLogs();
+    loadAuditSummary();
+  }, [filters]);
+
+  const loadAuditLogs = async () => {
+    try {
+      setLoading(true);
+      console.log("📋 [AuditLogs] Loading audit logs with filters:", filters);
+
+      const result = await AuditService.getAuditLogs(filters);
+      console.log("📊 [AuditLogs] Audit service response:", {
+        success: result.success,
+        dataCount: result.data ? result.data.length : 0,
+        hasError: !!result.error,
+      });
+
+      if (result.success) {
+        console.log("✅ [AuditLogs] Setting audit logs:", result.data);
+        setAuditLogs(result.data);
+      } else {
+        console.error(
+          "❌ [AuditLogs] Failed to load audit logs:",
+          result.error
+        );
+        // Fallback to mock data if real data fails
+        setAuditLogs([
+          {
+            id: 1,
+            action: "Product Updated",
+            user: "Sarah Pharmacist",
+            details: "Updated stock for Paracetamol 500mg",
+            timestamp: "2024-01-15T11:30:00Z",
+          },
+          {
+            id: 2,
+            action: "Sale Completed",
+            user: "Mike Cashier",
+            details: "Sale #INV-001234 - Total: ₱2,450.00",
+            timestamp: "2024-01-15T11:25:00Z",
+          },
+          {
+            id: 3,
+            action: "User Login",
+            user: "John Admin",
+            details: "Administrator logged in from 192.168.1.100",
+            timestamp: "2024-01-15T10:30:00Z",
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("❌ [AuditLogs] Error loading audit logs:", error);
+      setAuditLogs([]);
+    } finally {
       setLoading(false);
-    }, 1000);
-  }, []);
+    }
+  };
+
+  const loadAuditSummary = async () => {
+    try {
+      console.log("📊 [AuditLogs] Loading audit summary...");
+      const result = await AuditService.getAuditSummary(30);
+
+      if (result.success) {
+        console.log("✅ [AuditLogs] Audit summary loaded:", result.data);
+        setAuditSummary(result.data);
+      }
+    } catch (error) {
+      console.error("❌ [AuditLogs] Error loading audit summary:", error);
+    }
+  };
+
+  const handleFilterChange = (key, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-gray-900">Audit Logs</h3>
+        <div>
+          <h3 className="text-lg font-medium text-gray-900">Audit Logs</h3>
+          {auditSummary && (
+            <p className="text-sm text-gray-600">
+              {auditSummary.totalActions} actions in the last{" "}
+              {auditSummary.dateRange} days
+            </p>
+          )}
+        </div>
         <div className="flex space-x-3">
           <input
             type="text"
             placeholder="Search logs..."
+            value={filters.search}
+            onChange={(e) => handleFilterChange("search", e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <select className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <select
+            value={filters.action_type}
+            onChange={(e) => handleFilterChange("action_type", e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
             <option value="all">All Actions</option>
-            <option value="login">User Login</option>
-            <option value="sale">Sales</option>
-            <option value="inventory">Inventory</option>
+            <option value="in">Stock Added</option>
+            <option value="out">Stock Removed</option>
+            <option value="adjustment">Adjustments</option>
           </select>
         </div>
       </div>
+
+      {/* Audit Summary Cards */}
+      {auditSummary && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-blue-600">
+              {auditSummary.totalActions}
+            </div>
+            <div className="text-sm text-blue-700">Total Actions</div>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-green-600">
+              {auditSummary.stockIn}
+            </div>
+            <div className="text-sm text-green-700">Stock Added</div>
+          </div>
+          <div className="bg-red-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-red-600">
+              {auditSummary.stockOut}
+            </div>
+            <div className="text-sm text-red-700">Stock Removed</div>
+          </div>
+          <div className="bg-yellow-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-yellow-600">
+              {auditSummary.adjustments}
+            </div>
+            <div className="text-sm text-yellow-700">Adjustments</div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <div className="divide-y divide-gray-200">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <div className="text-center py-8">
+              <Activity className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No Audit Logs
+              </h3>
+              <p className="text-gray-500">
+                No activity logs found matching your criteria.
+              </p>
             </div>
           ) : (
             auditLogs.map((log) => (
@@ -962,12 +1315,22 @@ function AuditLogs() {
                         {log.action}
                       </p>
                       <p className="text-sm text-gray-500">{log.details}</p>
+                      {log.product && (
+                        <p className="text-xs text-gray-400">
+                          Product: {log.product} | Category: {log.category}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-gray-900">
                       {log.user}
                     </p>
+                    {log.userRole && (
+                      <p className="text-xs text-gray-500 capitalize">
+                        {log.userRole}
+                      </p>
+                    )}
                     <p className="text-xs text-gray-500">
                       {formatDate(log.timestamp)}
                     </p>
@@ -1362,6 +1725,251 @@ function BackupSecurity() {
             <p className="text-xs text-green-700">
               All security measures are active and functioning properly
             </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// REPORT DISPLAY COMPONENTS
+// ==========================================
+function ReportDisplay({ data, type }) {
+  if (!data) return null;
+
+  switch (type) {
+    case "sales":
+      return <SalesReportDisplay data={data} />;
+    case "inventory":
+      return <InventoryReportDisplay data={data} />;
+    case "financial":
+      return <FinancialReportDisplay data={data} />;
+    default:
+      return <div>Unknown report type</div>;
+  }
+}
+
+function SalesReportDisplay({ data }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-blue-600">
+            {formatCurrency(data.summary.totalSales)}
+          </div>
+          <div className="text-sm text-blue-700">Total Sales</div>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-green-600">
+            {data.summary.totalTransactions}
+          </div>
+          <div className="text-sm text-green-700">Transactions</div>
+        </div>
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-yellow-600">
+            {formatCurrency(data.summary.averageTransaction)}
+          </div>
+          <div className="text-sm text-yellow-700">Average Transaction</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h5 className="text-base font-medium text-gray-900 mb-3">
+            Payment Methods
+          </h5>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Cash</span>
+              <span className="text-sm font-medium">
+                {formatCurrency(data.paymentMethods.cash)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Card</span>
+              <span className="text-sm font-medium">
+                {formatCurrency(data.paymentMethods.card)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Digital</span>
+              <span className="text-sm font-medium">
+                {formatCurrency(data.paymentMethods.digital)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h5 className="text-base font-medium text-gray-900 mb-3">
+            Top Products
+          </h5>
+          <div className="space-y-2">
+            {data.topProducts.slice(0, 5).map((product, index) => (
+              <div key={index} className="flex justify-between">
+                <span className="text-sm text-gray-600 truncate">
+                  {product.name}
+                </span>
+                <span className="text-sm font-medium">
+                  {formatCurrency(product.revenue)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InventoryReportDisplay({ data }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-blue-600">
+            {data.summary.totalProducts}
+          </div>
+          <div className="text-sm text-blue-700">Total Products</div>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-green-600">
+            {formatCurrency(data.summary.totalStockValue)}
+          </div>
+          <div className="text-sm text-green-700">Stock Value</div>
+        </div>
+        <div className="bg-red-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-red-600">
+            {data.stockLevels.lowStock}
+          </div>
+          <div className="text-sm text-red-700">Low Stock Items</div>
+        </div>
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-yellow-600">
+            {data.stockLevels.outOfStock}
+          </div>
+          <div className="text-sm text-yellow-700">Out of Stock</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h5 className="text-base font-medium text-gray-900 mb-3">
+            Expiry Analysis
+          </h5>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Expired</span>
+              <span className="text-sm font-medium text-red-600">
+                {data.expiryAnalysis.expired}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Expiring (30 days)</span>
+              <span className="text-sm font-medium text-yellow-600">
+                {data.expiryAnalysis.expiring30}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Expiring (90 days)</span>
+              <span className="text-sm font-medium text-orange-600">
+                {data.expiryAnalysis.expiring90}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h5 className="text-base font-medium text-gray-900 mb-3">
+            Top Value Products
+          </h5>
+          <div className="space-y-2">
+            {data.topValueProducts.slice(0, 5).map((product, index) => (
+              <div key={index} className="flex justify-between">
+                <span className="text-sm text-gray-600 truncate">
+                  {product.name}
+                </span>
+                <span className="text-sm font-medium">
+                  {formatCurrency(product.totalValue)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinancialReportDisplay({ data }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-green-600">
+            {formatCurrency(data.revenue.total)}
+          </div>
+          <div className="text-sm text-green-700">Total Revenue</div>
+        </div>
+        <div className="bg-red-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-red-600">
+            {formatCurrency(data.costs.total)}
+          </div>
+          <div className="text-sm text-red-700">Total Costs</div>
+        </div>
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-blue-600">
+            {formatCurrency(data.profit.gross)}
+          </div>
+          <div className="text-sm text-blue-700">Gross Profit</div>
+        </div>
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-yellow-600">
+            {data.profit.margin.toFixed(1)}%
+          </div>
+          <div className="text-sm text-yellow-700">Profit Margin</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h5 className="text-base font-medium text-gray-900 mb-3">
+            Revenue Breakdown
+          </h5>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Daily Average</span>
+              <span className="text-sm font-medium">
+                {formatCurrency(data.revenue.daily)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Per Transaction</span>
+              <span className="text-sm font-medium">
+                {formatCurrency(data.revenue.average)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h5 className="text-base font-medium text-gray-900 mb-3">
+            Inventory Metrics
+          </h5>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Current Value</span>
+              <span className="text-sm font-medium">
+                {formatCurrency(data.inventory.currentValue)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Turnover Ratio</span>
+              <span className="text-sm font-medium">
+                {data.inventory.turnover.toFixed(2)}
+              </span>
+            </div>
           </div>
         </div>
       </div>
