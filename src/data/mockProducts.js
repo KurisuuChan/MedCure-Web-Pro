@@ -1,0 +1,199 @@
+// Static product data for development
+export const mockProducts = [
+  {
+    id: 1,
+    name: "Biogesic 500mg Tablet",
+    description: "Paracetamol 500mg for fever and pain relief",
+    category: "Pain Relief",
+    brand: "Unilab",
+    price_per_piece: 2.5,
+    pieces_per_sheet: 10,
+    sheets_per_box: 10,
+    stock_in_pieces: 2500,
+    reorder_level: 500,
+    supplier: "Metro Drug Inc.",
+    expiry_date: "2025-12-31",
+    batch_number: "BG202509001",
+    created_at: "2024-01-15T08:00:00Z",
+    updated_at: "2024-09-01T10:30:00Z",
+    status: "active",
+  },
+  {
+    id: 2,
+    name: "Amoxicillin 500mg Capsule",
+    description: "Antibiotic for bacterial infections",
+    category: "Antibiotics",
+    brand: "Pfizer",
+    price_per_piece: 15.0,
+    pieces_per_sheet: 10,
+    sheets_per_box: 5,
+    stock_in_pieces: 750,
+    reorder_level: 200,
+    supplier: "Mercury Drug",
+    expiry_date: "2025-08-15",
+    batch_number: "AM202509002",
+    created_at: "2024-02-10T09:15:00Z",
+    updated_at: "2024-09-05T14:20:00Z",
+    status: "active",
+  },
+  {
+    id: 3,
+    name: "Cetirizine 10mg Tablet",
+    description: "Antihistamine for allergies",
+    category: "Antihistamine",
+    brand: "Teva",
+    price_per_piece: 8.5,
+    pieces_per_sheet: 10,
+    sheets_per_box: 10,
+    stock_in_pieces: 45,
+    reorder_level: 100,
+    supplier: "Watson Pharmaceuticals",
+    expiry_date: "2025-03-20",
+    batch_number: "CT202509003",
+    created_at: "2024-03-01T11:00:00Z",
+    updated_at: "2024-09-06T16:45:00Z",
+    status: "low_stock",
+  },
+  {
+    id: 4,
+    name: "Ibuprofen 400mg Tablet",
+    description: "Anti-inflammatory and pain reliever",
+    category: "Pain Relief",
+    brand: "Advil",
+    price_per_piece: 5.75,
+    pieces_per_sheet: 10,
+    sheets_per_box: 20,
+    stock_in_pieces: 3200,
+    reorder_level: 300,
+    supplier: "GSK Philippines",
+    expiry_date: "2026-01-10",
+    batch_number: "IB202509004",
+    created_at: "2024-01-20T13:30:00Z",
+    updated_at: "2024-09-07T09:10:00Z",
+    status: "active",
+  },
+  {
+    id: 5,
+    name: "Omeprazole 20mg Capsule",
+    description: "Proton pump inhibitor for acid reflux",
+    category: "Gastro",
+    brand: "AstraZeneca",
+    price_per_piece: 12.0,
+    pieces_per_sheet: 14,
+    sheets_per_box: 2,
+    stock_in_pieces: 168,
+    reorder_level: 50,
+    supplier: "Zuellig Pharma",
+    expiry_date: "2024-12-05",
+    batch_number: "OM202509005",
+    created_at: "2024-04-05T15:45:00Z",
+    updated_at: "2024-09-07T11:25:00Z",
+    status: "expiring_soon",
+  },
+  {
+    id: 6,
+    name: "Metformin 500mg Tablet",
+    description: "Diabetes medication",
+    category: "Diabetes",
+    brand: "Merck",
+    price_per_piece: 3.25,
+    pieces_per_sheet: 10,
+    sheets_per_box: 10,
+    stock_in_pieces: 1500,
+    reorder_level: 400,
+    supplier: "MSD Philippines",
+    expiry_date: "2025-11-30",
+    batch_number: "MF202509006",
+    created_at: "2024-02-28T10:20:00Z",
+    updated_at: "2024-09-07T14:15:00Z",
+    status: "active",
+  },
+  {
+    id: 7,
+    name: "Amlodipine 5mg Tablet",
+    description: "Blood pressure medication",
+    category: "Cardiovascular",
+    brand: "Norvasc",
+    price_per_piece: 7.5,
+    pieces_per_sheet: 10,
+    sheets_per_box: 3,
+    stock_in_pieces: 15,
+    reorder_level: 60,
+    supplier: "Pfizer Philippines",
+    expiry_date: "2025-05-25",
+    batch_number: "AM202509007",
+    created_at: "2024-03-15T12:00:00Z",
+    updated_at: "2024-09-07T16:30:00Z",
+    status: "critical_stock",
+  },
+  {
+    id: 8,
+    name: "Loperamide 2mg Capsule",
+    description: "Anti-diarrheal medication",
+    category: "Gastro",
+    brand: "Imodium",
+    price_per_piece: 4.25,
+    pieces_per_sheet: 6,
+    sheets_per_box: 5,
+    stock_in_pieces: 180,
+    reorder_level: 50,
+    supplier: "Johnson & Johnson",
+    expiry_date: "2025-09-15",
+    batch_number: "LP202509008",
+    created_at: "2024-05-10T14:30:00Z",
+    updated_at: "2024-09-07T18:45:00Z",
+    status: "active",
+  },
+];
+
+// Stock status helpers
+export function getStockStatus(product) {
+  const { stock_in_pieces, reorder_level } = product;
+
+  if (stock_in_pieces === 0) return "out_of_stock";
+  if (stock_in_pieces <= reorder_level * 0.5) return "critical_stock";
+  if (stock_in_pieces <= reorder_level) return "low_stock";
+  return "in_stock";
+}
+
+export function getExpiryStatus(product) {
+  const today = new Date();
+  const expiryDate = new Date(product.expiry_date);
+  const daysUntilExpiry = Math.ceil(
+    (expiryDate - today) / (1000 * 60 * 60 * 24)
+  );
+
+  if (daysUntilExpiry < 0) return "expired";
+  if (daysUntilExpiry <= 30) return "expiring_soon";
+  if (daysUntilExpiry <= 90) return "expiring_warning";
+  return "good";
+}
+
+// Categories for filtering
+export const productCategories = [
+  "All Categories",
+  "Pain Relief",
+  "Antibiotics",
+  "Antihistamine",
+  "Gastro",
+  "Diabetes",
+  "Cardiovascular",
+  "Respiratory",
+  "Dermatology",
+  "Vitamins",
+];
+
+// Brands for filtering
+export const productBrands = [
+  "All Brands",
+  "Unilab",
+  "Pfizer",
+  "Teva",
+  "Advil",
+  "AstraZeneca",
+  "Merck",
+  "Norvasc",
+  "Imodium",
+  "GSK",
+  "Johnson & Johnson",
+];

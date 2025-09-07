@@ -1,0 +1,232 @@
+import React, { useState, useEffect } from "react";
+import { Search, Filter, X, SlidersHorizontal } from "lucide-react";
+
+export default function ProductSearch({
+  onSearch,
+  onFilter,
+  categories = [],
+  brands = [],
+  className = "",
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState({
+    category: "All Categories",
+    brand: "All Brands",
+    stockStatus: "All",
+    expiryStatus: "All",
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onSearch(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, onSearch]);
+
+  // Apply filters
+  useEffect(() => {
+    onFilter(filters);
+  }, [filters, onFilter]);
+
+  const handleFilterChange = (key, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      category: "All Categories",
+      brand: "All Brands",
+      stockStatus: "All",
+      expiryStatus: "All",
+    });
+  };
+
+  const hasActiveFilters = Object.values(filters).some(
+    (value) =>
+      value !== "All Categories" && value !== "All Brands" && value !== "All"
+  );
+
+  return (
+    <div
+      className={`bg-white rounded-lg border border-gray-200 p-4 ${className}`}
+    >
+      {/* Main Search Bar */}
+      <div className="flex items-center space-x-3 mb-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search products by name, category, or brand..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <button
+          onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          className={`flex items-center space-x-2 px-3 py-2 border rounded-lg transition-colors ${
+            showAdvancedFilters || hasActiveFilters
+              ? "border-blue-500 bg-blue-50 text-blue-700"
+              : "border-gray-300 text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          <span>Filters</span>
+          {hasActiveFilters && (
+            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 ml-1">
+              {
+                Object.values(filters).filter(
+                  (value) =>
+                    value !== "All Categories" &&
+                    value !== "All Brands" &&
+                    value !== "All"
+                ).length
+              }
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Advanced Filters */}
+      {showAdvancedFilters && (
+        <div className="border-t border-gray-200 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Category Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category
+              </label>
+              <select
+                value={filters.category}
+                onChange={(e) => handleFilterChange("category", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="All Categories">All Categories</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Brand Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Brand
+              </label>
+              <select
+                value={filters.brand}
+                onChange={(e) => handleFilterChange("brand", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="All Brands">All Brands</option>
+                {brands.map((brand) => (
+                  <option key={brand} value={brand}>
+                    {brand}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Stock Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Stock Status
+              </label>
+              <select
+                value={filters.stockStatus}
+                onChange={(e) =>
+                  handleFilterChange("stockStatus", e.target.value)
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="All">All Stock Levels</option>
+                <option value="in_stock">In Stock</option>
+                <option value="low_stock">Low Stock</option>
+                <option value="out_of_stock">Out of Stock</option>
+              </select>
+            </div>
+
+            {/* Expiry Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Expiry Status
+              </label>
+              <select
+                value={filters.expiryStatus}
+                onChange={(e) =>
+                  handleFilterChange("expiryStatus", e.target.value)
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="All">All Products</option>
+                <option value="expiring_soon">Expiring Soon</option>
+                <option value="expired">Expired</option>
+                <option value="good">Good Condition</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Clear Filters */}
+          {hasActiveFilters && (
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={clearFilters}
+                className="flex items-center space-x-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <X className="h-3 w-3" />
+                <span>Clear all filters</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Active Filters Summary */}
+      {hasActiveFilters && !showAdvancedFilters && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {Object.entries(filters).map(([key, value]) => {
+            if (
+              value === "All Categories" ||
+              value === "All Brands" ||
+              value === "All"
+            )
+              return null;
+
+            return (
+              <span
+                key={key}
+                className="inline-flex items-center space-x-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+              >
+                <span>{value}</span>
+                <button
+                  onClick={() =>
+                    handleFilterChange(
+                      key,
+                      key === "category"
+                        ? "All Categories"
+                        : key === "brand"
+                        ? "All Brands"
+                        : "All"
+                    )
+                  }
+                  className="hover:text-blue-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
