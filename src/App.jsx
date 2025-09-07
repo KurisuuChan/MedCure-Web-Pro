@@ -23,6 +23,8 @@ import DashboardPage from "./pages/DashboardPage";
 import POSPage from "./pages/POSPage";
 import InventoryPage from "./pages/InventoryPage";
 import ManagementPage from "./pages/ManagementPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import SettingsPage from "./pages/SettingsPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 
 // Create a client
@@ -99,6 +101,28 @@ function AppContent() {
           <PageErrorBoundary title="Management Error">
             <ProtectedRoute requiredRole="admin">
               <ManagementPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/analytics"
+        element={
+          <PageErrorBoundary title="Analytics Error">
+            <ProtectedRoute requiredRole={["admin", "manager"]}>
+              <AnalyticsPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/settings"
+        element={
+          <PageErrorBoundary title="Settings Error">
+            <ProtectedRoute>
+              <SettingsPage />
             </ProtectedRoute>
           </PageErrorBoundary>
         }

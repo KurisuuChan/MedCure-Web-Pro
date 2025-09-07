@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Bell, Search, Settings, User, LogOut, Menu } from "lucide-react";
 
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -11,6 +13,14 @@ export function Header({ onToggleSidebar }) {
     } catch (error) {
       console.error("Error signing out:", error);
     }
+  };
+
+  const handleNotificationClick = () => {
+    setShowNotifications(!showNotifications);
+  };
+
+  const handleSearchClick = () => {
+    setShowSearch(!showSearch);
   };
 
   return (
@@ -55,12 +65,18 @@ export function Header({ onToggleSidebar }) {
         {/* Right side - Enhanced */}
         <div className="flex items-center gap-2">
           {/* Search button for mobile */}
-          <button className="md:hidden p-2.5 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm">
+          <button
+            onClick={handleSearchClick}
+            className="md:hidden p-2.5 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm"
+          >
             <Search className="h-5 w-5 text-gray-600" />
           </button>
 
           {/* Notifications - Enhanced */}
-          <button className="relative p-2.5 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm">
+          <button
+            onClick={handleNotificationClick}
+            className="relative p-2.5 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm"
+          >
             <Bell className="h-5 w-5 text-gray-600" />
             <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-md">
               3

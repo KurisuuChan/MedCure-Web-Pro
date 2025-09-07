@@ -14,6 +14,7 @@ import {
   Eye,
   Trash2,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import {
   getStockStatus,
@@ -27,6 +28,8 @@ import { getStockBreakdown } from "../utils/unitConversion";
 import ProductSearch from "../features/inventory/components/ProductSearch";
 import ProductCard from "../features/inventory/components/ProductCard";
 import { useInventory } from "../features/inventory/hooks/useInventory";
+import { ExportModal } from "../components/ui/ExportModal";
+import { ImportModal } from "../components/ui/ImportModal";
 
 export default function InventoryPage() {
   const {
@@ -50,6 +53,8 @@ export default function InventoryPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
@@ -107,11 +112,17 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="flex items-center space-x-3 mt-4 lg:mt-0">
-          <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
             <Download className="h-4 w-4" />
             <span>Export</span>
           </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
             <Upload className="h-4 w-4" />
             <span>Import</span>
           </button>
@@ -359,12 +370,38 @@ export default function InventoryPage() {
           }}
         />
       )}
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        products={allProducts}
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={async (importedProducts) => {
+          try {
+            // Add all imported products
+            for (const product of importedProducts) {
+              await addProduct(product);
+            }
+            console.log(
+              `Successfully imported ${importedProducts.length} products`
+            );
+          } catch (error) {
+            throw new Error(`Import failed: ${error.message}`);
+          }
+        }}
+      />
     </div>
   );
 }
 
 // Summary Card Component
-function SummaryCard({ title, value, icon: Icon, color, alert }) {
+function SummaryCard({ title, value, icon: IconComponent, color, alert }) {
   const colorClasses = {
     blue: "bg-blue-50 text-blue-600",
     yellow: "bg-yellow-50 text-yellow-600",
@@ -384,7 +421,7 @@ function SummaryCard({ title, value, icon: Icon, color, alert }) {
             alert ? "animate-pulse" : ""
           }`}
         >
-          <Icon className="h-6 w-6" />
+          <IconComponent className="h-6 w-6" />
         </div>
       </div>
     </div>
@@ -953,7 +990,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                   </span>
                   <p className="text-sm text-gray-900">
                     <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                      {product.status.replace("_", " ")}
+                      {product.is_active ? "active" : "inactive"}
                     </span>
                   </p>
                 </div>

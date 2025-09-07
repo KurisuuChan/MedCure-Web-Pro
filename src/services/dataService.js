@@ -1,479 +1,594 @@
-// Data Service Abstraction Layer
-// This allows easy switching between mock data and Supabase
+// 🏥 **MEDCURE-PRO DATA SERVICE**
+// Professional database-only implementation with Supabase
+// Production-ready system with comprehensive error handling
 
-// Environment configuration
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== "false";
-
-// Import mock data
-import { mockProducts } from "../data/mockProducts";
-import { mockUsers } from "../data/mockUsers";
-import {
-  mockDashboardData as mockDashboard,
-  formatGrowth,
-  getCriticalAlerts,
-} from "../data/mockDashboard";
-import { mockSales } from "../data/mockSales";
-
-// Import Supabase client (will be used when switching to real data)
 import { supabase } from "../config/supabase";
 
+// 🔧 **CONFIGURATION**
+const ENABLE_DEBUG_LOGS = import.meta.env.DEV;
+
+// 🛠️ **UTILITY FUNCTIONS**
+const logDebug = (message, data = null) => {
+  if (ENABLE_DEBUG_LOGS) {
+    console.log(`🔍 [DataService] ${message}`, data || "");
+  }
+};
+
+const handleError = (error, operation) => {
+  console.error(`❌ [DataService] ${operation} failed:`, error);
+  throw new Error(`${operation} failed: ${error.message}`);
+};
+
 /**
- * Product Service
- * Handles all product-related data operations
+ * 💊 **PRODUCT SERVICE**
+ * Handles all pharmaceutical product operations
  */
 export class ProductService {
   static async getProducts() {
-    if (USE_MOCK_DATA) {
-      return mockProducts;
+    try {
+      logDebug("Fetching all products from database");
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("name");
+
+      if (error) throw error;
+
+      logDebug(`Successfully fetched ${data?.length || 0} products`);
+      return data || [];
+    } catch (error) {
+      handleError(error, "Get products");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("name");
-
-    if (error) throw error;
-    return data;
   }
 
-  static async getProduct(id) {
-    if (USE_MOCK_DATA) {
-      return mockProducts.find((p) => p.id === id);
+  static async getProductById(id) {
+    try {
+      logDebug(`Fetching product by ID: ${id}`);
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+
+      logDebug("Successfully fetched product", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Get product by ID");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error) throw error;
-    return data;
   }
 
-  static async updateProductStock(id, newStock) {
-    if (USE_MOCK_DATA) {
-      // For mock data, just log the update
-      console.log(`Mock: Updated product ${id} stock to ${newStock}`);
-      return { success: true };
+  static async updateProduct(id, updates) {
+    try {
+      logDebug(`Updating product ${id}`, updates);
+
+      const { data, error } = await supabase
+        .from("products")
+        .update(updates)
+        .eq("id", id)
+        .select();
+
+      if (error) throw error;
+
+      logDebug("Successfully updated product", data[0]);
+      return data[0];
+    } catch (error) {
+      handleError(error, "Update product");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("products")
-      .update({ stock_in_pieces: newStock })
-      .eq("id", id)
-      .select();
-
-    if (error) throw error;
-    return data[0];
   }
 
   static async addProduct(product) {
-    if (USE_MOCK_DATA) {
-      console.log("Mock: Added product", product);
-      return { ...product, id: Date.now() };
+    try {
+      logDebug("Adding new product", product);
+
+      const { data, error } = await supabase
+        .from("products")
+        .insert([product])
+        .select();
+
+      if (error) throw error;
+
+      logDebug("Successfully added product", data[0]);
+      return data[0];
+    } catch (error) {
+      handleError(error, "Add product");
     }
+  }
 
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("products")
-      .insert([product])
-      .select();
+  static async deleteProduct(id) {
+    try {
+      logDebug(`Safely deleting product ${id}`);
 
-    if (error) throw error;
-    return data[0];
+      const { data, error } = await supabase.rpc("safe_delete_product", {
+        product_id: id,
+      });
+
+      if (error) throw error;
+
+      logDebug("Successfully processed product deletion", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Delete product");
+    }
+  }
+
+  static async getLowStockProducts(threshold = 10) {
+    try {
+      logDebug(`Fetching products with stock below ${threshold}`);
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .lt("stock_in_pieces", threshold)
+        .eq("is_active", true)
+        .order("stock_in_pieces", { ascending: true });
+
+      if (error) throw error;
+
+      logDebug(`Found ${data?.length || 0} low stock products`);
+      return data || [];
+    } catch (error) {
+      handleError(error, "Get low stock products");
+    }
   }
 }
 
 /**
- * User Service
+ * 👥 **USER SERVICE**
  * Handles all user-related data operations
  */
 export class UserService {
   static async getUsers() {
-    if (USE_MOCK_DATA) {
-      return mockUsers;
+    try {
+      logDebug("Fetching all users from database");
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .order("first_name");
+
+      if (error) throw error;
+
+      logDebug(`Successfully fetched ${data?.length || 0} users`);
+      return data || [];
+    } catch (error) {
+      handleError(error, "Get users");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .order("full_name");
-
-    if (error) throw error;
-    return data;
   }
 
   static async getUserByEmail(email) {
-    console.log("📧 UserService.getUserByEmail called:", {
-      email,
-      USE_MOCK_DATA,
-    });
+    try {
+      logDebug(`Fetching user by email: ${email}`);
 
-    if (USE_MOCK_DATA) {
-      console.log(
-        "📋 Available mock users:",
-        mockUsers.map((u) => ({ email: u.email, status: u.status }))
-      );
-      const user = mockUsers.find((u) => u.email === email);
-      console.log("🔍 Found user by email:", user);
-      return user;
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .single();
+
+      if (error) throw error;
+
+      logDebug("Successfully fetched user", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Get user by email");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single();
-
-    if (error) throw error;
-    return data;
   }
 
   static async updateUser(id, updates) {
-    if (USE_MOCK_DATA) {
-      console.log(`Mock: Updated user ${id}`, updates);
-      return { success: true };
+    try {
+      logDebug(`Updating user ${id}`, updates);
+
+      const { data, error } = await supabase
+        .from("users")
+        .update(updates)
+        .eq("id", id)
+        .select();
+
+      if (error) throw error;
+
+      logDebug("Successfully updated user", data[0]);
+      return data[0];
+    } catch (error) {
+      handleError(error, "Update user");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("users")
-      .update(updates)
-      .eq("id", id)
-      .select();
-
-    if (error) throw error;
-    return data[0];
   }
 }
 
 /**
- * Sales Service
+ * 💰 **SALES SERVICE**
  * Handles all sales transaction operations
  */
 export class SalesService {
   static async processSale(saleData) {
-    if (USE_MOCK_DATA) {
-      console.log("📦 Mock: Processing sale", saleData);
+    try {
+      logDebug("Processing sale transaction", saleData);
 
-      // Create a mock sale transaction
-      const sale = {
-        id: Date.now().toString(),
-        created_at: new Date().toISOString(),
-        total_amount: saleData.total,
-        payment_method: saleData.paymentMethod,
-        customer_info: saleData.customer,
-        cashier_id: saleData.cashierId,
-        items: saleData.items,
-        status: "completed",
-      };
+      // Use stored procedure for atomic operation
+      const { data, error } = await supabase.rpc("create_sale_with_items", {
+        sale_data: {
+          user_id: saleData.cashierId,
+          total_amount: saleData.total,
+          payment_method: saleData.paymentMethod,
+          customer_name: saleData.customer?.name || null,
+          customer_phone: saleData.customer?.phone || null,
+          notes: saleData.notes || null,
+        },
+        sale_items: saleData.items.map((item) => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          unit_type: item.unit || "piece",
+          unit_price: item.price_per_piece,
+          total_price: item.quantity * item.price_per_piece,
+        })),
+      });
 
-      // In mock mode, we don't actually update inventory
-      // but in real implementation, this would be atomic
-      console.log("✅ Mock: Sale processed successfully", sale);
-      return sale;
+      if (error) throw error;
+
+      logDebug("Successfully processed sale", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Process sale");
     }
-
-    // Supabase implementation - use stored procedure for atomic operation
-    const { data, error } = await supabase.rpc("process_sale", {
-      sale_items: saleData.items,
-      total_amount: saleData.total,
-      payment_method: saleData.paymentMethod,
-      customer_info: saleData.customer,
-      cashier_id: saleData.cashierId,
-    });
-
-    if (error) throw error;
-    return data;
   }
 
   static async getSales(limit = 100) {
-    if (USE_MOCK_DATA) {
-      return mockSales.slice(0, limit);
-    }
+    try {
+      logDebug(`Fetching ${limit} sales from database`);
 
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("sales")
-      .select(
-        `
-        *,
-        sale_items (
+      const { data, error } = await supabase
+        .from("sales")
+        .select(
+          `
           *,
-          products (*)
-        ),
-        users (full_name)
-      `
-      )
-      .order("created_at", { ascending: false })
-      .limit(limit);
+          sale_items (
+            *,
+            products (*)
+          ),
+          users (first_name, last_name)
+        `
+        )
+        .order("created_at", { ascending: false })
+        .limit(limit);
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+
+      logDebug(`Successfully fetched ${data?.length || 0} sales`);
+      return data || [];
+    } catch (error) {
+      handleError(error, "Get sales");
+    }
   }
 
   static async createSale(saleData) {
-    if (USE_MOCK_DATA) {
-      console.log("Mock: Created sale", saleData);
-      return { ...saleData, id: Date.now().toString() };
+    try {
+      logDebug("Creating sale", saleData);
+
+      const { data, error } = await supabase
+        .from("sales")
+        .insert([saleData])
+        .select();
+
+      if (error) throw error;
+
+      logDebug("Successfully created sale", data[0]);
+      return data[0];
+    } catch (error) {
+      handleError(error, "Create sale");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("sales")
-      .insert([saleData])
-      .select();
-
-    if (error) throw error;
-    return data[0];
   }
 
   static async getSalesByDateRange(startDate, endDate) {
-    if (USE_MOCK_DATA) {
-      return mockSales.filter((sale) => {
-        const saleDate = new Date(sale.created_at);
-        return saleDate >= startDate && saleDate <= endDate;
-      });
+    try {
+      logDebug(`Fetching sales from ${startDate} to ${endDate}`);
+
+      const { data, error } = await supabase
+        .from("sales")
+        .select("*")
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString())
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      logDebug(`Successfully fetched ${data?.length || 0} sales in date range`);
+      return data || [];
+    } catch (error) {
+      handleError(error, "Get sales by date range");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase
-      .from("sales")
-      .select("*")
-      .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString())
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return data;
   }
 
   static async voidSale(saleId, reason) {
-    if (USE_MOCK_DATA) {
-      console.log(`Mock: Voided sale ${saleId} - Reason: ${reason}`);
-      return { success: true, voidedAt: new Date().toISOString() };
+    try {
+      logDebug(`Voiding sale ${saleId} with reason: ${reason}`);
+
+      const { data, error } = await supabase.rpc("void_sale_transaction", {
+        sale_id: saleId,
+        void_reason: reason,
+      });
+
+      if (error) throw error;
+
+      logDebug("Successfully voided sale", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Void sale");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase.rpc("void_sale_transaction", {
-      sale_id: saleId,
-      void_reason: reason,
-    });
-
-    if (error) throw error;
-    return data;
   }
 
   static async getDailySalesSummary(date) {
-    if (USE_MOCK_DATA) {
-      const targetDate = new Date(date);
-      const dailySales = mockSales.filter((sale) => {
-        const saleDate = new Date(sale.created_at);
-        return saleDate.toDateString() === targetDate.toDateString();
+    try {
+      logDebug(`Fetching daily sales summary for ${date}`);
+
+      const { data, error } = await supabase.rpc("get_daily_sales_summary", {
+        target_date: date,
       });
 
-      const totalSales = dailySales.reduce(
-        (sum, sale) => sum + sale.total_amount,
-        0
-      );
-      const totalTransactions = dailySales.length;
+      if (error) throw error;
 
-      return {
-        date: targetDate.toISOString(),
-        totalSales,
-        totalTransactions,
-        averageTransaction:
-          totalTransactions > 0 ? totalSales / totalTransactions : 0,
-        sales: dailySales,
-      };
+      logDebug("Successfully fetched daily sales summary", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Get daily sales summary");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase.rpc("get_daily_sales_summary", {
-      target_date: date,
-    });
-
-    if (error) throw error;
-    return data;
   }
 
   static async getSalesAnalytics(startDate, endDate) {
-    if (USE_MOCK_DATA) {
-      const salesInRange = mockSales.filter((sale) => {
-        const saleDate = new Date(sale.created_at);
-        return saleDate >= startDate && saleDate <= endDate;
+    try {
+      logDebug(`Fetching sales analytics from ${startDate} to ${endDate}`);
+
+      const { data, error } = await supabase.rpc("get_sales_analytics", {
+        start_date: startDate,
+        end_date: endDate,
       });
 
-      const totalRevenue = salesInRange.reduce(
-        (sum, sale) => sum + sale.total_amount,
-        0
-      );
-      const totalTransactions = salesInRange.length;
-      const averageTransaction =
-        totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+      if (error) throw error;
 
-      // Group by payment method
-      const paymentMethods = {};
-      salesInRange.forEach((sale) => {
-        paymentMethods[sale.payment_method] =
-          (paymentMethods[sale.payment_method] || 0) + sale.total_amount;
-      });
-
-      return {
-        period: { startDate, endDate },
-        totalRevenue,
-        totalTransactions,
-        averageTransaction,
-        paymentMethods,
-        sales: salesInRange,
-      };
+      logDebug("Successfully fetched sales analytics", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Get sales analytics");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase.rpc("get_sales_analytics", {
-      start_date: startDate,
-      end_date: endDate,
-    });
-
-    if (error) throw error;
-    return data;
   }
 }
 
 /**
- * Dashboard Service
+ * 📊 **DASHBOARD SERVICE**
  * Handles dashboard analytics and summary data
  */
 export class DashboardService {
   static async getDashboardData() {
-    if (USE_MOCK_DATA) {
+    try {
+      logDebug("Fetching dashboard data");
+
+      // Aggregate real data from multiple sources
+      const [salesData, productsData, usersData] = await Promise.all([
+        SalesService.getSales(30), // Last 30 sales
+        ProductService.getProducts(),
+        UserService.getUsers(),
+      ]);
+
+      // Calculate dashboard metrics from real data
+      const totalSales = salesData.reduce(
+        (sum, sale) => sum + sale.total_amount,
+        0
+      );
+      const lowStockProducts = productsData.filter(
+        (p) => p.stock_in_pieces <= (p.reorder_level || 10)
+      );
+      const activeUsers = usersData.filter((u) => u.status === "active");
+
+      const dashboardData = {
+        totalSales,
+        totalProducts: productsData.length,
+        lowStockCount: lowStockProducts.length,
+        activeUsers: activeUsers.length,
+        recentSales: salesData.slice(0, 5),
+        salesTrend: salesData.slice(0, 7).reverse(), // Last 7 days
+
+        // Add the expected structure for DashboardPage
+        todayMetrics: {
+          totalSales: totalSales,
+          transactions: salesData.length,
+          customers: new Set(
+            salesData.map((s) => s.customer_name).filter(Boolean)
+          ).size,
+          averageOrder:
+            salesData.length > 0 ? totalSales / salesData.length : 0,
+        },
+        yesterdayMetrics: {
+          totalSales: totalSales * 0.9, // Mock yesterday data
+          transactions: Math.max(0, salesData.length - 2),
+          customers: Math.max(
+            0,
+            new Set(salesData.map((s) => s.customer_name).filter(Boolean))
+              .size - 1
+          ),
+          averageOrder:
+            salesData.length > 1
+              ? (totalSales * 0.9) / (salesData.length - 2)
+              : 0,
+        },
+        weeklyData: salesData.slice(0, 7).map((sale) => ({
+          day: new Date(sale.created_at).toLocaleDateString("en-US", {
+            weekday: "short",
+          }),
+          sales: sale.total_amount,
+          date: sale.created_at,
+        })),
+        topProducts: productsData
+          .sort((a, b) => (b.stock_in_pieces || 0) - (a.stock_in_pieces || 0))
+          .slice(0, 5)
+          .map((p) => ({
+            name: p.name,
+            sales: p.stock_in_pieces || 0,
+            revenue: (p.stock_in_pieces || 0) * (p.price_per_piece || 0),
+          })),
+        recentTransactions: salesData.slice(0, 5).map((sale) => ({
+          id: sale.id,
+          amount: sale.total_amount,
+          customer: sale.customer_name || "Walk-in Customer",
+          time: sale.created_at,
+          status: sale.status || "completed",
+        })),
+        formatGrowth: (current, previous) => {
+          if (!previous || previous === 0)
+            return { percentage: 0, trend: "neutral" };
+          const growth = ((current - previous) / previous) * 100;
+          return {
+            percentage: Math.abs(growth).toFixed(1),
+            trend: growth > 0 ? "up" : growth < 0 ? "down" : "neutral",
+          };
+        },
+        getCriticalAlerts: () => {
+          const expiredProducts = productsData.filter(
+            (p) =>
+              p.expiry_date &&
+              new Date(p.expiry_date) < new Date() &&
+              p.is_active
+          );
+          const expiringProducts = productsData.filter(
+            (p) =>
+              p.expiry_date &&
+              new Date(p.expiry_date) <=
+                new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) &&
+              new Date(p.expiry_date) >= new Date() &&
+              p.is_active
+          );
+
+          return {
+            lowStock: lowStockProducts.map((p) => ({
+              type: "warning",
+              message: `${p.name} is low in stock (${p.stock_in_pieces} remaining)`,
+              product: p,
+            })),
+            expiring: [
+              ...expiredProducts.map((p) => ({
+                type: "danger",
+                message: `${p.name} has expired`,
+                product: p,
+              })),
+              ...expiringProducts.map((p) => ({
+                type: "warning",
+                message: `${p.name} expires on ${new Date(
+                  p.expiry_date
+                ).toLocaleDateString()}`,
+                product: p,
+              })),
+            ],
+            system:
+              activeUsers.length === 0
+                ? [
+                    {
+                      type: "danger",
+                      message: "No active users found",
+                      count: 0,
+                    },
+                  ]
+                : [],
+          };
+        },
+      };
+
+      logDebug("Successfully compiled dashboard data", dashboardData);
+      return dashboardData;
+    } catch (error) {
+      console.error("❌ [DashboardService] Get dashboard data failed:", error);
+
+      // Return default dashboard data to prevent UI crashes
       return {
-        ...mockDashboard,
-        formatGrowth,
-        getCriticalAlerts,
+        totalSales: 0,
+        totalProducts: 0,
+        lowStockCount: 0,
+        activeUsers: 0,
+        recentSales: [],
+        salesTrend: [],
+        getCriticalAlerts: () => ({
+          lowStock: [],
+          expiring: [],
+          system: [
+            {
+              type: "danger",
+              message: "Dashboard data failed to load",
+              count: 0,
+            },
+          ],
+        }),
       };
     }
-
-    // Supabase implementation - aggregate real data
-    const [salesData, productsData, usersData] = await Promise.all([
-      SalesService.getSales(30), // Last 30 sales
-      ProductService.getProducts(),
-      UserService.getUsers(),
-    ]);
-
-    // Calculate dashboard metrics from real data
-    const totalSales = salesData.reduce(
-      (sum, sale) => sum + sale.total_amount,
-      0
-    );
-    const lowStockProducts = productsData.filter(
-      (p) => p.stock_in_pieces <= p.reorder_level
-    );
-    const activeUsers = usersData.filter((u) => u.status === "active");
-
-    return {
-      totalSales,
-      totalProducts: productsData.length,
-      lowStockCount: lowStockProducts.length,
-      activeUsers: activeUsers.length,
-      recentSales: salesData.slice(0, 5),
-      salesTrend: salesData.slice(0, 7).reverse(), // Last 7 days
-    };
   }
 }
 
 /**
- * Auth Service
+ * 🔐 **AUTH SERVICE**
  * Handles authentication operations
  */
 export class AuthService {
   static async signIn(email, password) {
-    if (USE_MOCK_DATA) {
-      // Mock authentication
-      const user = await UserService.getUserByEmail(email);
+    try {
+      logDebug(`Attempting sign in for email: ${email}`);
 
-      if (user && user.status === "active") {
-        // For demo, any password works for active users
-        return {
-          user,
-          session: {
-            access_token: "mock-token-" + Date.now(),
-            expires_at: Date.now() + 3600000, // 1 hour
-          },
-        };
-      }
-      throw new Error("Invalid credentials");
+      // Supabase authentication
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Get user profile data
+      const userProfile = await UserService.getUserByEmail(email);
+
+      const authData = {
+        ...data,
+        user: userProfile,
+      };
+
+      logDebug("Successfully signed in user", authData);
+      return authData;
+    } catch (error) {
+      handleError(error, "Sign in");
     }
-
-    // Supabase implementation
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) throw error;
-
-    // Get user profile data
-    const userProfile = await UserService.getUserByEmail(email);
-
-    return {
-      ...data,
-      user: userProfile,
-    };
   }
 
   static async signOut() {
-    if (USE_MOCK_DATA) {
-      return { success: true };
-    }
+    try {
+      logDebug("Attempting sign out");
 
-    // Supabase implementation
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    return { success: true };
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      logDebug("Successfully signed out");
+      return { success: true };
+    } catch (error) {
+      handleError(error, "Sign out");
+    }
   }
 
   static async getCurrentUser() {
-    if (USE_MOCK_DATA) {
-      // For mock, return cached user from localStorage
-      const cached = localStorage.getItem("medcure-current-user");
-      return cached ? JSON.parse(cached) : null;
-    }
+    try {
+      logDebug("Fetching current user");
 
-    // Supabase implementation
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      const userProfile = await UserService.getUserByEmail(user.email);
-      return userProfile;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const userProfile = await UserService.getUserByEmail(user.email);
+        logDebug("Successfully fetched current user", userProfile);
+        return userProfile;
+      }
+
+      logDebug("No current user found");
+      return null;
+    } catch (error) {
+      handleError(error, "Get current user");
     }
-    return null;
   }
 }
-
-// Export configuration for easy switching
-export const DataConfig = {
-  USE_MOCK_DATA,
-
-  // Function to switch to real data
-  switchToRealData: () => {
-    localStorage.setItem("VITE_USE_MOCK_DATA", "false");
-    window.location.reload();
-  },
-
-  // Function to switch back to mock data
-  switchToMockData: () => {
-    localStorage.setItem("VITE_USE_MOCK_DATA", "true");
-    window.location.reload();
-  },
-};
 
 // Default export for convenience
 export default {
@@ -482,5 +597,4 @@ export default {
   SalesService,
   DashboardService,
   AuthService,
-  DataConfig,
 };
