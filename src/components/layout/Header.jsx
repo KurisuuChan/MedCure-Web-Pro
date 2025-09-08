@@ -7,7 +7,8 @@ import NotificationPreferences from "../../features/notifications/components/Not
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();
   const [showSearch, setShowSearch] = useState(false);
-  const [showNotificationPreferences, setShowNotificationPreferences] = useState(false);
+  const [showNotificationPreferences, setShowNotificationPreferences] =
+    useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -74,7 +75,7 @@ export function Header({ onToggleSidebar }) {
           <NotificationCenter />
 
           {/* Settings - Enhanced */}
-          <button 
+          <button
             onClick={() => setShowNotificationPreferences(true)}
             className="p-2.5 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm"
           >
@@ -130,7 +131,7 @@ export function Header({ onToggleSidebar }) {
       </div>
 
       {/* Notification Preferences Modal */}
-      <NotificationPreferences 
+      <NotificationPreferences
         isOpen={showNotificationPreferences}
         onClose={() => setShowNotificationPreferences(false)}
       />

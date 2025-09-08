@@ -119,7 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_email_queue_pending ON email_queue(status, create
 -- Automated notification rules and triggers
 CREATE TABLE IF NOT EXISTS notification_rules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(100) NOT NULL,
+    name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
     rule_type VARCHAR(50) NOT NULL CHECK (rule_type IN (
         'low_stock_threshold',
@@ -242,28 +242,68 @@ CREATE POLICY "Admins can manage notification rules" ON notification_rules
 -- INITIAL DATA
 -- ==========================================
 
--- Insert default notification templates
-INSERT INTO notification_templates (name, type, subject_template, body_template, variables) VALUES
-('Low Stock Alert', 'low_stock', 'Low Stock Alert: {{product_name}}', 'Product {{product_name}} is running low with only {{current_stock}} pieces remaining.', '["product_name", "current_stock"]'),
-('Expiry Warning', 'expiry_warning', 'Product Expiry Warning: {{product_name}}', 'Product {{product_name}} expires in {{days_to_expiry}} days on {{expiry_date}}.', '["product_name", "days_to_expiry", "expiry_date"]'),
-('Daily Sales Report', 'daily_report', 'Daily Sales Report - {{date}}', 'Daily performance: {{total_transactions}} transactions, ₹{{total_revenue}} revenue.', '["date", "total_transactions", "total_revenue"]'),
-('System Alert', 'system_alert', 'System Alert: {{alert_type}}', '{{message}}', '["alert_type", "message"]')
-ON CONFLICT (name) DO NOTHING;
+-- Insert default notification templates (only if they don't exist)
+DO $$ 
+BEGIN
+    -- Low Stock Alert Template
+    IF NOT EXISTS (SELECT 1 FROM notification_templates WHERE name = 'Low Stock Alert') THEN
+        INSERT INTO notification_templates (name, type, subject_template, body_template, variables) 
+        VALUES ('Low Stock Alert', 'low_stock', 'Low Stock Alert: {{product_name}}', 'Product {{product_name}} is running low with only {{current_stock}} pieces remaining.', '["product_name", "current_stock"]');
+    END IF;
 
--- Insert default notification rules
-INSERT INTO notification_rules (name, description, rule_type, conditions, target_roles) VALUES
-('Low Stock Threshold', 'Alert when product stock falls below 10 pieces', 'low_stock_threshold', '{"threshold": 10}', ARRAY['admin', 'manager']),
-('Expiry Warning - 30 Days', 'Warn about products expiring within 30 days', 'expiry_days_warning', '{"days": 30}', ARRAY['admin', 'manager']),
-('Expiry Critical - 7 Days', 'Critical alert for products expiring within 7 days', 'expiry_days_warning', '{"days": 7, "priority": "critical"}', ARRAY['admin', 'manager']),
-('Daily Report Schedule', 'Generate daily sales report', 'daily_report_schedule', '{"schedule": "daily", "time": "18:00"}', ARRAY['admin', 'manager'])
-ON CONFLICT (name) DO NOTHING;
+    -- Expiry Warning Template
+    IF NOT EXISTS (SELECT 1 FROM notification_templates WHERE name = 'Expiry Warning') THEN
+        INSERT INTO notification_templates (name, type, subject_template, body_template, variables) 
+        VALUES ('Expiry Warning', 'expiry_warning', 'Product Expiry Warning: {{product_name}}', 'Product {{product_name}} expires in {{days_to_expiry}} days on {{expiry_date}}.', '["product_name", "days_to_expiry", "expiry_date"]');
+    END IF;
 
--- Create default notification preferences for existing admin users
+    -- Daily Sales Report Template
+    IF NOT EXISTS (SELECT 1 FROM notification_templates WHERE name = 'Daily Sales Report') THEN
+        INSERT INTO notification_templates (name, type, subject_template, body_template, variables) 
+        VALUES ('Daily Sales Report', 'daily_report', 'Daily Sales Report - {{date}}', 'Daily performance: {{total_transactions}} transactions, ₹{{total_revenue}} revenue.', '["date", "total_transactions", "total_revenue"]');
+    END IF;
+
+    -- System Alert Template
+    IF NOT EXISTS (SELECT 1 FROM notification_templates WHERE name = 'System Alert') THEN
+        INSERT INTO notification_templates (name, type, subject_template, body_template, variables) 
+        VALUES ('System Alert', 'system_alert', 'System Alert: {{alert_type}}', '{{message}}', '["alert_type", "message"]');
+    END IF;
+END $$;
+
+-- Insert default notification rules (only if they don't exist)
+DO $$ 
+BEGIN
+    -- Low Stock Threshold Rule
+    IF NOT EXISTS (SELECT 1 FROM notification_rules WHERE name = 'Low Stock Threshold') THEN
+        INSERT INTO notification_rules (name, description, rule_type, conditions, target_roles) 
+        VALUES ('Low Stock Threshold', 'Alert when product stock falls below 10 pieces', 'low_stock_threshold', '{"threshold": 10}', ARRAY['admin', 'manager']);
+    END IF;
+
+    -- Expiry Warning 30 Days Rule
+    IF NOT EXISTS (SELECT 1 FROM notification_rules WHERE name = 'Expiry Warning - 30 Days') THEN
+        INSERT INTO notification_rules (name, description, rule_type, conditions, target_roles) 
+        VALUES ('Expiry Warning - 30 Days', 'Warn about products expiring within 30 days', 'expiry_days_warning', '{"days": 30}', ARRAY['admin', 'manager']);
+    END IF;
+
+    -- Expiry Critical 7 Days Rule
+    IF NOT EXISTS (SELECT 1 FROM notification_rules WHERE name = 'Expiry Critical - 7 Days') THEN
+        INSERT INTO notification_rules (name, description, rule_type, conditions, target_roles) 
+        VALUES ('Expiry Critical - 7 Days', 'Critical alert for products expiring within 7 days', 'expiry_days_warning', '{"days": 7, "priority": "critical"}', ARRAY['admin', 'manager']);
+    END IF;
+
+    -- Daily Report Schedule Rule
+    IF NOT EXISTS (SELECT 1 FROM notification_rules WHERE name = 'Daily Report Schedule') THEN
+        INSERT INTO notification_rules (name, description, rule_type, conditions, target_roles) 
+        VALUES ('Daily Report Schedule', 'Generate daily sales report', 'daily_report_schedule', '{"schedule": "daily", "time": "18:00"}', ARRAY['admin', 'manager']);
+    END IF;
+END $$;
+
+-- Create default notification preferences for existing admin users (only if they don't exist)
 INSERT INTO notification_preferences (user_id, email_notifications, browser_notifications, low_stock_alerts, expiry_warnings, sales_reports, system_alerts)
 SELECT id, true, true, true, true, true, true 
 FROM users 
-WHERE role = 'admin'
-ON CONFLICT (user_id) DO NOTHING;
+WHERE role = 'admin' 
+AND id NOT IN (SELECT user_id FROM notification_preferences WHERE user_id IS NOT NULL);
 
 COMMENT ON TABLE notifications IS 'Core notifications storage for the smart notification system';
 COMMENT ON TABLE notification_preferences IS 'User preferences for notification delivery and types';

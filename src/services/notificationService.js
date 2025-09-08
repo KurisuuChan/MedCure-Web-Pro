@@ -8,20 +8,20 @@ export class NotificationService {
   // ==================== NOTIFICATION TYPES ====================
   static NOTIFICATION_TYPES = {
     LOW_STOCK: "low_stock",
-    EXPIRY_WARNING: "expiry_warning", 
+    EXPIRY_WARNING: "expiry_warning",
     SALES_TARGET: "sales_target",
     SYSTEM_ALERT: "system_alert",
     REORDER_SUGGESTION: "reorder_suggestion",
     DAILY_REPORT: "daily_report",
     WEEKLY_REPORT: "weekly_report",
-    CRITICAL_ERROR: "critical_error"
+    CRITICAL_ERROR: "critical_error",
   };
 
   static PRIORITY_LEVELS = {
     LOW: "low",
-    MEDIUM: "medium", 
+    MEDIUM: "medium",
     HIGH: "high",
-    CRITICAL: "critical"
+    CRITICAL: "critical",
   };
 
   // ==================== REAL-TIME ALERTS ====================
@@ -41,11 +41,11 @@ export class NotificationService {
 
       if (error) throw error;
 
-      return notifications.map(notification => ({
+      return notifications.map((notification) => ({
         ...notification,
         timeAgo: this.getTimeAgo(notification.created_at),
         priorityColor: this.getPriorityColor(notification.priority),
-        icon: this.getNotificationIcon(notification.type)
+        icon: this.getNotificationIcon(notification.type),
       }));
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -68,7 +68,7 @@ export class NotificationService {
           priority: notification.priority || this.PRIORITY_LEVELS.MEDIUM,
           data: notification.data || {},
           read: false,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
         })
         .select()
         .single();
@@ -160,8 +160,14 @@ export class NotificationService {
             type: this.NOTIFICATION_TYPES.LOW_STOCK,
             title: "Low Stock Alert",
             message: `${product.name} is running low (${product.stock_in_pieces} pieces remaining)`,
-            priority: product.stock_in_pieces <= 5 ? this.PRIORITY_LEVELS.HIGH : this.PRIORITY_LEVELS.MEDIUM,
-            data: { product_id: product.id, current_stock: product.stock_in_pieces }
+            priority:
+              product.stock_in_pieces <= 5
+                ? this.PRIORITY_LEVELS.HIGH
+                : this.PRIORITY_LEVELS.MEDIUM,
+            data: {
+              product_id: product.id,
+              current_stock: product.stock_in_pieces,
+            },
           });
         }
       }
@@ -197,11 +203,12 @@ export class NotificationService {
           (new Date(product.expiry_date) - new Date()) / (1000 * 60 * 60 * 24)
         );
 
-        const priority = daysToExpiry <= 7 
-          ? this.PRIORITY_LEVELS.CRITICAL 
-          : daysToExpiry <= 14 
-          ? this.PRIORITY_LEVELS.HIGH 
-          : this.PRIORITY_LEVELS.MEDIUM;
+        const priority =
+          daysToExpiry <= 7
+            ? this.PRIORITY_LEVELS.CRITICAL
+            : daysToExpiry <= 14
+            ? this.PRIORITY_LEVELS.HIGH
+            : this.PRIORITY_LEVELS.MEDIUM;
 
         for (const admin of adminUsers) {
           await this.createNotification(admin.id, {
@@ -209,11 +216,11 @@ export class NotificationService {
             title: "Product Expiry Warning",
             message: `${product.name} expires in ${daysToExpiry} days (${product.expiry_date})`,
             priority,
-            data: { 
-              product_id: product.id, 
+            data: {
+              product_id: product.id,
               expiry_date: product.expiry_date,
-              days_to_expiry: daysToExpiry 
-            }
+              days_to_expiry: daysToExpiry,
+            },
           });
         }
       }
@@ -242,12 +249,17 @@ export class NotificationService {
 
       if (error) throw error;
 
-      const totalRevenue = todaySales.reduce((sum, sale) => sum + (sale.total_amount || 0), 0);
+      const totalRevenue = todaySales.reduce(
+        (sum, sale) => sum + (sale.total_amount || 0),
+        0
+      );
       const totalTransactions = todaySales.length;
 
       const adminUsers = await this.getAdminUsers();
 
-      const reportMessage = `Today's Performance: ${totalTransactions} transactions, ₹${totalRevenue.toFixed(2)} revenue`;
+      const reportMessage = `Today's Performance: ${totalTransactions} transactions, ₹${totalRevenue.toFixed(
+        2
+      )} revenue`;
 
       for (const admin of adminUsers) {
         await this.createNotification(admin.id, {
@@ -255,11 +267,11 @@ export class NotificationService {
           title: "Daily Sales Report",
           message: reportMessage,
           priority: this.PRIORITY_LEVELS.LOW,
-          data: { 
+          data: {
             total_revenue: totalRevenue,
             total_transactions: totalTransactions,
-            date: today.toISOString().split('T')[0]
-          }
+            date: today.toISOString().split("T")[0],
+          },
         });
       }
 
@@ -283,18 +295,20 @@ export class NotificationService {
         .eq("user_id", userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== "PGRST116") throw error;
 
       // Return default preferences if none exist
-      return preferences || {
-        email_notifications: true,
-        browser_notifications: true,
-        low_stock_alerts: true,
-        expiry_warnings: true,
-        sales_reports: true,
-        system_alerts: true,
-        notification_frequency: "immediate" // immediate, hourly, daily
-      };
+      return (
+        preferences || {
+          email_notifications: true,
+          browser_notifications: true,
+          low_stock_alerts: true,
+          expiry_warnings: true,
+          sales_reports: true,
+          system_alerts: true,
+          notification_frequency: "immediate", // immediate, hourly, daily
+        }
+      );
     } catch (error) {
       console.error("Error fetching notification preferences:", error);
       return this.getDefaultPreferences();
@@ -311,7 +325,7 @@ export class NotificationService {
         .upsert({
           user_id: userId,
           ...preferences,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .select()
         .single();
@@ -331,21 +345,21 @@ export class NotificationService {
    */
   static subscribeToNotifications(userId, callback) {
     const subscription = supabase
-      .channel('notifications')
+      .channel("notifications")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
         },
         (payload) => {
           const notification = {
             ...payload.new,
             timeAgo: this.getTimeAgo(payload.new.created_at),
             priorityColor: this.getPriorityColor(payload.new.priority),
-            icon: this.getNotificationIcon(payload.new.type)
+            icon: this.getNotificationIcon(payload.new.type),
           };
           callback(notification);
         }
@@ -364,7 +378,7 @@ export class NotificationService {
       new Notification(notification.title, {
         body: notification.message,
         icon: "/vite.svg",
-        tag: notification.id
+        tag: notification.id,
       });
     }
   }
@@ -399,7 +413,8 @@ export class NotificationService {
 
     if (diffInSeconds < 60) return "Just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   }
 
@@ -409,9 +424,9 @@ export class NotificationService {
   static getPriorityColor(priority) {
     const colors = {
       [this.PRIORITY_LEVELS.LOW]: "text-blue-600 bg-blue-100",
-      [this.PRIORITY_LEVELS.MEDIUM]: "text-yellow-600 bg-yellow-100", 
+      [this.PRIORITY_LEVELS.MEDIUM]: "text-yellow-600 bg-yellow-100",
       [this.PRIORITY_LEVELS.HIGH]: "text-orange-600 bg-orange-100",
-      [this.PRIORITY_LEVELS.CRITICAL]: "text-red-600 bg-red-100"
+      [this.PRIORITY_LEVELS.CRITICAL]: "text-red-600 bg-red-100",
     };
     return colors[priority] || colors[this.PRIORITY_LEVELS.MEDIUM];
   }
@@ -428,7 +443,7 @@ export class NotificationService {
       [this.NOTIFICATION_TYPES.REORDER_SUGGESTION]: "🔄",
       [this.NOTIFICATION_TYPES.DAILY_REPORT]: "📊",
       [this.NOTIFICATION_TYPES.WEEKLY_REPORT]: "📈",
-      [this.NOTIFICATION_TYPES.CRITICAL_ERROR]: "🚨"
+      [this.NOTIFICATION_TYPES.CRITICAL_ERROR]: "🚨",
     };
     return icons[type] || "🔔";
   }
@@ -444,7 +459,7 @@ export class NotificationService {
       expiry_warnings: true,
       sales_reports: true,
       system_alerts: true,
-      notification_frequency: "immediate"
+      notification_frequency: "immediate",
     };
   }
 

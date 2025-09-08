@@ -15,7 +15,9 @@ import {
   Archive,
   X,
   DollarSign,
+  BarChart3,
 } from "lucide-react";
+import EnhancedInventoryDashboard from "../features/inventory/components/EnhancedInventoryDashboard";
 import {
   getStockStatus,
   getExpiryStatus,
@@ -77,6 +79,7 @@ export default function InventoryPage() {
   const { user } = useAuth();
 
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "table" - Default to table (list) view
+  const [activeTab, setActiveTab] = useState("inventory"); // "inventory" or "dashboard"
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -229,256 +232,300 @@ export default function InventoryPage() {
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <SummaryCard
-          title="Total Products"
-          value={formatNumber(analytics.totalProducts)}
-          icon={Package}
-          color="blue"
-        />
-        <SummaryCard
-          title="Low Stock Items"
-          value={formatNumber(analytics.lowStockProducts)}
-          icon={TrendingDown}
-          color="yellow"
-          alert={analytics.lowStockProducts > 0}
-        />
-        <SummaryCard
-          title="Expiring Soon"
-          value={formatNumber(analytics.expiringProducts)}
-          icon={Calendar}
-          color="red"
-          alert={analytics.expiringProducts > 0}
-        />
-        <SummaryCard
-          title="Total Value"
-          value={formatCurrency(analytics.totalValue)}
-          icon={TrendingUp}
-          color="green"
-        />
-      </div>
-
-      {/* Search and Filters */}
-      <ProductSearch
-        onSearch={handleSearch}
-        onFilter={handleFilter}
-        categories={getCategoriesToUse().slice(1)} // Remove "All Categories"
-        brands={productBrands.slice(1)} // Remove "All Brands"
-      />
-
-      {/* View Controls and Results Info */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-600">
-          Showing {startIndex + 1}-
-          {Math.min(startIndex + itemsPerPage, filteredProducts.length)} of{" "}
-          {filteredProducts.length} products
-        </p>
-
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl p-1 shadow-sm">
+        {/* Tab Navigation */}
+        <div className="border-t border-gray-200 mt-6 pt-6">
+          <div className="flex space-x-1">
             <button
-              onClick={() => setViewMode("grid")}
-              className={`group flex items-center justify-center p-2.5 rounded-lg transition-all duration-200 ${
-                viewMode === "grid"
-                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              onClick={() => setActiveTab("inventory")}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${
+                activeTab === "inventory"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               }`}
-              title="Grid View"
             >
-              <Grid
-                className={`h-4 w-4 ${
-                  viewMode === "grid" ? "scale-110" : "group-hover:scale-110"
-                } transition-transform duration-200`}
-              />
+              <Package className="h-4 w-4" />
+              <span>Inventory List</span>
             </button>
             <button
-              onClick={() => setViewMode("table")}
-              className={`group flex items-center justify-center p-2.5 rounded-lg transition-all duration-200 ${
-                viewMode === "table"
-                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              onClick={() => setActiveTab("dashboard")}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${
+                activeTab === "dashboard"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               }`}
-              title="Table View"
             >
-              <List
-                className={`h-4 w-4 ${
-                  viewMode === "table" ? "scale-110" : "group-hover:scale-110"
-                } transition-transform duration-200`}
-              />
+              <BarChart3 className="h-4 w-4" />
+              <span>Enhanced View</span>
             </button>
           </div>
-
-          <button className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-all duration-200">
-            <RefreshCw className="h-4 w-4" />
-            <span>Refresh</span>
-          </button>
         </div>
       </div>
 
-      {/* Products Display */}
-      {viewMode === "grid" ? (
-        /* Grid View */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginatedProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={transformProduct(product)}
-              onEdit={handleEditProduct}
-              onView={handleViewProduct}
-              onDelete={handleArchiveProduct}
+      {/* Tab Content */}
+      {activeTab === "inventory" ? (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <SummaryCard
+              title="Total Products"
+              value={formatNumber(analytics.totalProducts)}
+              icon={Package}
+              color="blue"
             />
-          ))}
-        </div>
-      ) : (
-        /* Table View */
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Stock
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Expiry
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedProducts.map((product) => (
-                  <ProductRow
-                    key={product.id}
-                    product={product}
-                    onView={() => handleViewProduct(product)}
-                    onEdit={() => handleEditProduct(product)}
-                    onDelete={() => handleArchiveProduct(product)}
-                  />
-                ))}
-              </tbody>
-            </table>
+            <SummaryCard
+              title="Low Stock Items"
+              value={formatNumber(analytics.lowStockProducts)}
+              icon={TrendingDown}
+              color="yellow"
+              alert={analytics.lowStockProducts > 0}
+            />
+            <SummaryCard
+              title="Expiring Soon"
+              value={formatNumber(analytics.expiringProducts)}
+              icon={Calendar}
+              color="red"
+              alert={analytics.expiringProducts > 0}
+            />
+            <SummaryCard
+              title="Total Value"
+              value={formatCurrency(analytics.totalValue)}
+              icon={TrendingUp}
+              color="green"
+            />
           </div>
-        </div>
-      )}
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      )}
+          {/* Search and Filters */}
+          <ProductSearch
+            onSearch={handleSearch}
+            onFilter={handleFilter}
+            categories={getCategoriesToUse().slice(1)} // Remove "All Categories"
+            brands={productBrands.slice(1)} // Remove "All Brands"
+          />
 
-      {/* Empty State */}
-      {!isLoading && filteredProducts.length === 0 && (
-        <div className="text-center py-12">
-          <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No products found
-          </h3>
-          <p className="text-gray-500">
-            Try adjusting your search terms or filters.
-          </p>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="bg-white px-6 py-4 border-2 border-gray-200 rounded-xl shadow-sm">
+          {/* View Controls and Results Info */}
           <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-gray-700">
-              Page{" "}
-              <span className="text-blue-600 font-semibold">{currentPage}</span>{" "}
-              of{" "}
-              <span className="text-blue-600 font-semibold">{totalPages}</span>
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="group flex items-center space-x-1 px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 transition-all duration-200"
-              >
-                <span>Previous</span>
-              </button>
-              <button
-                onClick={() =>
-                  setCurrentPage(Math.min(totalPages, currentPage + 1))
-                }
-                disabled={currentPage === totalPages}
-                className="group flex items-center space-x-1 px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 transition-all duration-200"
-              >
-                <span>Next</span>
+            <p className="text-sm text-gray-600">
+              Showing {startIndex + 1}-
+              {Math.min(startIndex + itemsPerPage, filteredProducts.length)} of{" "}
+              {filteredProducts.length} products
+            </p>
+
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl p-1 shadow-sm">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`group flex items-center justify-center p-2.5 rounded-lg transition-all duration-200 ${
+                    viewMode === "grid"
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
+                  title="Grid View"
+                >
+                  <Grid
+                    className={`h-4 w-4 ${
+                      viewMode === "grid"
+                        ? "scale-110"
+                        : "group-hover:scale-110"
+                    } transition-transform duration-200`}
+                  />
+                </button>
+                <button
+                  onClick={() => setViewMode("table")}
+                  className={`group flex items-center justify-center p-2.5 rounded-lg transition-all duration-200 ${
+                    viewMode === "table"
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
+                  title="Table View"
+                >
+                  <List
+                    className={`h-4 w-4 ${
+                      viewMode === "table"
+                        ? "scale-110"
+                        : "group-hover:scale-110"
+                    } transition-transform duration-200`}
+                  />
+                </button>
+              </div>
+
+              <button className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-all duration-200">
+                <RefreshCw className="h-4 w-4" />
+                <span>Refresh</span>
               </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Modals */}
-      {showAddModal && (
-        <ProductModal
-          title="Add New Product"
-          categories={getCategoriesToUse()}
-          onClose={() => setShowAddModal(false)}
-          onSave={async (productData) => {
-            try {
-              await addProduct(productData);
-              setShowAddModal(false);
-              // Success feedback could go here
-            } catch (error) {
-              alert("Error adding product: " + error.message);
-            }
-          }}
-        />
-      )}
+          {/* Products Display */}
+          {viewMode === "grid" ? (
+            /* Grid View */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {paginatedProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={transformProduct(product)}
+                  onEdit={handleEditProduct}
+                  onView={handleViewProduct}
+                  onDelete={handleArchiveProduct}
+                />
+              ))}
+            </div>
+          ) : (
+            /* Table View */
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Product
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Stock
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Price
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Expiry
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedProducts.map((product) => (
+                      <ProductRow
+                        key={product.id}
+                        product={product}
+                        onView={() => handleViewProduct(product)}
+                        onEdit={() => handleEditProduct(product)}
+                        onDelete={() => handleArchiveProduct(product)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-      {showEditModal && selectedProduct && (
-        <ProductModal
-          title="Edit Product"
-          product={selectedProduct}
-          categories={getCategoriesToUse()}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedProduct(null);
-          }}
-          onSave={async (productData) => {
-            try {
-              await updateProduct(selectedProduct.id, productData);
-              setShowEditModal(false);
-              setSelectedProduct(null);
-              // Success feedback could go here
-            } catch (error) {
-              alert("Error updating product: " + error.message);
-            }
-          }}
-        />
-      )}
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          )}
 
-      {showDetailsModal && selectedProduct && (
-        <ProductDetailsModal
-          product={selectedProduct}
-          onClose={() => {
-            setShowDetailsModal(false);
-            setSelectedProduct(null);
-          }}
-          onEdit={() => {
-            setShowDetailsModal(false);
-            setShowEditModal(true);
-          }}
-        />
+          {/* Empty State */}
+          {!isLoading && filteredProducts.length === 0 && (
+            <div className="text-center py-12">
+              <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No products found
+              </h3>
+              <p className="text-gray-500">
+                Try adjusting your search terms or filters.
+              </p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="bg-white px-6 py-4 border-2 border-gray-200 rounded-xl shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium text-gray-700">
+                  Page{" "}
+                  <span className="text-blue-600 font-semibold">
+                    {currentPage}
+                  </span>{" "}
+                  of{" "}
+                  <span className="text-blue-600 font-semibold">
+                    {totalPages}
+                  </span>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="group flex items-center space-x-1 px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 transition-all duration-200"
+                  >
+                    <span>Previous</span>
+                  </button>
+                  <button
+                    onClick={() =>
+                      setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="group flex items-center space-x-1 px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 transition-all duration-200"
+                  >
+                    <span>Next</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modals */}
+          {showAddModal && (
+            <ProductModal
+              title="Add New Product"
+              categories={getCategoriesToUse()}
+              onClose={() => setShowAddModal(false)}
+              onSave={async (productData) => {
+                try {
+                  await addProduct(productData);
+                  setShowAddModal(false);
+                  // Success feedback could go here
+                } catch (error) {
+                  alert("Error adding product: " + error.message);
+                }
+              }}
+            />
+          )}
+
+          {showEditModal && selectedProduct && (
+            <ProductModal
+              title="Edit Product"
+              product={selectedProduct}
+              categories={getCategoriesToUse()}
+              onClose={() => {
+                setShowEditModal(false);
+                setSelectedProduct(null);
+              }}
+              onSave={async (productData) => {
+                try {
+                  await updateProduct(selectedProduct.id, productData);
+                  setShowEditModal(false);
+                  setSelectedProduct(null);
+                  // Success feedback could go here
+                } catch (error) {
+                  alert("Error updating product: " + error.message);
+                }
+              }}
+            />
+          )}
+
+          {showDetailsModal && selectedProduct && (
+            <ProductDetailsModal
+              product={selectedProduct}
+              onClose={() => {
+                setShowDetailsModal(false);
+                setSelectedProduct(null);
+              }}
+              onEdit={() => {
+                setShowDetailsModal(false);
+                setShowEditModal(true);
+              }}
+            />
+          )}
+        </>
+      ) : (
+        // Enhanced Dashboard Tab
+        <EnhancedInventoryDashboard />
       )}
 
       {/* Export Modal */}

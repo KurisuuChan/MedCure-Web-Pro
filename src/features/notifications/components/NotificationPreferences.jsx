@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Settings, Save, Bell, Mail, Monitor, Package, AlertTriangle, BarChart3, Shield } from "lucide-react";
+import {
+  Settings,
+  Save,
+  Bell,
+  Mail,
+  Monitor,
+  Package,
+  AlertTriangle,
+  BarChart3,
+  Shield,
+} from "lucide-react";
 import { NotificationService } from "../../../services/notificationService";
 import { useAuth } from "../../../hooks/useAuth";
 
@@ -12,7 +22,7 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
     expiry_warnings: true,
     sales_reports: true,
     system_alerts: true,
-    notification_frequency: "immediate"
+    notification_frequency: "immediate",
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -21,7 +31,8 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
   const loadPreferences = useCallback(async () => {
     setLoading(true);
     try {
-      const userPreferences = await NotificationService.getNotificationPreferences(user.id);
+      const userPreferences =
+        await NotificationService.getNotificationPreferences(user.id);
       setPreferences(userPreferences);
     } catch (error) {
       console.error("Error loading preferences:", error);
@@ -42,7 +53,10 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
 
     setSaving(true);
     try {
-      await NotificationService.updateNotificationPreferences(user.id, preferences);
+      await NotificationService.updateNotificationPreferences(
+        user.id,
+        preferences
+      );
       setMessage("Preferences saved successfully!");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
@@ -54,26 +68,28 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
   };
 
   const handleToggle = (key) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      [key]: !prev[key]
+      [key]: !prev[key],
     }));
   };
 
   const handleFrequencyChange = (frequency) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
-      notification_frequency: frequency
+      notification_frequency: frequency,
     }));
   };
 
   const requestBrowserPermission = async () => {
     const granted = await NotificationService.requestNotificationPermission();
     if (granted) {
-      setPreferences(prev => ({ ...prev, browser_notifications: true }));
+      setPreferences((prev) => ({ ...prev, browser_notifications: true }));
       setMessage("Browser notifications enabled!");
     } else {
-      setMessage("Browser notifications denied. Please enable in browser settings.");
+      setMessage(
+        "Browser notifications denied. Please enable in browser settings."
+      );
     }
     setTimeout(() => setMessage(""), 3000);
   };
@@ -87,7 +103,9 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-2">
             <Settings className="w-5 h-5 text-gray-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Notification Preferences</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Notification Preferences
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -108,23 +126,31 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
             <>
               {/* Delivery Methods */}
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Delivery Methods</h3>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  Delivery Methods
+                </h3>
                 <div className="space-y-3">
                   {/* Email Notifications */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Mail className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-700">Email Notifications</span>
+                      <span className="text-sm text-gray-700">
+                        Email Notifications
+                      </span>
                     </div>
                     <button
-                      onClick={() => handleToggle('email_notifications')}
+                      onClick={() => handleToggle("email_notifications")}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        preferences.email_notifications ? 'bg-blue-600' : 'bg-gray-200'
+                        preferences.email_notifications
+                          ? "bg-blue-600"
+                          : "bg-gray-200"
                       }`}
                     >
                       <span
                         className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          preferences.email_notifications ? 'translate-x-5' : 'translate-x-0'
+                          preferences.email_notifications
+                            ? "translate-x-5"
+                            : "translate-x-0"
                         }`}
                       />
                     </button>
@@ -134,7 +160,9 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Monitor className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-700">Browser Push Notifications</span>
+                      <span className="text-sm text-gray-700">
+                        Browser Push Notifications
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       {Notification.permission === "default" && (
@@ -146,15 +174,25 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
                         </button>
                       )}
                       <button
-                        onClick={() => handleToggle('browser_notifications')}
+                        onClick={() => handleToggle("browser_notifications")}
                         disabled={Notification.permission === "denied"}
                         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                          preferences.browser_notifications && Notification.permission !== "denied" ? 'bg-blue-600' : 'bg-gray-200'
-                        } ${Notification.permission === "denied" ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          preferences.browser_notifications &&
+                          Notification.permission !== "denied"
+                            ? "bg-blue-600"
+                            : "bg-gray-200"
+                        } ${
+                          Notification.permission === "denied"
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
                       >
                         <span
                           className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            preferences.browser_notifications && Notification.permission !== "denied" ? 'translate-x-5' : 'translate-x-0'
+                            preferences.browser_notifications &&
+                            Notification.permission !== "denied"
+                              ? "translate-x-5"
+                              : "translate-x-0"
                           }`}
                         />
                       </button>
@@ -165,23 +203,31 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
 
               {/* Notification Types */}
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Notification Types</h3>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  Notification Types
+                </h3>
                 <div className="space-y-3">
                   {/* Low Stock Alerts */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Package className="w-4 h-4 text-orange-500" />
-                      <span className="text-sm text-gray-700">Low Stock Alerts</span>
+                      <span className="text-sm text-gray-700">
+                        Low Stock Alerts
+                      </span>
                     </div>
                     <button
-                      onClick={() => handleToggle('low_stock_alerts')}
+                      onClick={() => handleToggle("low_stock_alerts")}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        preferences.low_stock_alerts ? 'bg-blue-600' : 'bg-gray-200'
+                        preferences.low_stock_alerts
+                          ? "bg-blue-600"
+                          : "bg-gray-200"
                       }`}
                     >
                       <span
                         className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          preferences.low_stock_alerts ? 'translate-x-5' : 'translate-x-0'
+                          preferences.low_stock_alerts
+                            ? "translate-x-5"
+                            : "translate-x-0"
                         }`}
                       />
                     </button>
@@ -191,17 +237,23 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <AlertTriangle className="w-4 h-4 text-red-500" />
-                      <span className="text-sm text-gray-700">Expiry Warnings</span>
+                      <span className="text-sm text-gray-700">
+                        Expiry Warnings
+                      </span>
                     </div>
                     <button
-                      onClick={() => handleToggle('expiry_warnings')}
+                      onClick={() => handleToggle("expiry_warnings")}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        preferences.expiry_warnings ? 'bg-blue-600' : 'bg-gray-200'
+                        preferences.expiry_warnings
+                          ? "bg-blue-600"
+                          : "bg-gray-200"
                       }`}
                     >
                       <span
                         className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          preferences.expiry_warnings ? 'translate-x-5' : 'translate-x-0'
+                          preferences.expiry_warnings
+                            ? "translate-x-5"
+                            : "translate-x-0"
                         }`}
                       />
                     </button>
@@ -211,17 +263,23 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <BarChart3 className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm text-gray-700">Sales Reports</span>
+                      <span className="text-sm text-gray-700">
+                        Sales Reports
+                      </span>
                     </div>
                     <button
-                      onClick={() => handleToggle('sales_reports')}
+                      onClick={() => handleToggle("sales_reports")}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        preferences.sales_reports ? 'bg-blue-600' : 'bg-gray-200'
+                        preferences.sales_reports
+                          ? "bg-blue-600"
+                          : "bg-gray-200"
                       }`}
                     >
                       <span
                         className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          preferences.sales_reports ? 'translate-x-5' : 'translate-x-0'
+                          preferences.sales_reports
+                            ? "translate-x-5"
+                            : "translate-x-0"
                         }`}
                       />
                     </button>
@@ -231,17 +289,23 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Shield className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm text-gray-700">System Alerts</span>
+                      <span className="text-sm text-gray-700">
+                        System Alerts
+                      </span>
                     </div>
                     <button
-                      onClick={() => handleToggle('system_alerts')}
+                      onClick={() => handleToggle("system_alerts")}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        preferences.system_alerts ? 'bg-blue-600' : 'bg-gray-200'
+                        preferences.system_alerts
+                          ? "bg-blue-600"
+                          : "bg-gray-200"
                       }`}
                     >
                       <span
                         className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          preferences.system_alerts ? 'translate-x-5' : 'translate-x-0'
+                          preferences.system_alerts
+                            ? "translate-x-5"
+                            : "translate-x-0"
                         }`}
                       />
                     </button>
@@ -251,23 +315,29 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
 
               {/* Frequency */}
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Notification Frequency</h3>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  Notification Frequency
+                </h3>
                 <div className="space-y-2">
                   {[
                     { value: "immediate", label: "Immediate" },
                     { value: "hourly", label: "Hourly Digest" },
-                    { value: "daily", label: "Daily Summary" }
+                    { value: "daily", label: "Daily Summary" },
                   ].map((option) => (
                     <label key={option.value} className="flex items-center">
                       <input
                         type="radio"
                         name="frequency"
                         value={option.value}
-                        checked={preferences.notification_frequency === option.value}
+                        checked={
+                          preferences.notification_frequency === option.value
+                        }
                         onChange={() => handleFrequencyChange(option.value)}
                         className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                       />
-                      <span className="ml-2 text-sm text-gray-700">{option.label}</span>
+                      <span className="ml-2 text-sm text-gray-700">
+                        {option.label}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -275,11 +345,13 @@ const NotificationPreferences = ({ isOpen, onClose }) => {
 
               {/* Message */}
               {message && (
-                <div className={`p-3 rounded-md text-sm ${
-                  message.includes("Error") 
-                    ? "bg-red-100 text-red-700" 
-                    : "bg-green-100 text-green-700"
-                }`}>
+                <div
+                  className={`p-3 rounded-md text-sm ${
+                    message.includes("Error")
+                      ? "bg-red-100 text-red-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
                   {message}
                 </div>
               )}

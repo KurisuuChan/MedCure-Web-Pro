@@ -18,6 +18,7 @@ import "../components/ui/ScrollableModal.css";
 import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
 import { salesService } from "../services/salesService";
+import { NotificationService } from "../services/notificationService";
 
 export default function POSPage() {
   const { user } = useAuth();
@@ -105,6 +106,18 @@ export default function POSPage() {
         customer_name: "",
         customer_phone: "",
       });
+
+      // Trigger stock level checks for notifications after successful sale
+      try {
+        console.log("🔔 Checking for low stock notifications after sale...");
+        await NotificationService.generateLowStockAlerts();
+        await NotificationService.generateExpiryWarnings();
+        console.log("✅ Stock level notifications checked successfully");
+      } catch (notificationError) {
+        console.error("⚠️ Error generating notifications:", notificationError);
+        // Don't fail the sale if notifications fail
+      }
+
       // Refresh transaction history if modal is open
       if (showTransactionHistory) {
         console.log("🔄 Refreshing transaction history after payment...");

@@ -9,6 +9,8 @@ import {
   BarChart3,
   Settings,
   X,
+  UserCheck,
+  Truck,
 } from "lucide-react";
 
 const navigationItems = [
@@ -41,6 +43,19 @@ const navigationItems = [
     href: "/analytics",
     icon: BarChart3,
     roles: ["admin", "manager"],
+  },
+  // Phase 4 Advanced Management Features
+  {
+    name: "User Management",
+    href: "/user-management",
+    icon: UserCheck,
+    roles: ["super_admin", "admin"],
+  },
+  {
+    name: "Supplier Management",
+    href: "/supplier-management",
+    icon: Truck,
+    roles: ["super_admin", "admin", "manager"],
   },
 ];
 

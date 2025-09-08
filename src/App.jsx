@@ -27,6 +27,10 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 
+// Import Phase 4 Advanced Management Pages
+import UserManagementPage from "./pages/UserManagementPage";
+import SupplierManagementPage from "./pages/SupplierManagementPage";
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -112,6 +116,52 @@ function AppContent() {
           <PageErrorBoundary title="Analytics Error">
             <ProtectedRoute requiredRole={["admin", "manager"]}>
               <AnalyticsPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      {/* Advanced Management Routes - Phase 4 Features */}
+      <Route
+        path="/admin/users"
+        element={
+          <PageErrorBoundary title="User Management Error">
+            <ProtectedRoute requiredRole={["super_admin", "admin"]}>
+              <UserManagementPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/admin/suppliers"
+        element={
+          <PageErrorBoundary title="Supplier Management Error">
+            <ProtectedRoute requiredRole={["super_admin", "admin", "manager"]}>
+              <SupplierManagementPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      {/* Alternative shorter routes */}
+      <Route
+        path="/user-management"
+        element={
+          <PageErrorBoundary title="User Management Error">
+            <ProtectedRoute requiredRole={["super_admin", "admin"]}>
+              <UserManagementPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/supplier-management"
+        element={
+          <PageErrorBoundary title="Supplier Management Error">
+            <ProtectedRoute requiredRole={["super_admin", "admin", "manager"]}>
+              <SupplierManagementPage />
             </ProtectedRoute>
           </PageErrorBoundary>
         }
