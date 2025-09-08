@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Bell, Search, Settings, User, LogOut, Menu } from "lucide-react";
+import NotificationCenter from "../../features/notifications/components/NotificationCenter";
+import NotificationPreferences from "../../features/notifications/components/NotificationPreferences";
 
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showNotificationPreferences, setShowNotificationPreferences] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -13,10 +15,6 @@ export function Header({ onToggleSidebar }) {
     } catch (error) {
       console.error("Error signing out:", error);
     }
-  };
-
-  const handleNotificationClick = () => {
-    setShowNotifications(!showNotifications);
   };
 
   const handleSearchClick = () => {
@@ -72,19 +70,14 @@ export function Header({ onToggleSidebar }) {
             <Search className="h-5 w-5 text-gray-600" />
           </button>
 
-          {/* Notifications - Enhanced */}
-          <button
-            onClick={handleNotificationClick}
-            className="relative p-2.5 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm"
-          >
-            <Bell className="h-5 w-5 text-gray-600" />
-            <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-md">
-              3
-            </span>
-          </button>
+          {/* Notifications - Enhanced with NotificationCenter */}
+          <NotificationCenter />
 
           {/* Settings - Enhanced */}
-          <button className="p-2.5 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm">
+          <button 
+            onClick={() => setShowNotificationPreferences(true)}
+            className="p-2.5 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm"
+          >
             <Settings className="h-5 w-5 text-gray-600" />
           </button>
 
@@ -135,6 +128,12 @@ export function Header({ onToggleSidebar }) {
           </div>
         </div>
       </div>
+
+      {/* Notification Preferences Modal */}
+      <NotificationPreferences 
+        isOpen={showNotificationPreferences}
+        onClose={() => setShowNotificationPreferences(false)}
+      />
     </header>
   );
 }
