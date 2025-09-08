@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -12,18 +12,42 @@ import {
   RefreshCw,
   Download,
   Filter,
+  Tag,
 } from "lucide-react";
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import { useInventory } from "../features/inventory/hooks/useInventory";
+import { IntelligentCategoryService } from "../services/intelligentCategoryService";
 
 export default function AnalyticsPage() {
   const { allProducts, analytics, isLoading } = useInventory();
   const [dateRange, setDateRange] = useState("30"); // days
+  const [categoryInsights, setCategoryInsights] = useState(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
+
+  // Load intelligent category insights
+  useEffect(() => {
+    const loadCategoryInsights = async () => {
+      setLoadingInsights(true);
+      try {
+        const result = await IntelligentCategoryService.getCategoryInsights();
+        if (result.success) {
+          setCategoryInsights(result.data);
+        }
+      } catch (error) {
+        console.error("Failed to load category insights:", error);
+      } finally {
+        setLoadingInsights(false);
+      }
+    };
+
+    loadCategoryInsights();
+  }, [allProducts]);
 
   // Debug logging
   console.log("🔍 [AnalyticsPage] Debug Info:", {
     allProductsCount: allProducts?.length || 0,
     analyticsData: analytics,
+    categoryInsights,
     isLoading,
     firstProduct: allProducts?.[0],
   });
@@ -360,6 +384,91 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
+
+      {/* Intelligent Category Insights */}
+      {categoryInsights && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+              <Tag className="h-5 w-5 text-blue-600" />
+              <span>Intelligent Category Insights</span>
+            </h3>
+            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+              Enhanced Analytics
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
+                {categoryInsights.total_categories}
+              </div>
+              <div className="text-xs text-gray-600">Total Categories</div>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(categoryInsights.total_value)}
+              </div>
+              <div className="text-xs text-gray-600">Total Value</div>
+            </div>
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">
+                {categoryInsights.auto_created_categories?.length || 0}
+              </div>
+              <div className="text-xs text-gray-600">Auto-Created</div>
+            </div>
+            <div className="text-center p-4 bg-orange-50 rounded-lg">
+              <div className="text-2xl font-bold text-orange-600">
+                {categoryInsights.categories_needing_attention?.length || 0}
+              </div>
+              <div className="text-xs text-gray-600">Need Attention</div>
+            </div>
+          </div>
+
+          {categoryInsights.top_value_categories?.length > 0 && (
+            <div>
+              <h4 className="font-medium text-gray-900 mb-3">
+                Top Value Categories
+              </h4>
+              <div className="space-y-2">
+                {categoryInsights.top_value_categories
+                  .slice(0, 5)
+                  .map((category, index) => (
+                    <div
+                      key={category.name}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className={`w-3 h-3 rounded-full ${
+                            index === 0
+                              ? "bg-yellow-500"
+                              : index === 1
+                              ? "bg-gray-400"
+                              : index === 2
+                              ? "bg-orange-500"
+                              : "bg-blue-500"
+                          }`}
+                        ></div>
+                        <span className="text-sm font-medium">
+                          {category.name}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-gray-900">
+                          {formatCurrency(category.stats?.total_value || 0)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {category.stats?.total_products || 0} products
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Expiry Analysis & Top Products */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

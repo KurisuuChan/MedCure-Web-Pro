@@ -451,8 +451,7 @@ export class PricingService {
 
       const updates = {
         cost_price: pricingData.cost_price,
-        base_price: pricingData.base_price,
-        price_per_piece: pricingData.price_per_piece,
+        price_per_piece: pricingData.price_per_piece, // Single authoritative unit price
         margin_percentage: pricingData.margin_percentage,
       };
 

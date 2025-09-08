@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Search, Package, Plus, AlertTriangle } from "lucide-react";
+import {
+  Search,
+  Package,
+  Plus,
+  AlertTriangle,
+  Filter,
+  Tag,
+} from "lucide-react";
 import { formatCurrency } from "../../../utils/formatting";
+import { IntelligentCategoryService } from "../../../services/intelligentCategoryService";
 import VariantSelectionModal from "./VariantSelectionModal";
 
 export default function ProductSelector({
@@ -13,22 +21,69 @@ export default function ProductSelector({
   const [filteredProducts, setFilteredProducts] = useState(products);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [availableCategories, setAvailableCategories] = useState([]);
+  const [intelligentCategories, setIntelligentCategories] = useState([]);
 
-  // Filter products based on search term
+  // Load intelligent categories
   useEffect(() => {
-    if (!searchTerm) {
-      setFilteredProducts(products);
-    } else {
+    const loadIntelligentCategories = async () => {
+      try {
+        const result = await IntelligentCategoryService.getCategoryInsights();
+        if (result.success) {
+          setIntelligentCategories(result.data.top_value_categories || []);
+        }
+      } catch (error) {
+        console.error("Failed to load intelligent categories:", error);
+      }
+    };
+    loadIntelligentCategories();
+  }, []);
+
+  // Extract unique categories from products and sort by intelligent category insights
+  useEffect(() => {
+    const categories = [...new Set(products.map((p) => p.category))].filter(
+      Boolean
+    );
+
+    // Sort categories by intelligent category insights (value-based)
+    const sortedCategories = categories.sort((a, b) => {
+      const categoryA = intelligentCategories.find((cat) => cat.name === a);
+      const categoryB = intelligentCategories.find((cat) => cat.name === b);
+
+      const valueA = categoryA?.stats?.total_value || 0;
+      const valueB = categoryB?.stats?.total_value || 0;
+
+      return valueB - valueA; // Sort by highest value first
+    });
+
+    setAvailableCategories(sortedCategories);
+  }, [products, intelligentCategories]);
+
+  // Filter products based on search term and category
+  useEffect(() => {
+    let filtered = products;
+
+    // Filter by category first
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(
+        (product) => product.category === selectedCategory
+      );
+    }
+
+    // Then filter by search term
+    if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      const filtered = products.filter(
+      filtered = filtered.filter(
         (product) =>
           product.name.toLowerCase().includes(term) ||
           product.brand.toLowerCase().includes(term) ||
           product.category.toLowerCase().includes(term)
       );
-      setFilteredProducts(filtered);
     }
-  }, [searchTerm, products]);
+
+    setFilteredProducts(filtered);
+  }, [searchTerm, selectedCategory, products]);
 
   const handleProductClick = (product) => {
     if (product.stock_in_pieces > 0) {
@@ -63,7 +118,7 @@ export default function ProductSelector({
         </h3>
 
         {/* Search */}
-        <div className="relative">
+        <div className="relative mb-4">
           <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
           <input
             type="text"
@@ -72,6 +127,51 @@ export default function ProductSelector({
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
           />
+        </div>
+
+        {/* Category Filter */}
+        <div className="space-y-2">
+          <label className="flex items-center text-sm font-medium text-gray-700">
+            <Filter className="h-4 w-4 mr-2" />
+            Filter by Category
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedCategory === "all"
+                  ? "bg-blue-100 text-blue-700 border-2 border-blue-300"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent"
+              }`}
+            >
+              <Tag className="h-4 w-4 mr-1 inline" />
+              All Categories
+            </button>
+            {availableCategories.map((category) => {
+              const categoryInsight = intelligentCategories.find(
+                (cat) => cat.name === category
+              );
+              const isHighValue =
+                categoryInsight && categoryInsight.stats?.total_value > 1000;
+
+              return (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
+                    selectedCategory === category
+                      ? "bg-blue-100 text-blue-700 border-2 border-blue-300"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent"
+                  }`}
+                >
+                  {category}
+                  {isHighValue && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full"></span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

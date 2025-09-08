@@ -37,7 +37,7 @@ export {
   FeatureErrorBoundary,
 } from "./ErrorBoundary";
 export { default as withErrorBoundary } from "./withErrorBoundary";
-export { ExportModal } from "./ExportModal";
+export { default as ExportModal } from "./ExportModal";
 export { ImportModal } from "./ImportModal";
 
 // Re-export commonly used combinations
@@ -48,5 +48,4 @@ export * from "./Button";
 export * from "./Alert";
 export * from "./Input";
 export * from "./ErrorBoundary";
-export * from "./ExportModal";
 export * from "./ImportModal";

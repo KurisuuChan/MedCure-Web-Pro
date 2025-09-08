@@ -13,6 +13,7 @@ import {
   Save,
   RefreshCw,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   Package,
   FolderPlus,
@@ -26,6 +27,9 @@ import { formatDate } from "../utils/dateTime";
 import { CategoryService, ArchiveService } from "../services/enhancedServices";
 import { UserService, DashboardService } from "../services/dataService";
 import { AuditService, ReportsService } from "../services/auditReportsService";
+import { LoginTrackingService } from "../services/loginTrackingService";
+import { IntelligentCategoryService } from "../services/intelligentCategoryService";
+import LoginTrackingTest from "../components/admin/LoginTrackingTest";
 import "../debug/dbDebug.js"; // Load database debug tools
 
 // Enhanced management components for the new features
@@ -52,6 +56,7 @@ export default function ManagementPage() {
     { id: "reports", label: "Reports", icon: BarChart3 },
     { id: "audit", label: "Audit Logs", icon: FileText },
     { id: "backup", label: "Backup & Security", icon: Shield },
+    { id: "debug", label: "Login Debug", icon: Activity },
   ];
 
   // Load dashboard data on component mount
@@ -170,139 +175,136 @@ export default function ManagementPage() {
               <Settings className="h-8 w-8 text-orange-600" />
             </div>
             <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                  <span>System Management</span>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                    Admin
-                  </span>
-                </h1>
-                <p className="text-gray-600 mt-1">
-                  Manage users, settings, and system configuration with full
-                  administrative control
-                </p>
-              </div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                <span>System Management</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                  Admin
+                </span>
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Manage users, settings, and system configuration with full
+                administrative control
+              </p>
             </div>
-            <div className="flex space-x-3">
-              <button className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-all duration-200">
-                <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-                <span className="font-medium">Export Data</span>
-              </button>
-              <button className="group flex items-center space-x-2 px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow-md">
-                <RefreshCw className="h-4 w-4 group-hover:rotate-180 transition-transform duration-300" />
-                <span className="font-medium">Refresh</span>
-              </button>
-            </div>
+          </div>
+          <div className="flex space-x-3">
+            <button className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-all duration-200">
+              <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Export Data</span>
+            </button>
+            <button className="group flex items-center space-x-2 px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow-md">
+              <RefreshCw className="h-4 w-4 group-hover:rotate-180 transition-transform duration-300" />
+              <span className="font-medium">Refresh</span>
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* System Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {loading ? "..." : systemStats.totalUsers}
-                </p>
-                </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
+      {/* System Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Users</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : systemStats.totalUsers}
+              </p>
             </div>
-            <p className="text-xs text-green-600 mt-2">
-              {systemStats.activeUsers} active users
-            </p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Products</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {loading ? "..." : formatNumber(systemStats.totalProducts)}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <Package className="h-6 w-6 text-green-600" />
-              </div>
+            <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Users className="h-6 w-6 text-blue-600" />
             </div>
-            <p className="text-xs text-red-600 mt-2">
-              {systemStats.lowStockItems} low stock items
-            </p>
           </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  Today's Sales
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {loading ? "..." : formatCurrency(systemStats.todaySales)}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-            <p className="text-xs text-green-600 mt-2">↗ System active</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  System Status
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {systemStats.systemUptime}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <Activity className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-600 mt-2">
-              {systemStats.storageUsed} / {systemStats.storageTotal} used
-            </p>
-          </div>
+          <p className="text-xs text-green-600 mt-2">
+            {systemStats.activeUsers} active users
+          </p>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === tab.id
-                        ? "border-blue-500 text-blue-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Products</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : formatNumber(systemStats.totalProducts)}
+              </p>
+            </div>
+            <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <Package className="h-6 w-6 text-green-600" />
+            </div>
           </div>
-
-          {/* Tab Content */}
-          <div className="p-6">
-            {activeTab === "users" && <UserManagement />}
-            {activeTab === "categories" && <CategoryManagement />}
-            {activeTab === "archived" && <ArchivedProductsManagement />}
-            {activeTab === "settings" && <SystemSettings />}
-            {activeTab === "reports" && <Reports />}
-            {activeTab === "audit" && <AuditLogs />}
-            {activeTab === "backup" && <BackupSecurity />}
-          </div>
+          <p className="text-xs text-red-600 mt-2">
+            {systemStats.lowStockItems} low stock items
+          </p>
         </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Today's Sales</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? "..." : formatCurrency(systemStats.todaySales)}
+              </p>
+            </div>
+            <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <DollarSign className="h-6 w-6 text-yellow-600" />
+            </div>
+          </div>
+          <p className="text-xs text-green-600 mt-2">↗ System active</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">System Status</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {systemStats.systemUptime}
+              </p>
+            </div>
+            <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <Activity className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+          <p className="text-xs text-gray-600 mt-2">
+            {systemStats.storageUsed} / {systemStats.storageTotal} used
+          </p>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeTab === "users" && <UserManagement />}
+          {activeTab === "categories" && <CategoryManagement />}
+          {activeTab === "archived" && <ArchivedProductsManagement />}
+          {activeTab === "settings" && <SystemSettings />}
+          {activeTab === "reports" && <Reports />}
+          {activeTab === "audit" && <AuditLogs />}
+          {activeTab === "backup" && <BackupSecurity />}
+          {activeTab === "debug" && <LoginTrackingTest />}
+        </div>
+      </div>
     </div>
   );
 }
@@ -321,8 +323,9 @@ function UserManagement() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      console.log("👥 [UserManagement] Loading users...");
+      console.log("👥 [UserManagement] Loading users with real login data...");
 
+      // Fetch users data from the database
       const result = await UserService.getUsers();
       console.log("📊 [UserManagement] User service response:", {
         success: result.success,
@@ -330,13 +333,69 @@ function UserManagement() {
         hasError: !!result.error,
       });
 
-      if (result.success) {
-        console.log("✅ [UserManagement] Setting users:", result.data);
-        setUsers(result.data);
+      if (result.success && result.data) {
+        // Enhance user data with real login tracking information
+        const usersWithLoginData = await Promise.all(
+          result.data.map(async (user) => {
+            try {
+              // Get login history for this user
+              const loginHistory = await LoginTrackingService.getLoginHistory(
+                user.id,
+                1
+              );
+
+              // Use the most recent login from tracking service, or fall back to user table data
+              let lastLogin = user.last_login;
+              if (loginHistory.success && loginHistory.data.length > 0) {
+                const mostRecentLogin = loginHistory.data[0];
+                if (
+                  mostRecentLogin.action_type === "login" &&
+                  mostRecentLogin.metadata?.timestamp
+                ) {
+                  lastLogin = mostRecentLogin.metadata.timestamp;
+                }
+              }
+
+              return {
+                ...user,
+                last_login: lastLogin,
+                is_online: LoginTrackingService.isUserOnline(lastLogin),
+                formatted_last_login:
+                  LoginTrackingService.formatLastLogin(lastLogin),
+              };
+            } catch (error) {
+              console.warn(
+                `⚠️ [UserManagement] Failed to get login data for user ${user.id}:`,
+                error
+              );
+              return {
+                ...user,
+                is_online: false,
+                formatted_last_login: user.last_login
+                  ? LoginTrackingService.formatLastLogin(user.last_login)
+                  : "Never",
+              };
+            }
+          })
+        );
+
+        console.log(
+          "✅ [UserManagement] Enhanced users with login data:",
+          usersWithLoginData
+        );
+        setUsers(usersWithLoginData);
       } else {
         console.warn("⚠️ [UserManagement] Using fallback data:", result.error);
         // Use the fallback data from the service
-        setUsers(result.data);
+        setUsers(
+          result.data.map((user) => ({
+            ...user,
+            is_online: false,
+            formatted_last_login: user.last_login
+              ? LoginTrackingService.formatLastLogin(user.last_login)
+              : "Never",
+          }))
+        );
       }
     } catch (error) {
       console.error("❌ [UserManagement] Error loading users:", error);
@@ -350,6 +409,8 @@ function UserManagement() {
           role: "admin",
           is_active: true,
           last_login: "2024-01-15T10:30:00Z",
+          is_online: false,
+          formatted_last_login: "5 days ago",
         },
         {
           id: 2,
@@ -359,6 +420,8 @@ function UserManagement() {
           role: "manager",
           is_active: true,
           last_login: "2024-01-15T09:15:00Z",
+          is_online: false,
+          formatted_last_login: "5 days ago",
         },
       ]);
     } finally {
@@ -370,10 +433,19 @@ function UserManagement() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-lg font-medium text-gray-900">User Management</h3>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
-          <UserPlus className="h-4 w-4" />
-          <span>Add User</span>
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={loadUsers}
+            className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 flex items-center space-x-2 text-sm"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Refresh</span>
+          </button>
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <UserPlus className="h-4 w-4" />
+            <span>Add User</span>
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -419,18 +491,37 @@ function UserManagement() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        user.is_active
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {user.is_active ? "Active" : "Inactive"}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          user.is_active
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {user.is_active ? "Active" : "Inactive"}
+                      </span>
+                      {user.is_online && (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                          <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                          Online
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.last_login ? formatDate(user.last_login) : "Never"}
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={
+                          user.is_online ? "text-green-600 font-medium" : ""
+                        }
+                      >
+                        {user.formatted_last_login || "Never"}
+                      </span>
+                      {user.is_online && (
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                     <button className="text-blue-600 hover:text-blue-900">
@@ -458,15 +549,20 @@ function CategoryManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categoryInsights, setCategoryInsights] = useState(null);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     loadCategories();
+    loadCategoryInsights();
   }, []);
 
   const loadCategories = async () => {
     try {
       setLoading(true);
-      console.log("🏷️ [CategoryManagement] Loading categories...");
+      console.log(
+        "🏷️ [CategoryManagement] Loading categories with real-time stats..."
+      );
 
       const result = await CategoryService.getAllCategories();
       console.log("📊 [CategoryManagement] Category service response:", {
@@ -476,14 +572,30 @@ function CategoryManagement() {
       });
 
       if (result.success) {
-        console.log("✅ [CategoryManagement] Setting categories:", result.data);
-        setCategories(result.data);
+        // Calculate real-time stats for each category
+        const categoriesWithRealTimeStats = await Promise.all(
+          result.data.map(async (category) => {
+            const stats =
+              await IntelligentCategoryService.calculateCategoryStats(
+                category.id
+              );
+            return {
+              ...category,
+              stats: stats,
+            };
+          })
+        );
+
+        console.log(
+          "✅ [CategoryManagement] Setting categories with real-time stats:",
+          categoriesWithRealTimeStats
+        );
+        setCategories(categoriesWithRealTimeStats);
       } else {
         console.error(
           "❌ [CategoryManagement] Categories failed to load:",
           result.error
         );
-        // Set empty array on failure
         setCategories([]);
       }
     } catch (error) {
@@ -494,10 +606,28 @@ function CategoryManagement() {
     }
   };
 
+  const loadCategoryInsights = async () => {
+    try {
+      console.log("📈 [CategoryManagement] Loading category insights...");
+      const result = await IntelligentCategoryService.getCategoryInsights();
+
+      if (result.success) {
+        setCategoryInsights(result.data);
+        console.log(
+          "✅ [CategoryManagement] Category insights loaded:",
+          result.data
+        );
+      }
+    } catch (error) {
+      console.error("❌ [CategoryManagement] Error loading insights:", error);
+    }
+  };
+
   const handleCreateCategory = async (categoryData) => {
     const result = await CategoryService.createCategory(categoryData);
     if (result.success) {
       await loadCategories();
+      await loadCategoryInsights();
       setShowAddModal(false);
     } else {
       alert("Error creating category: " + result.error);
@@ -511,6 +641,7 @@ function CategoryManagement() {
     );
     if (result.success) {
       await loadCategories();
+      await loadCategoryInsights();
       setShowEditModal(false);
       setSelectedCategory(null);
     } else {
@@ -527,9 +658,34 @@ function CategoryManagement() {
       const result = await CategoryService.deleteCategory(category.id);
       if (result.success) {
         await loadCategories();
+        await loadCategoryInsights();
       } else {
         alert("Error deleting category: " + result.error);
       }
+    }
+  };
+
+  const handleUpdateAllStats = async () => {
+    try {
+      setUpdating(true);
+      console.log(
+        "🔄 [CategoryManagement] Updating all category statistics..."
+      );
+
+      const result = await IntelligentCategoryService.updateAllCategoryStats();
+
+      if (result.success) {
+        await loadCategories();
+        await loadCategoryInsights();
+        alert(`✅ Successfully updated ${result.updated} category statistics!`);
+      } else {
+        alert("Error updating statistics: " + result.error);
+      }
+    } catch (error) {
+      console.error("❌ Error updating category stats:", error);
+      alert("Error updating statistics: " + error.message);
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -538,20 +694,98 @@ function CategoryManagement() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h3 className="text-lg font-medium text-gray-900">
-            Category Management
+            Professional Category Management
           </h3>
           <p className="text-sm text-gray-600">
-            Manage product categories and their settings
+            Intelligent category system with real-time calculations and
+            auto-creation
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <FolderPlus className="h-4 w-4" />
-          <span>Add Category</span>
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleUpdateAllStats}
+            disabled={updating}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2 disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${updating ? "animate-spin" : ""}`}
+            />
+            <span>{updating ? "Updating..." : "Refresh Stats"}</span>
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <FolderPlus className="h-4 w-4" />
+            <span>Add Category</span>
+          </button>
+        </div>
       </div>
+
+      {/* Category Insights Dashboard */}
+      {categoryInsights && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm">Total Categories</p>
+                <p className="text-2xl font-bold">
+                  {categoryInsights.total_categories}
+                </p>
+              </div>
+              <Tag className="h-8 w-8 text-blue-200" />
+            </div>
+            <p className="text-xs text-blue-200 mt-2">
+              {categoryInsights.auto_created_categories.length} auto-created
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-sm">Total Value</p>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(categoryInsights.total_value)}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-green-200" />
+            </div>
+            <p className="text-xs text-green-200 mt-2">
+              {categoryInsights.total_products} total products
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-4 rounded-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-yellow-100 text-sm">Needs Attention</p>
+                <p className="text-2xl font-bold">
+                  {categoryInsights.categories_needing_attention.length}
+                </p>
+              </div>
+              <TrendingDown className="h-8 w-8 text-yellow-200" />
+            </div>
+            <p className="text-xs text-yellow-200 mt-2">
+              {categoryInsights.total_low_stock} low stock items
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm">Low Performing</p>
+                <p className="text-2xl font-bold">
+                  {categoryInsights.low_performing_categories.length}
+                </p>
+              </div>
+              <BarChart3 className="h-8 w-8 text-purple-200" />
+            </div>
+            <p className="text-xs text-purple-200 mt-2">
+              Categories under ₱1,000
+            </p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -560,7 +794,7 @@ function CategoryManagement() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.map((category) => (
-            <CategoryCard
+            <EnhancedCategoryCard
               key={category.id}
               category={category}
               onEdit={(cat) => {
@@ -1145,76 +1379,76 @@ function AuditLogs() {
   const [auditSummary, setAuditSummary] = useState(null);
 
   useEffect(() => {
+    const loadAuditLogs = async () => {
+      try {
+        setLoading(true);
+        console.log("📋 [AuditLogs] Loading audit logs with filters:", filters);
+
+        const result = await AuditService.getAuditLogs(filters);
+        console.log("📊 [AuditLogs] Audit service response:", {
+          success: result.success,
+          dataCount: result.data ? result.data.length : 0,
+          hasError: !!result.error,
+        });
+
+        if (result.success) {
+          console.log("✅ [AuditLogs] Setting audit logs:", result.data);
+          setAuditLogs(result.data);
+        } else {
+          console.error(
+            "❌ [AuditLogs] Failed to load audit logs:",
+            result.error
+          );
+          // Fallback to mock data if real data fails
+          setAuditLogs([
+            {
+              id: 1,
+              action: "Product Updated",
+              user: "Sarah Pharmacist",
+              details: "Updated stock for Paracetamol 500mg",
+              timestamp: "2024-01-15T11:30:00Z",
+            },
+            {
+              id: 2,
+              action: "Sale Completed",
+              user: "Mike Cashier",
+              details: "Sale #INV-001234 - Total: ₱2,450.00",
+              timestamp: "2024-01-15T11:25:00Z",
+            },
+            {
+              id: 3,
+              action: "User Login",
+              user: "John Admin",
+              details: "Administrator logged in from 192.168.1.100",
+              timestamp: "2024-01-15T10:30:00Z",
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error("❌ [AuditLogs] Error loading audit logs:", error);
+        setAuditLogs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const loadAuditSummary = async () => {
+      try {
+        console.log("📊 [AuditLogs] Loading audit summary...");
+        const result = await AuditService.getAuditSummary(30);
+
+        if (result.success) {
+          console.log("✅ [AuditLogs] Audit summary loaded:", result.data);
+          setAuditSummary(result.data);
+        }
+      } catch (error) {
+        console.error("❌ [AuditLogs] Error loading audit summary:", error);
+      }
+    };
+
     loadAuditLogs();
     loadAuditSummary();
   }, [filters]);
-
-  const loadAuditLogs = async () => {
-    try {
-      setLoading(true);
-      console.log("📋 [AuditLogs] Loading audit logs with filters:", filters);
-
-      const result = await AuditService.getAuditLogs(filters);
-      console.log("📊 [AuditLogs] Audit service response:", {
-        success: result.success,
-        dataCount: result.data ? result.data.length : 0,
-        hasError: !!result.error,
-      });
-
-      if (result.success) {
-        console.log("✅ [AuditLogs] Setting audit logs:", result.data);
-        setAuditLogs(result.data);
-      } else {
-        console.error(
-          "❌ [AuditLogs] Failed to load audit logs:",
-          result.error
-        );
-        // Fallback to mock data if real data fails
-        setAuditLogs([
-          {
-            id: 1,
-            action: "Product Updated",
-            user: "Sarah Pharmacist",
-            details: "Updated stock for Paracetamol 500mg",
-            timestamp: "2024-01-15T11:30:00Z",
-          },
-          {
-            id: 2,
-            action: "Sale Completed",
-            user: "Mike Cashier",
-            details: "Sale #INV-001234 - Total: ₱2,450.00",
-            timestamp: "2024-01-15T11:25:00Z",
-          },
-          {
-            id: 3,
-            action: "User Login",
-            user: "John Admin",
-            details: "Administrator logged in from 192.168.1.100",
-            timestamp: "2024-01-15T10:30:00Z",
-          },
-        ]);
-      }
-    } catch (error) {
-      console.error("❌ [AuditLogs] Error loading audit logs:", error);
-      setAuditLogs([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAuditSummary = async () => {
-    try {
-      console.log("📊 [AuditLogs] Loading audit summary...");
-      const result = await AuditService.getAuditSummary(30);
-
-      if (result.success) {
-        console.log("✅ [AuditLogs] Audit summary loaded:", result.data);
-        setAuditSummary(result.data);
-      }
-    } catch (error) {
-      console.error("❌ [AuditLogs] Error loading audit summary:", error);
-    }
-  };
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({
@@ -1349,17 +1583,43 @@ function AuditLogs() {
 // SUPPORTING UI COMPONENTS
 // ==========================================
 
-// Category Card Component
-function CategoryCard({ category, onEdit, onDelete }) {
+// Enhanced Category Card Component with Real-time Financial Data
+function EnhancedCategoryCard({ category, onEdit, onDelete }) {
   const stats = category.stats || {
     total_products: 0,
     active_products: 0,
     total_value: 0,
+    total_cost_value: 0,
+    total_profit_potential: 0,
     low_stock_count: 0,
+    out_of_stock_count: 0,
+    average_price: 0,
+  };
+
+  const profitMargin =
+    stats.total_value > 0
+      ? ((stats.total_profit_potential / stats.total_value) * 100).toFixed(1)
+      : 0;
+
+  const getPerformanceColor = () => {
+    if (stats.total_value > 50000) return "green";
+    if (stats.total_value > 10000) return "blue";
+    if (stats.total_value > 1000) return "yellow";
+    return "red";
+  };
+
+  const performanceColor = getPerformanceColor();
+  const colorClasses = {
+    green: "border-green-200 bg-green-50",
+    blue: "border-blue-200 bg-blue-50",
+    yellow: "border-yellow-200 bg-yellow-50",
+    red: "border-red-200 bg-red-50",
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <div
+      className={`bg-white rounded-lg border-2 p-6 hover:shadow-lg transition-all duration-200 ${colorClasses[performanceColor]}`}
+    >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-3">
           <div
@@ -1372,8 +1632,13 @@ function CategoryCard({ category, onEdit, onDelete }) {
             <Tag className="h-6 w-6" />
           </div>
           <div>
-            <h4 className="text-lg font-medium text-gray-900">
-              {category.name}
+            <h4 className="text-lg font-medium text-gray-900 flex items-center space-x-2">
+              <span>{category.name}</span>
+              {category.metadata?.auto_created && (
+                <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                  Auto
+                </span>
+              )}
             </h4>
             <p className="text-sm text-gray-500">{category.description}</p>
           </div>
@@ -1381,34 +1646,72 @@ function CategoryCard({ category, onEdit, onDelete }) {
         <div className="flex items-center space-x-1">
           <button
             onClick={() => onEdit(category)}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
           >
             <Edit className="h-4 w-4" />
           </button>
           <button
             onClick={() => onDelete(category)}
-            className="text-gray-400 hover:text-red-600"
+            className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors"
           >
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
+      {/* Financial Overview */}
+      <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
+        <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+          <DollarSign className="h-4 w-4 mr-1 text-green-600" />
+          Financial Overview
+        </h5>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-gray-500">Total Value</p>
+            <p className="text-lg font-bold text-green-600">
+              {formatCurrency(stats.total_value)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Profit Potential</p>
+            <p className="text-lg font-bold text-blue-600">
+              {formatCurrency(stats.total_profit_potential)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Avg. Price</p>
+            <p className="text-sm font-medium text-gray-700">
+              {formatCurrency(stats.average_price)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Margin</p>
+            <p
+              className={`text-sm font-medium ${
+                profitMargin > 20
+                  ? "text-green-600"
+                  : profitMargin > 10
+                  ? "text-yellow-600"
+                  : "text-red-600"
+              }`}
+            >
+              {profitMargin}%
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Product Statistics */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="text-center p-2 bg-gray-50 rounded-lg">
           <p className="text-sm font-medium text-gray-600">Products</p>
           <p className="text-xl font-bold text-gray-900">
             {stats.active_products}
           </p>
+          <p className="text-xs text-gray-500">{stats.total_products} total</p>
         </div>
-        <div>
-          <p className="text-sm font-medium text-gray-600">Total Value</p>
-          <p className="text-xl font-bold text-gray-900">
-            {formatCurrency(stats.total_value)}
-          </p>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-gray-600">Low Stock</p>
+        <div className="text-center p-2 bg-gray-50 rounded-lg">
+          <p className="text-sm font-medium text-gray-600">Issues</p>
           <p
             className={`text-xl font-bold ${
               stats.low_stock_count > 0 ? "text-red-600" : "text-green-600"
@@ -1416,9 +1719,13 @@ function CategoryCard({ category, onEdit, onDelete }) {
           >
             {stats.low_stock_count}
           </p>
+          <p className="text-xs text-gray-500">low stock</p>
         </div>
-        <div>
-          <p className="text-sm font-medium text-gray-600">Status</p>
+      </div>
+
+      {/* Performance Indicator */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
           <span
             className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
               category.is_active
@@ -1428,6 +1735,30 @@ function CategoryCard({ category, onEdit, onDelete }) {
           >
             {category.is_active ? "Active" : "Inactive"}
           </span>
+          {stats.out_of_stock_count > 0 && (
+            <span className="inline-flex px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+              {stats.out_of_stock_count} out of stock
+            </span>
+          )}
+        </div>
+        <div
+          className={`text-xs font-medium ${
+            performanceColor === "green"
+              ? "text-green-600"
+              : performanceColor === "blue"
+              ? "text-blue-600"
+              : performanceColor === "yellow"
+              ? "text-yellow-600"
+              : "text-red-600"
+          }`}
+        >
+          {performanceColor === "green"
+            ? "🔥 High Value"
+            : performanceColor === "blue"
+            ? "📈 Good"
+            : performanceColor === "yellow"
+            ? "⚠️ Moderate"
+            : "🔻 Low Value"}
         </div>
       </div>
     </div>

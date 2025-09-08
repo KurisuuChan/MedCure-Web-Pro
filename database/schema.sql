@@ -51,8 +51,8 @@ CREATE TABLE products (
     category VARCHAR(100),
     description TEXT,
     
-    -- Pricing information
-    price_per_piece DECIMAL(10,2) NOT NULL CHECK (price_per_piece > 0),
+    -- Pricing information (Single authoritative unit price)
+    price_per_piece DECIMAL(10,2) NOT NULL CHECK (price_per_piece > 0), -- Single unit price - authoritative pricing field
     
     -- Unit conversion system
     pieces_per_sheet INTEGER DEFAULT 1 CHECK (pieces_per_sheet > 0),

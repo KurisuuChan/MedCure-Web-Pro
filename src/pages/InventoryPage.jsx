@@ -28,7 +28,7 @@ import { getStockBreakdown } from "../utils/unitConversion";
 import ProductSearch from "../features/inventory/components/ProductSearch";
 import ProductCard from "../features/inventory/components/ProductCard";
 import { useInventory } from "../features/inventory/hooks/useInventory";
-import { ExportModal } from "../components/ui/ExportModal";
+import ExportModal from "../components/ui/ExportModal";
 import { ImportModal } from "../components/ui/ImportModal";
 import { ArchiveService, CategoryService } from "../services/enhancedServices";
 import { useAuth } from "../hooks/useAuth";
@@ -666,8 +666,7 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
     category: product?.category || "Pain Relief",
     brand: product?.brand || "",
     cost_price: product?.cost_price || "",
-    base_price: product?.base_price || "",
-    price_per_piece: product?.price_per_piece || "",
+    price_per_piece: product?.price_per_piece || "", // Single authoritative unit price
     margin_percentage: product?.margin_percentage || "",
     pieces_per_sheet: product?.pieces_per_sheet || 1,
     sheets_per_box: product?.sheets_per_box || 1,
@@ -735,10 +734,7 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
         formData.cost_price === ""
           ? null
           : parseFloat(formData.cost_price) || null,
-      base_price:
-        formData.base_price === ""
-          ? null
-          : parseFloat(formData.base_price) || null,
+      // Single authoritative unit price
       price_per_piece:
         formData.price_per_piece === ""
           ? 0

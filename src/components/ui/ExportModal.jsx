@@ -1,105 +1,142 @@
 import React, { useState } from "react";
-import { X, Download, FileText, Check } from "lucide-react";
+import { X, Download, FileText, Database } from "lucide-react";
+import { IntelligentCategoryService } from "../../services/intelligentCategoryService";
 
-export function ExportModal({ isOpen, onClose, products = [] }) {
+const ExportModal = ({ isOpen, onClose, products, categories }) => {
+  const [isExporting, setIsExporting] = useState(false);
   const [exportOptions, setExportOptions] = useState({
+    exportType: "products", // "products" or "categories"
     format: "csv",
+    filters: {
+      category: "all",
+      stockStatus: "all",
+      expiryStatus: "all",
+    },
     columns: {
       name: true,
       category: true,
       brand: true,
       stock: true,
       price: true,
+      costPrice: false,
+      marginPercentage: false,
       expiry: true,
-      supplier: true,
-      batchNumber: true,
-    },
-    filters: {
-      category: "all",
-      stockStatus: "all",
-      expiryStatus: "all",
+      supplier: false,
+      batchNumber: false,
+      unitConversion: false,
     },
   });
-
-  const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
     setIsExporting(true);
 
     try {
-      // Filter products based on selected filters
-      let filteredProducts = products;
-
-      if (exportOptions.filters.category !== "all") {
-        filteredProducts = filteredProducts.filter(
-          (product) => product.category === exportOptions.filters.category
-        );
-      }
-
-      if (exportOptions.filters.stockStatus !== "all") {
-        filteredProducts = filteredProducts.filter((product) => {
-          const stockLevel = product.stock_in_pieces || 0;
-          const reorderLevel = product.reorder_level || 0;
-
-          switch (exportOptions.filters.stockStatus) {
-            case "low":
-              return stockLevel <= reorderLevel && stockLevel > 0;
-            case "out":
-              return stockLevel === 0;
-            case "normal":
-              return stockLevel > reorderLevel;
-            default:
-              return true;
-          }
-        });
-      }
-
-      if (exportOptions.filters.expiryStatus !== "all") {
-        filteredProducts = filteredProducts.filter((product) => {
-          const expiryDate = new Date(product.expiry_date);
-          const today = new Date();
-          const daysUntilExpiry = Math.ceil(
-            (expiryDate - today) / (1000 * 60 * 60 * 24)
+      if (exportOptions.exportType === "categories") {
+        // Export intelligent category insights
+        const result = await IntelligentCategoryService.getCategoryInsights();
+        if (result.success) {
+          const categoryData = result.data.top_value_categories.map(
+            (category) => ({
+              "Category Name": category.name,
+              "Total Products": category.stats?.total_products || 0,
+              "Total Value": category.stats?.total_value || 0,
+              "Low Stock Count": category.stats?.low_stock_count || 0,
+              "Auto Created": category.metadata?.auto_created ? "Yes" : "No",
+              "Last Updated": category.last_calculated || "Not calculated",
+            })
           );
 
-          switch (exportOptions.filters.expiryStatus) {
-            case "expired":
-              return daysUntilExpiry < 0;
-            case "expiring":
-              return daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
-            case "fresh":
-              return daysUntilExpiry > 30;
-            default:
-              return true;
+          if (exportOptions.format === "csv") {
+            downloadCSV(categoryData, "category_insights");
+          } else {
+            downloadJSON(categoryData, "category_insights");
           }
-        });
-      }
-
-      // Prepare data for export
-      const dataToExport = filteredProducts.map((product) => {
-        const row = {};
-
-        if (exportOptions.columns.name) row["Product Name"] = product.name;
-        if (exportOptions.columns.category) row["Category"] = product.category;
-        if (exportOptions.columns.brand) row["Brand"] = product.brand;
-        if (exportOptions.columns.stock)
-          row["Stock (Pieces)"] = product.stock_in_pieces;
-        if (exportOptions.columns.price)
-          row["Price per Piece"] = product.price_per_piece;
-        if (exportOptions.columns.expiry)
-          row["Expiry Date"] = product.expiry_date?.split("T")[0];
-        if (exportOptions.columns.supplier) row["Supplier"] = product.supplier;
-        if (exportOptions.columns.batchNumber)
-          row["Batch Number"] = product.batch_number;
-
-        return row;
-      });
-
-      // Generate and download file
-      if (exportOptions.format === "csv") {
-        downloadCSV(dataToExport);
+        }
       } else {
-        downloadJSON(dataToExport);
+        // Export products - Filter products based on selected filters
+        let filteredProducts = products || [];
+
+        if (exportOptions.filters.category !== "all") {
+          filteredProducts = filteredProducts.filter(
+            (product) => product.category === exportOptions.filters.category
+          );
+        }
+
+        if (exportOptions.filters.stockStatus !== "all") {
+          filteredProducts = filteredProducts.filter((product) => {
+            const stockLevel = product.stock_in_pieces || 0;
+            const reorderLevel = product.reorder_level || 0;
+
+            switch (exportOptions.filters.stockStatus) {
+              case "low":
+                return stockLevel <= reorderLevel && stockLevel > 0;
+              case "out":
+                return stockLevel === 0;
+              case "normal":
+                return stockLevel > reorderLevel;
+              default:
+                return true;
+            }
+          });
+        }
+
+        if (exportOptions.filters.expiryStatus !== "all") {
+          filteredProducts = filteredProducts.filter((product) => {
+            const expiryDate = new Date(product.expiry_date);
+            const today = new Date();
+            const daysUntilExpiry = Math.ceil(
+              (expiryDate - today) / (1000 * 60 * 60 * 24)
+            );
+
+            switch (exportOptions.filters.expiryStatus) {
+              case "expired":
+                return daysUntilExpiry < 0;
+              case "expiring":
+                return daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
+              case "fresh":
+                return daysUntilExpiry > 30;
+              default:
+                return true;
+            }
+          });
+        }
+
+        // Prepare data for export
+        const dataToExport = filteredProducts.map((product) => {
+          const row = {};
+
+          if (exportOptions.columns.name) row["Product Name"] = product.name;
+          if (exportOptions.columns.category)
+            row["Category"] = product.category;
+          if (exportOptions.columns.brand) row["Brand"] = product.brand;
+          if (exportOptions.columns.stock)
+            row["Stock (Pieces)"] = product.stock_in_pieces;
+          if (exportOptions.columns.price)
+            row["Price per Piece"] = product.price_per_piece;
+          if (exportOptions.columns.costPrice)
+            row["Cost Price"] = product.cost_price || "";
+          if (exportOptions.columns.marginPercentage)
+            row["Margin Percentage"] = product.margin_percentage || "";
+          if (exportOptions.columns.expiry)
+            row["Expiry Date"] = product.expiry_date?.split("T")[0];
+          if (exportOptions.columns.supplier)
+            row["Supplier"] = product.supplier;
+          if (exportOptions.columns.batchNumber)
+            row["Batch Number"] = product.batch_number;
+          if (exportOptions.columns.unitConversion) {
+            row["Pieces per Sheet"] = product.pieces_per_sheet || 1;
+            row["Sheets per Box"] = product.sheets_per_box || 1;
+          }
+
+          return row;
+        });
+
+        // Generate and download file
+        if (exportOptions.format === "csv") {
+          downloadCSV(dataToExport, "inventory_export");
+        } else {
+          downloadJSON(dataToExport, "inventory_export");
+        }
       }
 
       // Close modal after successful export
@@ -113,7 +150,7 @@ export function ExportModal({ isOpen, onClose, products = [] }) {
     }
   };
 
-  const downloadCSV = (data) => {
+  const downloadCSV = (data, filename = "export") => {
     if (data.length === 0) return;
 
     const headers = Object.keys(data[0]);
@@ -130,7 +167,7 @@ export function ExportModal({ isOpen, onClose, products = [] }) {
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `inventory_export_${new Date().toISOString().split("T")[0]}.csv`
+      `${filename}_${new Date().toISOString().split("T")[0]}.csv`
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -138,15 +175,16 @@ export function ExportModal({ isOpen, onClose, products = [] }) {
     document.body.removeChild(link);
   };
 
-  const downloadJSON = (data) => {
-    const jsonContent = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonContent], { type: "application/json" });
+  const downloadJSON = (data, filename = "export") => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json;charset=utf-8;",
+    });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `inventory_export_${new Date().toISOString().split("T")[0]}.json`
+      `${filename}_${new Date().toISOString().split("T")[0]}.json`
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -154,128 +192,119 @@ export function ExportModal({ isOpen, onClose, products = [] }) {
     document.body.removeChild(link);
   };
 
-  const categories = [...new Set(products.map((p) => p.category))].filter(
-    Boolean
-  );
+  const updateFilters = (key, value) => {
+    setExportOptions((prev) => ({
+      ...prev,
+      filters: {
+        ...prev.filters,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateColumns = (key, value) => {
+    setExportOptions((prev) => ({
+      ...prev,
+      columns: {
+        ...prev.columns,
+        [key]: value,
+      },
+    }));
+  };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] overflow-hidden">
-        <div className="flex flex-col h-full">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-xl">
-                <Download className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">
-                Export Inventory
-              </h3>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-900">Export Data</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Export Type Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Export Type
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() =>
+                  setExportOptions((prev) => ({
+                    ...prev,
+                    exportType: "products",
+                  }))
+                }
+                className={`p-3 border rounded-lg flex items-center space-x-2 ${
+                  exportOptions.exportType === "products"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-300 hover:border-gray-400"
+                }`}
+              >
+                <FileText className="w-5 h-5" />
+                <span>Product Inventory</span>
+              </button>
+              <button
+                onClick={() =>
+                  setExportOptions((prev) => ({
+                    ...prev,
+                    exportType: "categories",
+                  }))
+                }
+                className={`p-3 border rounded-lg flex items-center space-x-2 ${
+                  exportOptions.exportType === "categories"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-300 hover:border-gray-400"
+                }`}
+              >
+                <Database className="w-5 h-5" />
+                <span>Category Insights</span>
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="group p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
-            >
-              <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
-            </button>
           </div>
 
-          {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
-              {/* Export Format */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Export Format
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() =>
-                      setExportOptions({ ...exportOptions, format: "csv" })
-                    }
-                    className={`p-4 border-2 rounded-lg flex items-center space-x-3 transition-colors ${
-                      exportOptions.format === "csv"
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <FileText className="h-5 w-5" />
-                    <div className="text-left">
-                      <div className="font-medium">CSV</div>
-                      <div className="text-xs text-gray-500">
-                        Comma-separated values
-                      </div>
-                    </div>
-                    {exportOptions.format === "csv" && (
-                      <Check className="h-5 w-5 text-blue-600 ml-auto" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() =>
-                      setExportOptions({ ...exportOptions, format: "json" })
-                    }
-                    className={`p-4 border-2 rounded-lg flex items-center space-x-3 transition-colors ${
-                      exportOptions.format === "json"
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <FileText className="h-5 w-5" />
-                    <div className="text-left">
-                      <div className="font-medium">JSON</div>
-                      <div className="text-xs text-gray-500">
-                        JavaScript Object Notation
-                      </div>
-                    </div>
-                    {exportOptions.format === "json" && (
-                      <Check className="h-5 w-5 text-blue-600 ml-auto" />
-                    )}
-                  </button>
-                </div>
-              </div>
+          {/* Format Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Export Format
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() =>
+                  setExportOptions((prev) => ({ ...prev, format: "csv" }))
+                }
+                className={`p-3 border rounded-lg text-center ${
+                  exportOptions.format === "csv"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-300 hover:border-gray-400"
+                }`}
+              >
+                CSV
+              </button>
+              <button
+                onClick={() =>
+                  setExportOptions((prev) => ({ ...prev, format: "json" }))
+                }
+                className={`p-3 border rounded-lg text-center ${
+                  exportOptions.format === "json"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-300 hover:border-gray-400"
+                }`}
+              >
+                JSON
+              </button>
+            </div>
+          </div>
 
-              {/* Columns to Export */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Columns to Export
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.entries({
-                    name: "Product Name",
-                    category: "Category",
-                    brand: "Brand",
-                    stock: "Stock Level",
-                    price: "Price",
-                    expiry: "Expiry Date",
-                    supplier: "Supplier",
-                    batchNumber: "Batch Number",
-                  }).map(([key, label]) => (
-                    <label
-                      key={key}
-                      className="flex items-center space-x-2 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={exportOptions.columns[key]}
-                        onChange={(e) =>
-                          setExportOptions({
-                            ...exportOptions,
-                            columns: {
-                              ...exportOptions.columns,
-                              [key]: e.target.checked,
-                            },
-                          })
-                        }
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <span className="text-sm text-gray-700">{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
+          {/* Product-specific options */}
+          {exportOptions.exportType === "products" && (
+            <>
               {/* Filters */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -283,47 +312,36 @@ export function ExportModal({ isOpen, onClose, products = [] }) {
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
                       Category
                     </label>
                     <select
                       value={exportOptions.filters.category}
                       onChange={(e) =>
-                        setExportOptions({
-                          ...exportOptions,
-                          filters: {
-                            ...exportOptions.filters,
-                            category: e.target.value,
-                          },
-                        })
+                        updateFilters("category", e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="all">All Categories</option>
-                      {categories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
+                      {categories &&
+                        categories.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
                       Stock Status
                     </label>
                     <select
                       value={exportOptions.filters.stockStatus}
                       onChange={(e) =>
-                        setExportOptions({
-                          ...exportOptions,
-                          filters: {
-                            ...exportOptions.filters,
-                            stockStatus: e.target.value,
-                          },
-                        })
+                        updateFilters("stockStatus", e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="all">All Stock Levels</option>
                       <option value="low">Low Stock</option>
@@ -333,78 +351,102 @@ export function ExportModal({ isOpen, onClose, products = [] }) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
                       Expiry Status
                     </label>
                     <select
                       value={exportOptions.filters.expiryStatus}
                       onChange={(e) =>
-                        setExportOptions({
-                          ...exportOptions,
-                          filters: {
-                            ...exportOptions.filters,
-                            expiryStatus: e.target.value,
-                          },
-                        })
+                        updateFilters("expiryStatus", e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="all">All Products</option>
                       <option value="expired">Expired</option>
-                      <option value="expiring">Expiring Soon</option>
-                      <option value="fresh">Fresh Products</option>
+                      <option value="expiring">Expiring Soon (30 days)</option>
+                      <option value="fresh">Fresh</option>
                     </select>
                   </div>
                 </div>
               </div>
 
-              {/* Summary */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Products to export:</span>
-                  <span className="font-semibold text-gray-900">
-                    {products.length} products
-                  </span>
+              {/* Column Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Columns to Export
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.entries({
+                    name: "Product Name",
+                    category: "Category",
+                    brand: "Brand",
+                    stock: "Stock Level",
+                    price: "Price per Piece",
+                    costPrice: "Cost Price",
+                    marginPercentage: "Margin %",
+                    expiry: "Expiry Date",
+                    supplier: "Supplier",
+                    batchNumber: "Batch Number",
+                    unitConversion: "Unit Conversion",
+                  }).map(([key, label]) => (
+                    <label key={key} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.columns[key]}
+                        onChange={(e) => updateColumns(key, e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
-          {/* Modal Footer */}
-          <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2.5 border-2 border-gray-200 text-gray-700 font-medium rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
-                disabled={isExporting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleExport}
-                disabled={
-                  isExporting ||
-                  Object.values(exportOptions.columns).every((v) => !v)
-                }
-                className="group flex items-center space-x-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              >
-                {isExporting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Exporting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-                    <span>Export Data</span>
-                  </>
-                )}
-              </button>
+          {/* Category-specific info */}
+          {exportOptions.exportType === "categories" && (
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900 mb-2">
+                Category Insights Export
+              </h4>
+              <p className="text-sm text-blue-700">
+                This will export intelligent category insights including total
+                products, total value, low stock counts, auto-creation status,
+                and last update times for all categories in your inventory.
+              </p>
             </div>
-          </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end space-x-3 p-6 border-t bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 flex items-center space-x-2"
+          >
+            {isExporting ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Exporting...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default ExportModal;
