@@ -1,476 +1,345 @@
-import { supabase } from "../config/supabase";
-
 /**
- * Smart Notification Service
- * Handles real-time notifications, alerts, and notification management
+ * Simple Desktop Notification Service with Real-time Updates
+ * Focused on essential pharmacy alerts with browser permissions
+ *
+ * Note: This is the simplified notification service that replaced the over-engineered system
  */
-export class NotificationService {
-  // ==================== NOTIFICATION TYPES ====================
+export class SimpleNotificationService {
   static NOTIFICATION_TYPES = {
     LOW_STOCK: "low_stock",
     EXPIRY_WARNING: "expiry_warning",
-    SALES_TARGET: "sales_target",
     SYSTEM_ALERT: "system_alert",
-    REORDER_SUGGESTION: "reorder_suggestion",
-    DAILY_REPORT: "daily_report",
-    WEEKLY_REPORT: "weekly_report",
-    CRITICAL_ERROR: "critical_error",
+    SALE_COMPLETE: "sale_complete",
   };
 
-  static PRIORITY_LEVELS = {
-    LOW: "low",
-    MEDIUM: "medium",
-    HIGH: "high",
-    CRITICAL: "critical",
-  };
+  // Track what we've already notified to avoid spam
+  static notifiedProducts = new Set();
+  static lastCheckTime = null;
+  static realtimeSubscription = null;
 
-  // ==================== REAL-TIME ALERTS ====================
-
-  /**
-   * Get active notifications for the current user
-   */
-  static async getActiveNotifications(userId) {
-    try {
-      const { data: notifications, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("read", false)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-
-      return notifications.map((notification) => ({
-        ...notification,
-        timeAgo: this.getTimeAgo(notification.created_at),
-        priorityColor: this.getPriorityColor(notification.priority),
-        icon: this.getNotificationIcon(notification.type),
-      }));
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      return [];
-    }
+  // Check if browser supports notifications
+  static isSupported() {
+    return "Notification" in window;
   }
 
-  /**
-   * Create a new notification
-   */
-  static async createNotification(userId, notification) {
-    try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .insert({
-          user_id: userId,
-          type: notification.type,
-          title: notification.title,
-          message: notification.message,
-          priority: notification.priority || this.PRIORITY_LEVELS.MEDIUM,
-          data: notification.data || {},
-          read: false,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Broadcast real-time notification
-      this.broadcastNotification(data);
-
-      return data;
-    } catch (error) {
-      console.error("Error creating notification:", error);
-      throw error;
+  // Get current permission status
+  static getPermissionStatus() {
+    if (!this.isSupported()) {
+      return "unsupported";
     }
+    return Notification.permission;
   }
 
-  /**
-   * Mark notification as read
-   */
-  static async markAsRead(notificationId) {
-    try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true, read_at: new Date().toISOString() })
-        .eq("id", notificationId);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-      throw error;
+  // Request notification permission
+  static async requestPermission() {
+    if (!this.isSupported()) {
+      throw new Error("Notifications not supported in this browser");
     }
+
+    if (Notification.permission === "granted") {
+      return "granted";
+    }
+
+    const permission = await Notification.requestPermission();
+    return permission;
   }
 
-  /**
-   * Mark all notifications as read for user
-   */
-  static async markAllAsRead(userId) {
-    try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true, read_at: new Date().toISOString() })
-        .eq("user_id", userId)
-        .eq("read", false);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error);
-      throw error;
+  // Show a desktop notification
+  static showNotification(title, options = {}) {
+    if (!this.isSupported() || Notification.permission !== "granted") {
+      console.warn("Cannot show notification: permission not granted");
+      return null;
     }
+
+    const defaultOptions = {
+      icon: "/vite.svg",
+      badge: "/vite.svg",
+      requireInteraction: false,
+      silent: false,
+      ...options,
+    };
+
+    return new Notification(title, defaultOptions);
   }
 
-  /**
-   * Delete notification
-   */
-  static async deleteNotification(notificationId) {
-    try {
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("id", notificationId);
+  // Show low stock alert
+  static showLowStockAlert(productName, currentStock) {
+    const notificationKey = `low_stock_${productName}`;
 
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error deleting notification:", error);
-      throw error;
+    // Don't spam notifications for the same product
+    if (this.notifiedProducts.has(notificationKey)) {
+      return null;
     }
+
+    this.notifiedProducts.add(notificationKey);
+
+    // Clear the notification flag after 1 hour
+    setTimeout(() => {
+      this.notifiedProducts.delete(notificationKey);
+    }, 60 * 60 * 1000);
+
+    return this.showNotification("⚠️ Low Stock Alert", {
+      body: `${productName} is running low (${currentStock} pieces remaining)`,
+      icon: "/vite.svg",
+      tag: "low-stock",
+      requireInteraction: true,
+      data: {
+        type: this.NOTIFICATION_TYPES.LOW_STOCK,
+        productName,
+        currentStock,
+      },
+    });
   }
 
-  // ==================== AUTOMATED ALERT GENERATION ====================
+  // Show expiry warning
+  static showExpiryWarning(productName, expiryDate) {
+    const daysUntilExpiry = Math.ceil(
+      (new Date(expiryDate) - new Date()) / (1000 * 60 * 60 * 24)
+    );
+    const notificationKey = `expiry_${productName}_${expiryDate}`;
 
-  /**
-   * Generate low stock alerts
-   */
-  static async generateLowStockAlerts() {
+    // Don't spam notifications for the same product expiry
+    if (this.notifiedProducts.has(notificationKey)) {
+      return null;
+    }
+
+    this.notifiedProducts.add(notificationKey);
+
+    return this.showNotification("📅 Expiry Warning", {
+      body: `${productName} expires in ${daysUntilExpiry} days (${expiryDate})`,
+      icon: "/vite.svg",
+      tag: "expiry-warning",
+      requireInteraction: true,
+      data: {
+        type: this.NOTIFICATION_TYPES.EXPIRY_WARNING,
+        productName,
+        expiryDate,
+      },
+    });
+  }
+
+  // Show sale completion notification
+  static showSaleComplete(totalAmount, itemCount) {
+    return this.showNotification("✅ Sale Completed", {
+      body: `Sale of ${itemCount} items for ₱${totalAmount.toFixed(
+        2
+      )} completed successfully`,
+      icon: "/vite.svg",
+      tag: "sale-complete",
+      requireInteraction: false,
+      data: {
+        type: this.NOTIFICATION_TYPES.SALE_COMPLETE,
+        totalAmount,
+        itemCount,
+      },
+    });
+  }
+
+  // Show system alert
+  static showSystemAlert(message, isError = false) {
+    return this.showNotification(
+      isError ? "❌ System Error" : "ℹ️ System Alert",
+      {
+        body: message,
+        icon: "/vite.svg",
+        tag: "system-alert",
+        requireInteraction: isError,
+        data: { type: this.NOTIFICATION_TYPES.SYSTEM_ALERT, isError },
+      }
+    );
+  }
+
+  // Check for low stock products and show alerts
+  static async checkAndNotifyLowStock() {
     try {
+      const { supabase } = await import("../config/supabase");
+
       const { data: lowStockProducts, error } = await supabase
         .from("products")
-        .select("*")
+        .select("name, stock_in_pieces")
         .lte("stock_in_pieces", 10)
         .gt("stock_in_pieces", 0);
 
       if (error) throw error;
 
-      const adminUsers = await this.getAdminUsers();
+      lowStockProducts.forEach((product) => {
+        this.showLowStockAlert(product.name, product.stock_in_pieces);
+      });
 
-      for (const product of lowStockProducts) {
-        for (const admin of adminUsers) {
-          await this.createNotification(admin.id, {
-            type: this.NOTIFICATION_TYPES.LOW_STOCK,
-            title: "Low Stock Alert",
-            message: `${product.name} is running low (${product.stock_in_pieces} pieces remaining)`,
-            priority:
-              product.stock_in_pieces <= 5
-                ? this.PRIORITY_LEVELS.HIGH
-                : this.PRIORITY_LEVELS.MEDIUM,
-            data: {
-              product_id: product.id,
-              current_stock: product.stock_in_pieces,
-            },
-          });
-        }
-      }
-
-      return lowStockProducts;
+      return lowStockProducts.length;
     } catch (error) {
-      console.error("Error generating low stock alerts:", error);
-      return [];
+      console.error("Error checking low stock:", error);
+      this.showSystemAlert("Failed to check stock levels", true);
+      return 0;
     }
   }
 
-  /**
-   * Generate expiry warnings
-   */
-  static async generateExpiryWarnings() {
+  // Check for expiring products and show warnings
+  static async checkAndNotifyExpiring() {
     try {
+      const { supabase } = await import("../config/supabase");
+
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
       const { data: expiringProducts, error } = await supabase
         .from("products")
-        .select("*")
+        .select("name, expiry_date")
         .not("expiry_date", "is", null)
-        .lte("expiry_date", thirtyDaysFromNow.toISOString())
-        .order("expiry_date", { ascending: true });
+        .lte("expiry_date", thirtyDaysFromNow.toISOString().split("T")[0])
+        .gt("stock_in_pieces", 0);
 
       if (error) throw error;
 
-      const adminUsers = await this.getAdminUsers();
-
-      for (const product of expiringProducts) {
-        const daysToExpiry = Math.ceil(
-          (new Date(product.expiry_date) - new Date()) / (1000 * 60 * 60 * 24)
-        );
-
-        const priority =
-          daysToExpiry <= 7
-            ? this.PRIORITY_LEVELS.CRITICAL
-            : daysToExpiry <= 14
-            ? this.PRIORITY_LEVELS.HIGH
-            : this.PRIORITY_LEVELS.MEDIUM;
-
-        for (const admin of adminUsers) {
-          await this.createNotification(admin.id, {
-            type: this.NOTIFICATION_TYPES.EXPIRY_WARNING,
-            title: "Product Expiry Warning",
-            message: `${product.name} expires in ${daysToExpiry} days (${product.expiry_date})`,
-            priority,
-            data: {
-              product_id: product.id,
-              expiry_date: product.expiry_date,
-              days_to_expiry: daysToExpiry,
-            },
-          });
-        }
-      }
-
-      return expiringProducts;
-    } catch (error) {
-      console.error("Error generating expiry warnings:", error);
-      return [];
-    }
-  }
-
-  /**
-   * Generate daily sales report notifications
-   */
-  static async generateDailySalesReport() {
-    try {
-      const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-
-      const { data: todaySales, error } = await supabase
-        .from("sales")
-        .select("total_amount")
-        .gte("created_at", startOfDay.toISOString())
-        .lte("created_at", endOfDay.toISOString());
-
-      if (error) throw error;
-
-      const totalRevenue = todaySales.reduce(
-        (sum, sale) => sum + (sale.total_amount || 0),
-        0
-      );
-      const totalTransactions = todaySales.length;
-
-      const adminUsers = await this.getAdminUsers();
-
-      const reportMessage = `Today's Performance: ${totalTransactions} transactions, ₹${totalRevenue.toFixed(
-        2
-      )} revenue`;
-
-      for (const admin of adminUsers) {
-        await this.createNotification(admin.id, {
-          type: this.NOTIFICATION_TYPES.DAILY_REPORT,
-          title: "Daily Sales Report",
-          message: reportMessage,
-          priority: this.PRIORITY_LEVELS.LOW,
-          data: {
-            total_revenue: totalRevenue,
-            total_transactions: totalTransactions,
-            date: today.toISOString().split("T")[0],
-          },
-        });
-      }
-
-      return { totalRevenue, totalTransactions };
-    } catch (error) {
-      console.error("Error generating daily sales report:", error);
-      return null;
-    }
-  }
-
-  // ==================== NOTIFICATION PREFERENCES ====================
-
-  /**
-   * Get user notification preferences
-   */
-  static async getNotificationPreferences(userId) {
-    try {
-      const { data: preferences, error } = await supabase
-        .from("notification_preferences")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
-
-      if (error && error.code !== "PGRST116") throw error;
-
-      // Return default preferences if none exist
-      return (
-        preferences || {
-          email_notifications: true,
-          browser_notifications: true,
-          low_stock_alerts: true,
-          expiry_warnings: true,
-          sales_reports: true,
-          system_alerts: true,
-          notification_frequency: "immediate", // immediate, hourly, daily
-        }
-      );
-    } catch (error) {
-      console.error("Error fetching notification preferences:", error);
-      return this.getDefaultPreferences();
-    }
-  }
-
-  /**
-   * Update user notification preferences
-   */
-  static async updateNotificationPreferences(userId, preferences) {
-    try {
-      const { data, error } = await supabase
-        .from("notification_preferences")
-        .upsert({
-          user_id: userId,
-          ...preferences,
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error("Error updating notification preferences:", error);
-      throw error;
-    }
-  }
-
-  // ==================== REAL-TIME SUBSCRIPTIONS ====================
-
-  /**
-   * Subscribe to real-time notifications
-   */
-  static subscribeToNotifications(userId, callback) {
-    const subscription = supabase
-      .channel("notifications")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          const notification = {
-            ...payload.new,
-            timeAgo: this.getTimeAgo(payload.new.created_at),
-            priorityColor: this.getPriorityColor(payload.new.priority),
-            icon: this.getNotificationIcon(payload.new.type),
-          };
-          callback(notification);
-        }
-      )
-      .subscribe();
-
-    return subscription;
-  }
-
-  /**
-   * Broadcast notification to all connected clients
-   */
-  static broadcastNotification(notification) {
-    // Browser notification if permission granted
-    if (Notification.permission === "granted") {
-      new Notification(notification.title, {
-        body: notification.message,
-        icon: "/vite.svg",
-        tag: notification.id,
+      expiringProducts.forEach((product) => {
+        this.showExpiryWarning(product.name, product.expiry_date);
       });
+
+      return expiringProducts.length;
+    } catch (error) {
+      console.error("Error checking expiring products:", error);
+      this.showSystemAlert("Failed to check product expiry dates", true);
+      return 0;
     }
   }
 
-  // ==================== UTILITY METHODS ====================
+  // Start real-time monitoring for stock changes
+  static async startRealtimeMonitoring() {
+    if (this.getPermissionStatus() !== "granted") {
+      console.log("Notifications not enabled, skipping real-time monitoring");
+      return;
+    }
 
-  /**
-   * Get admin users for notifications
-   */
-  static async getAdminUsers() {
     try {
-      const { data: users, error } = await supabase
-        .from("users")
-        .select("id, email, first_name, last_name")
-        .eq("role", "admin");
+      const { supabase } = await import("../config/supabase");
+
+      // Stop existing subscription if any
+      this.stopRealtimeMonitoring();
+
+      console.log("🔄 Starting real-time notification monitoring...");
+
+      // Subscribe to stock movements table to catch real-time changes
+      this.realtimeSubscription = supabase
+        .channel("stock-notifications")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "stock_movements",
+          },
+          async (payload) => {
+            console.log("📦 Stock movement detected:", payload.new);
+
+            // Check if this movement resulted in low stock
+            if (
+              payload.new.movement_type === "sale" ||
+              payload.new.movement_type === "adjustment"
+            ) {
+              await this.checkSpecificProductStock(payload.new.product_id);
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "products",
+            filter: "stock_in_pieces=lte.10",
+          },
+          async (payload) => {
+            console.log("⚠️ Low stock product updated:", payload.new);
+
+            if (
+              payload.new.stock_in_pieces <= 10 &&
+              payload.new.stock_in_pieces > 0
+            ) {
+              this.showLowStockAlert(
+                payload.new.name,
+                payload.new.stock_in_pieces
+              );
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log("Real-time subscription status:", status);
+        });
+    } catch (error) {
+      console.error("Error starting real-time monitoring:", error);
+      this.showSystemAlert("Failed to start real-time monitoring", true);
+    }
+  }
+
+  // Stop real-time monitoring
+  static stopRealtimeMonitoring() {
+    if (this.realtimeSubscription) {
+      console.log("🔇 Stopping real-time notification monitoring...");
+      this.realtimeSubscription.unsubscribe();
+      this.realtimeSubscription = null;
+    }
+  }
+
+  // Check specific product stock level
+  static async checkSpecificProductStock(productId) {
+    try {
+      const { supabase } = await import("../config/supabase");
+
+      const { data: product, error } = await supabase
+        .from("products")
+        .select("name, stock_in_pieces")
+        .eq("id", productId)
+        .single();
 
       if (error) throw error;
-      return users || [];
+
+      if (product.stock_in_pieces <= 10 && product.stock_in_pieces > 0) {
+        this.showLowStockAlert(product.name, product.stock_in_pieces);
+      }
     } catch (error) {
-      console.error("Error fetching admin users:", error);
-      return [];
+      console.error("Error checking specific product stock:", error);
     }
   }
 
-  /**
-   * Get time ago string for notification
-   */
-  static getTimeAgo(timestamp) {
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffInSeconds = Math.floor((now - time) / 1000);
-
-    if (diffInSeconds < 60) return "Just now";
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400)
-      return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  }
-
-  /**
-   * Get priority color for notification
-   */
-  static getPriorityColor(priority) {
-    const colors = {
-      [this.PRIORITY_LEVELS.LOW]: "text-blue-600 bg-blue-100",
-      [this.PRIORITY_LEVELS.MEDIUM]: "text-yellow-600 bg-yellow-100",
-      [this.PRIORITY_LEVELS.HIGH]: "text-orange-600 bg-orange-100",
-      [this.PRIORITY_LEVELS.CRITICAL]: "text-red-600 bg-red-100",
-    };
-    return colors[priority] || colors[this.PRIORITY_LEVELS.MEDIUM];
-  }
-
-  /**
-   * Get notification icon based on type
-   */
-  static getNotificationIcon(type) {
-    const icons = {
-      [this.NOTIFICATION_TYPES.LOW_STOCK]: "📦",
-      [this.NOTIFICATION_TYPES.EXPIRY_WARNING]: "⚠️",
-      [this.NOTIFICATION_TYPES.SALES_TARGET]: "🎯",
-      [this.NOTIFICATION_TYPES.SYSTEM_ALERT]: "🔔",
-      [this.NOTIFICATION_TYPES.REORDER_SUGGESTION]: "🔄",
-      [this.NOTIFICATION_TYPES.DAILY_REPORT]: "📊",
-      [this.NOTIFICATION_TYPES.WEEKLY_REPORT]: "📈",
-      [this.NOTIFICATION_TYPES.CRITICAL_ERROR]: "🚨",
-    };
-    return icons[type] || "🔔";
-  }
-
-  /**
-   * Get default notification preferences
-   */
-  static getDefaultPreferences() {
-    return {
-      email_notifications: true,
-      browser_notifications: true,
-      low_stock_alerts: true,
-      expiry_warnings: true,
-      sales_reports: true,
-      system_alerts: true,
-      notification_frequency: "immediate",
-    };
-  }
-
-  /**
-   * Request browser notification permission
-   */
-  static async requestNotificationPermission() {
-    if ("Notification" in window) {
-      const permission = await Notification.requestPermission();
-      return permission === "granted";
+  // Run daily checks (call this when app starts or user logs in)
+  static async runDailyChecks() {
+    if (this.getPermissionStatus() !== "granted") {
+      console.log("Notifications not enabled, skipping daily checks");
+      return;
     }
-    return false;
+
+    console.log("🔍 Running daily notification checks...");
+
+    const lowStockCount = await this.checkAndNotifyLowStock();
+    const expiringCount = await this.checkAndNotifyExpiring();
+
+    // Show summary if there are issues
+    if (lowStockCount > 0 || expiringCount > 0) {
+      this.showSystemAlert(
+        `Daily Check: ${lowStockCount} low stock items, ${expiringCount} expiring products`
+      );
+    } else {
+      console.log("✅ Daily checks completed - no critical issues found");
+    }
+
+    // Start real-time monitoring after daily checks
+    await this.startRealtimeMonitoring();
+  }
+
+  // Initialize the notification system
+  static async initialize() {
+    if (this.getPermissionStatus() === "granted") {
+      await this.runDailyChecks();
+    }
+  }
+
+  // Clean up when app closes
+  static cleanup() {
+    this.stopRealtimeMonitoring();
+    this.notifiedProducts.clear();
   }
 }
+
+// Export as both names for backward compatibility
+export const NotificationService = SimpleNotificationService;
+export default SimpleNotificationService;

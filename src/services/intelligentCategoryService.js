@@ -7,7 +7,6 @@
  */
 
 import { supabase } from "../config/supabase";
-import { CategoryService } from "./enhancedServices";
 
 export class IntelligentCategoryService {
   /**

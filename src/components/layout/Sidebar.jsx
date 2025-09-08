@@ -10,7 +10,6 @@ import {
   Settings,
   X,
   UserCheck,
-  Truck,
 } from "lucide-react";
 
 const navigationItems = [
@@ -18,44 +17,43 @@ const navigationItems = [
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["admin", "manager", "cashier"],
+    roles: ["admin", "manager", "cashier", "staff", "viewer"],
+    category: "core",
   },
   {
     name: "Point of Sale",
     href: "/pos",
     icon: ShoppingCart,
     roles: ["admin", "manager", "cashier"],
+    category: "operations",
   },
   {
-    name: "Inventory",
+    name: "Drug Inventory",
     href: "/inventory",
     icon: Package,
-    roles: ["admin", "manager"],
+    roles: ["admin", "manager", "staff"],
+    category: "operations",
   },
   {
-    name: "Management",
-    href: "/management",
-    icon: Users,
-    roles: ["admin"],
-  },
-  {
-    name: "Analytics",
+    name: "Pharmacy Analytics",
     href: "/analytics",
     icon: BarChart3,
     roles: ["admin", "manager"],
+    category: "insights",
   },
-  // Phase 4 Advanced Management Features
   {
-    name: "User Management",
+    name: "Pharmacy Management",
+    href: "/management",
+    icon: Users,
+    roles: ["admin"],
+    category: "admin",
+  },
+  {
+    name: "Staff Management",
     href: "/user-management",
     icon: UserCheck,
     roles: ["super_admin", "admin"],
-  },
-  {
-    name: "Supplier Management",
-    href: "/supplier-management",
-    icon: Truck,
-    roles: ["super_admin", "admin", "manager"],
+    category: "admin",
   },
 ];
 
@@ -73,7 +71,7 @@ export function Sidebar({ isOpen, onClose }) {
       {/* Mobile overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={onClose}
         />
       )}
@@ -117,35 +115,127 @@ export function Sidebar({ isOpen, onClose }) {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 lg:px-6 lg:py-6">
-            <div className="space-y-2">
-              {filteredNavigation.map((item) => {
-                const isActive = location.pathname === item.href;
-                const Icon = item.icon;
+            {/* Pharmacy Operations */}
+            <div className="mb-6">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                Pharmacy Operations
+              </h3>
+              <div className="space-y-1">
+                {filteredNavigation
+                  .filter((item) =>
+                    ["core", "operations"].includes(item.category)
+                  )
+                  .map((item) => {
+                    const isActive = location.pathname === item.href;
+                    const Icon = item.icon;
 
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    onClick={onClose}
-                    className={`
-                      flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
-                      ${
-                        isActive
-                          ? "bg-blue-600 text-white shadow-lg transform scale-105"
-                          : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                      }
-                    `}
-                  >
-                    <Icon
-                      className={`h-5 w-5 ${
-                        isActive ? "text-white" : "text-gray-500"
-                      }`}
-                    />
-                    <span className="font-medium">{item.name}</span>
-                  </Link>
-                );
-              })}
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={onClose}
+                        className={`
+                          flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                          ${
+                            isActive
+                              ? "bg-blue-600 text-white shadow-lg transform scale-105"
+                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                          }
+                        `}
+                      >
+                        <Icon
+                          className={`h-5 w-5 ${
+                            isActive ? "text-white" : "text-gray-500"
+                          }`}
+                        />
+                        <span className="font-medium">{item.name}</span>
+                      </Link>
+                    );
+                  })}
+              </div>
             </div>
+
+            {/* Business Intelligence */}
+            {filteredNavigation.some(
+              (item) => item.category === "insights"
+            ) && (
+              <div className="mb-6">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  Insights
+                </h3>
+                <div className="space-y-1">
+                  {filteredNavigation
+                    .filter((item) => item.category === "insights")
+                    .map((item) => {
+                      const isActive = location.pathname === item.href;
+                      const Icon = item.icon;
+
+                      return (
+                        <Link
+                          key={item.name}
+                          to={item.href}
+                          onClick={onClose}
+                          className={`
+                            flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                            ${
+                              isActive
+                                ? "bg-blue-600 text-white shadow-lg transform scale-105"
+                                : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                            }
+                          `}
+                        >
+                          <Icon
+                            className={`h-5 w-5 ${
+                              isActive ? "text-white" : "text-gray-500"
+                            }`}
+                          />
+                          <span className="font-medium">{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Administration */}
+            {filteredNavigation.some((item) => item.category === "admin") && (
+              <div className="mb-6">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  Administration
+                </h3>
+                <div className="space-y-1">
+                  {filteredNavigation
+                    .filter((item) => item.category === "admin")
+                    .map((item) => {
+                      const isActive = location.pathname === item.href;
+                      const Icon = item.icon;
+
+                      return (
+                        <Link
+                          key={item.name}
+                          to={item.href}
+                          onClick={onClose}
+                          className={`
+                            flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                            ${
+                              isActive
+                                ? "bg-blue-600 text-white shadow-lg transform scale-105"
+                                : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                            }
+                          `}
+                        >
+                          <Icon
+                            className={`h-5 w-5 ${
+                              isActive ? "text-white" : "text-gray-500"
+                            }`}
+                          />
+                          <span className="font-medium">{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             {/* Bottom section */}
             <div className="mt-auto pt-6">

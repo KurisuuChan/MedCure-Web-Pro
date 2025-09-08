@@ -13,6 +13,7 @@ import {
   Settings,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import NotificationSettings from "../components/settings/NotificationSettings";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -208,83 +209,8 @@ export default function SettingsPage() {
 
             {/* Notifications */}
             {activeTab === "notifications" && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Notification Preferences
-                  </h3>
-
-                  <div className="space-y-4">
-                    {[
-                      {
-                        key: "lowStockAlerts",
-                        label: "Low Stock Alerts",
-                        description:
-                          "Get notified when products are running low",
-                      },
-                      {
-                        key: "expiryWarnings",
-                        label: "Expiry Warnings",
-                        description: "Alerts for products nearing expiration",
-                      },
-                      {
-                        key: "dailyReports",
-                        label: "Daily Reports",
-                        description:
-                          "Receive daily sales and inventory summaries",
-                      },
-                      {
-                        key: "systemUpdates",
-                        label: "System Updates",
-                        description:
-                          "Important system notifications and updates",
-                      },
-                    ].map((notification) => (
-                      <div
-                        key={notification.key}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                      >
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {notification.label}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {notification.description}
-                          </div>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={notificationSettings[notification.key]}
-                            onChange={(e) =>
-                              setNotificationSettings({
-                                ...notificationSettings,
-                                [notification.key]: e.target.checked,
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-end mt-6">
-                    <button
-                      onClick={() => handleSave("notifications")}
-                      disabled={isLoading}
-                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                    >
-                      {isLoading ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      <span>Save Changes</span>
-                    </button>
-                  </div>
-                </div>
+              <div className="space-y-8">
+                <NotificationSettings />
               </div>
             )}
 

@@ -6,6 +6,8 @@ import {
   Settings,
   UserCheck,
   Lock,
+  BarChart3,
+  RefreshCw,
 } from "lucide-react";
 import UserManagementDashboard from "../features/admin/components/UserManagementDashboard";
 import RolePermissionManager from "../features/admin/components/RolePermissionManager";
@@ -17,21 +19,27 @@ const UserManagementPage = () => {
   const tabs = [
     {
       id: "users",
-      name: "User Management",
+      name: "Team Members",
       icon: Users,
-      description: "Manage system users and their accounts",
+      description: "Manage team member accounts and profiles",
     },
     {
       id: "roles",
-      name: "Roles & Permissions",
+      name: "Access Control",
       icon: Shield,
-      description: "Configure user roles and permissions",
+      description: "Configure roles and system permissions",
     },
     {
       id: "activity",
-      name: "Activity Logs",
+      name: "Activity Monitor",
       icon: Activity,
-      description: "Monitor user activities and system events",
+      description: "Track user activities and system events",
+    },
+    {
+      id: "analytics",
+      name: "Team Analytics",
+      icon: BarChart3,
+      description: "Team performance and engagement metrics",
     },
   ];
 
@@ -43,6 +51,8 @@ const UserManagementPage = () => {
         return <RolePermissionManager />;
       case "activity":
         return <ActivityLogDashboard />;
+      case "analytics":
+        return <UserAnalyticsDashboard />;
       default:
         return <UserManagementDashboard />;
     }
@@ -59,10 +69,10 @@ const UserManagementPage = () => {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                User Management
+                Team Management
               </h1>
               <p className="text-gray-600">
-                Comprehensive user, role, and permission management system
+                Comprehensive team member, role, and access control management
               </p>
             </div>
           </div>

@@ -18,7 +18,7 @@ import "../components/ui/ScrollableModal.css";
 import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
 import { salesService } from "../services/salesService";
-import { NotificationService } from "../services/notificationService";
+import { SimpleNotificationService } from "../services/simpleNotificationService";
 
 export default function POSPage() {
   const { user } = useAuth();
@@ -107,12 +107,22 @@ export default function POSPage() {
         customer_phone: "",
       });
 
-      // Trigger stock level checks for notifications after successful sale
+      // Trigger desktop notifications for sale completion and stock checks
       try {
-        console.log("🔔 Checking for low stock notifications after sale...");
-        await NotificationService.generateLowStockAlerts();
-        await NotificationService.generateExpiryWarnings();
-        console.log("✅ Stock level notifications checked successfully");
+        console.log("🔔 Showing sale completion notification...");
+
+        // Show sale completion notification
+        SimpleNotificationService.showSaleComplete(
+          cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+          cartItems.reduce((sum, item) => sum + item.quantity, 0)
+        );
+
+        // Check for low stock and expiry alerts
+        console.log("🔔 Checking for low stock and expiry notifications...");
+        await SimpleNotificationService.checkAndNotifyLowStock();
+        await SimpleNotificationService.checkAndNotifyExpiring();
+
+        console.log("✅ Notifications processed successfully");
       } catch (notificationError) {
         console.error("⚠️ Error generating notifications:", notificationError);
         // Don't fail the sale if notifications fail

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./providers/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
+import { SimpleNotificationService } from "./services/simpleNotificationService";
 import { GlobalSpinner } from "./components/common/GlobalSpinner";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
 import {
@@ -29,7 +30,6 @@ import UnauthorizedPage from "./pages/UnauthorizedPage";
 
 // Import Phase 4 Advanced Management Pages
 import UserManagementPage from "./pages/UserManagementPage";
-import SupplierManagementPage from "./pages/SupplierManagementPage";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -47,6 +47,25 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { isLoadingAuth, user } = useAuth();
+
+  // Initialize notifications when user logs in
+  useEffect(() => {
+    if (user && SimpleNotificationService.getPermissionStatus() === "granted") {
+      // Wait a bit for the app to fully load, then run daily checks
+      const timer = setTimeout(() => {
+        SimpleNotificationService.runDailyChecks();
+      }, 3000); // 3 seconds delay
+
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
+  // Cleanup notifications when app unmounts
+  useEffect(() => {
+    return () => {
+      SimpleNotificationService.cleanup();
+    };
+  }, []);
 
   // Show loading spinner while checking authentication
   if (isLoadingAuth) {
@@ -133,17 +152,6 @@ function AppContent() {
         }
       />
 
-      <Route
-        path="/admin/suppliers"
-        element={
-          <PageErrorBoundary title="Supplier Management Error">
-            <ProtectedRoute requiredRole={["super_admin", "admin", "manager"]}>
-              <SupplierManagementPage />
-            </ProtectedRoute>
-          </PageErrorBoundary>
-        }
-      />
-
       {/* Alternative shorter routes */}
       <Route
         path="/user-management"
@@ -151,17 +159,6 @@ function AppContent() {
           <PageErrorBoundary title="User Management Error">
             <ProtectedRoute requiredRole={["super_admin", "admin"]}>
               <UserManagementPage />
-            </ProtectedRoute>
-          </PageErrorBoundary>
-        }
-      />
-
-      <Route
-        path="/supplier-management"
-        element={
-          <PageErrorBoundary title="Supplier Management Error">
-            <ProtectedRoute requiredRole={["super_admin", "admin", "manager"]}>
-              <SupplierManagementPage />
             </ProtectedRoute>
           </PageErrorBoundary>
         }

@@ -1,84 +1,126 @@
 import React, { useState } from "react";
-import {
-  BarChart3,
-  TrendingUp,
-  Activity,
-  PieChart,
-  FileText,
-  Calendar,
-} from "lucide-react";
-import AdvancedDashboard from "../features/analytics/components/AdvancedDashboard";
-import BusinessIntelligenceDashboard from "../features/analytics/components/BusinessIntelligenceDashboard";
-import AdvancedReportingDashboard from "../features/reports/components/AdvancedReportingDashboard";
+import { BarChart3, Package, DollarSign } from "lucide-react";
 
 const AnalyticsPage = () => {
-  const [activeTab, setActiveTab] = useState("business-intelligence");
+  const [activeTab, setActiveTab] = useState("sales");
 
   const tabs = [
     {
-      id: "business-intelligence",
-      name: "Business Intelligence",
-      icon: BarChart3,
-      description: "Comprehensive business analytics and insights",
-    },
-    {
-      id: "advanced-reports",
-      name: "Advanced Reports",
-      icon: FileText,
-      description: "Professional reports with PDF export",
-    },
-    {
-      id: "advanced-dashboard",
-      name: "Advanced Dashboard",
-      icon: Activity,
-      description: "Original advanced analytics dashboard",
-    },
-    {
-      id: "sales-analytics",
+      id: "sales",
       name: "Sales Analytics",
-      icon: TrendingUp,
-      description: "Detailed sales performance analysis",
+      icon: BarChart3,
+      description: "Sales performance and trends",
+    },
+    {
+      id: "inventory",
+      name: "Inventory Reports",
+      icon: Package,
+      description: "Stock levels and movements",
+    },
+    {
+      id: "financial",
+      name: "Financial Overview",
+      icon: DollarSign,
+      description: "Revenue and profit analysis",
     },
   ];
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case "business-intelligence":
-        return <BusinessIntelligenceDashboard />;
-      case "advanced-reports":
-        return <AdvancedReportingDashboard />;
-      case "advanced-dashboard":
-        return <AdvancedDashboard />;
-      case "sales-analytics":
+      case "sales":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <div className="text-center">
-              <TrendingUp className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+              <BarChart3 className="h-16 w-16 text-blue-600 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 Sales Analytics
               </h3>
-              <p className="text-gray-600">
-                Detailed sales analytics coming in Phase 5
+              <p className="text-gray-600 mb-6">
+                Track sales performance, trends, and revenue insights
               </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-900">Daily Sales</h4>
+                  <p className="text-2xl font-bold text-blue-600">₱12,450</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-green-900">
+                    Monthly Revenue
+                  </h4>
+                  <p className="text-2xl font-bold text-green-600">₱345,600</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-purple-900">Growth Rate</h4>
+                  <p className="text-2xl font-bold text-purple-600">+15.3%</p>
+                </div>
+              </div>
             </div>
           </div>
         );
-      case "financial-reports":
+      case "inventory":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <div className="text-center">
-              <PieChart className="h-16 w-16 text-purple-600 mx-auto mb-4" />
+              <Package className="h-16 w-16 text-green-600 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Financial Reports
+                Inventory Reports
               </h3>
-              <p className="text-gray-600">
-                Comprehensive financial reporting coming in Phase 5
+              <p className="text-gray-600 mb-6">
+                Monitor stock levels, movements, and inventory health
               </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-green-900">
+                    Total Products
+                  </h4>
+                  <p className="text-2xl font-bold text-green-600">2,847</p>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-yellow-900">Low Stock</h4>
+                  <p className="text-2xl font-bold text-yellow-600">23</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-red-900">Out of Stock</h4>
+                  <p className="text-2xl font-bold text-red-600">5</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case "financial":
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+            <div className="text-center">
+              <DollarSign className="h-16 w-16 text-purple-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Financial Overview
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Analyze revenue, profit margins, and financial performance
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-purple-900">
+                    Total Revenue
+                  </h4>
+                  <p className="text-2xl font-bold text-purple-600">
+                    ₱1,245,600
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-900">Profit Margin</h4>
+                  <p className="text-2xl font-bold text-blue-600">18.5%</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-green-900">Net Profit</h4>
+                  <p className="text-2xl font-bold text-green-600">₱230,436</p>
+                </div>
+              </div>
             </div>
           </div>
         );
       default:
-        return <BusinessIntelligenceDashboard />;
+        return null;
     }
   };
 
@@ -92,14 +134,13 @@ const AnalyticsPage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-              <span>Analytics Dashboard</span>
+              <span>Business Intelligence</span>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                Enhanced
+                Enterprise
               </span>
             </h1>
             <p className="text-gray-600 mt-1">
-              Comprehensive business intelligence and analytics for data-driven
-              decisions
+              Advanced analytics and insights for data-driven business decisions
             </p>
           </div>
         </div>

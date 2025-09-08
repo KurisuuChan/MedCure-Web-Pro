@@ -143,6 +143,80 @@ export class ProductService {
       handleError(error, "Get low stock products");
     }
   }
+
+  // 📦 **ARCHIVE OPERATIONS**
+  static async archiveProduct(
+    productId,
+    reason = "Manual archive",
+    userId = null
+  ) {
+    try {
+      logDebug(`Archiving product ${productId}`);
+
+      const { data, error } = await supabase
+        .from("products")
+        .update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+          archived_by: userId,
+          archive_reason: reason,
+        })
+        .eq("id", productId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      logDebug("Product archived successfully", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Archive product");
+    }
+  }
+
+  static async unarchiveProduct(productId) {
+    try {
+      logDebug(`Unarchiving product ${productId}`);
+
+      const { data, error } = await supabase
+        .from("products")
+        .update({
+          is_archived: false,
+          archived_at: null,
+          archived_by: null,
+          archive_reason: null,
+        })
+        .eq("id", productId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      logDebug("Product unarchived successfully", data);
+      return data;
+    } catch (error) {
+      handleError(error, "Unarchive product");
+    }
+  }
+
+  // 🏷️ **CATEGORY OPERATIONS**
+  static async getProductCategories() {
+    try {
+      logDebug("Fetching distinct product categories");
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("category")
+        .not("category", "is", null);
+
+      if (error) throw error;
+
+      // Extract unique categories
+      const categories = [...new Set(data.map((item) => item.category))].sort();
+      logDebug(`Found ${categories.length} unique categories`, categories);
+      return categories;
+    } catch (error) {
+      handleError(error, "Get product categories");
+    }
+  }
 }
 
 /**

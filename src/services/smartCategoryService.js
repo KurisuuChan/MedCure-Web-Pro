@@ -1,4 +1,50 @@
-import { CategoryService } from "../services/enhancedServices";
+import { supabase } from "../config/supabase";
+
+// Simplified category operations to replace CategoryService
+const SimpleCategoryService = {
+  async getAllCategories() {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      return { success: false, data: [], error: error.message };
+    }
+  },
+
+  async createCategory(categoryData) {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .insert([categoryData])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error creating category:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getCategoryByName(name) {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .ilike("name", name)
+        .single();
+      if (error && error.code !== "PGRST116") throw error;
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, data: null };
+    }
+  },
+};
 
 // ==========================================
 // SMART CATEGORY MANAGEMENT SERVICE
@@ -10,7 +56,8 @@ export const SmartCategoryService = {
       console.log("🔍 [SmartCategory] Analyzing categories in import data...");
 
       // Get existing categories
-      const existingCategoriesResult = await CategoryService.getAllCategories();
+      const existingCategoriesResult =
+        await SimpleCategoryService.getAllCategories();
       const existingCategories = existingCategoriesResult.success
         ? existingCategoriesResult.data.map((cat) => cat.name.toLowerCase())
         : [];
@@ -76,7 +123,7 @@ export const SmartCategoryService = {
 
       const createdCategories = [];
       for (const category of approvedCategories) {
-        const result = await CategoryService.createCategory({
+        const result = await SimpleCategoryService.createCategory({
           name: category.name,
           description: `Auto-created from import by system`,
           color: category.color,
@@ -114,7 +161,7 @@ export const SmartCategoryService = {
     try {
       console.log("🔗 [SmartCategory] Mapping categories to IDs...");
 
-      const categoriesResult = await CategoryService.getAllCategories();
+      const categoriesResult = await SimpleCategoryService.getAllCategories();
       if (!categoriesResult.success) {
         throw new Error("Failed to fetch categories");
       }
