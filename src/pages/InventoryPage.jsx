@@ -29,7 +29,7 @@ import ProductSearch from "../features/inventory/components/ProductSearch";
 import ProductCard from "../features/inventory/components/ProductCard";
 import { useInventory } from "../features/inventory/hooks/useInventory";
 import ExportModal from "../components/ui/ExportModal";
-import { ImportModal } from "../components/ui/ImportModal";
+import { EnhancedImportModal } from "../components/ui/EnhancedImportModal";
 import { ArchiveService, CategoryService } from "../services/enhancedServices";
 import { useAuth } from "../hooks/useAuth";
 
@@ -488,22 +488,27 @@ export default function InventoryPage() {
         products={allProducts}
       />
 
-      {/* Import Modal */}
-      <ImportModal
+      {/* Enhanced Import Modal with AI-powered category detection */}
+      <EnhancedImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
         onImport={async (importedProducts) => {
           try {
-            // Add all imported products
+            // Add all imported products with enhanced processing
             for (const product of importedProducts) {
               await addProduct(product);
             }
             console.log(
-              `Successfully imported ${importedProducts.length} products`
+              `Successfully imported ${importedProducts.length} products with intelligent category processing`
             );
           } catch (error) {
+            console.error("Enhanced import error:", error);
             throw new Error(`Import failed: ${error.message}`);
           }
+        }}
+        addToast={(toast) => {
+          // Simple console logging for now - can be enhanced later
+          console.log(`${toast.type.toUpperCase()}: ${toast.message}`);
         }}
       />
     </div>

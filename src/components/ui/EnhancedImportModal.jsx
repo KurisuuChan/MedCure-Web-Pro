@@ -9,9 +9,17 @@ import {
   Plus,
   Lightbulb,
   Users,
+  Calendar,
+  Info,
 } from "lucide-react";
 import { SmartCategoryService } from "../../services/smartCategoryService";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
+import {
+  parseFlexibleDate,
+  isDateNotInPast,
+  getDateFormatErrorMessage,
+} from "../../utils/dateParser";
+import "./ScrollableModal.css";
 
 export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -132,12 +140,12 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
         }
       });
 
-      // Validate expiry date
+      // Enhanced expiry date validation with flexible parsing
       if (row["Expiry Date"] && row["Expiry Date"] !== "") {
-        const date = new Date(row["Expiry Date"]);
-        if (isNaN(date.getTime())) {
-          rowErrors.push("Invalid expiry date format (use YYYY-MM-DD)");
-        } else if (date < new Date()) {
+        const dateResult = parseFlexibleDate(row["Expiry Date"]);
+        if (!dateResult.isValid) {
+          rowErrors.push(getDateFormatErrorMessage(row["Expiry Date"]));
+        } else if (dateResult.date && !isDateNotInPast(dateResult.date)) {
           rowErrors.push("Expiry date cannot be in the past");
         }
       }
@@ -167,7 +175,9 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
             ? parseInt(row["Reorder Level"])
             : 10,
           supplier: row["Supplier"] ? row["Supplier"].trim() : "",
-          expiry_date: row["Expiry Date"] || null,
+          expiry_date: row["Expiry Date"]
+            ? parseFlexibleDate(row["Expiry Date"]).isoString
+            : null,
           batch_number: row["Batch Number"]
             ? row["Batch Number"].trim()
             : `BATCH-${Date.now()}-${index}`,
@@ -263,8 +273,9 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
     const template = [
       "Product Name,Description,Category,Brand,Cost Price,Base Price,Price per Piece,Margin Percentage,Pieces per Sheet,Sheets per Box,Stock (Pieces),Reorder Level,Supplier,Expiry Date,Batch Number",
       "Paracetamol 500mg,Pain relief tablet,Pain Relief,GenericPharm,2.00,2.25,2.50,25.00,10,10,1000,100,MediSupply,2025-12-31,BATCH-2024-001",
-      "Amoxicillin 250mg,Antibiotic capsule,Antibiotics,PharmaCorp,4.60,5.18,5.75,25.00,8,12,500,50,HealthDistrib,2024-10-15,BATCH-2024-002",
-      "Vitamin C 500mg,Immune support tablet,Vitamins,VitaPlus,1.50,1.88,2.50,66.67,20,5,2000,200,NutriCorp,2025-06-30,BATCH-2024-003",
+      "Amoxicillin 250mg,Antibiotic capsule,Antibiotics,PharmaCorp,4.60,5.18,5.75,25.00,8,12,500,50,HealthDistrib,15/10/2024,BATCH-2024-002",
+      "Vitamin C 500mg,Immune support tablet,Vitamins,VitaPlus,1.50,1.88,2.50,66.67,20,5,2000,200,NutriCorp,30-06-2025,BATCH-2024-003",
+      "Aspirin 100mg,Blood thinner tablet,Pain Relief,CardioMed,1.80,2.03,2.25,25.00,15,8,800,80,PharmaLink,12/31/2025,BATCH-2024-004",
     ].join("\n");
 
     const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
@@ -282,132 +293,133 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden">
-        <div className="flex flex-col h-full">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-xl">
-                <Upload className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  Smart Import System
-                </h3>
-                <p className="text-sm text-gray-600">
-                  AI-powered category detection and validation
-                </p>
-              </div>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Modal Header - Sticky */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-100 rounded-xl">
+              <Upload className="h-6 w-6 text-blue-600" />
             </div>
-            <button
-              onClick={() => {
-                onClose();
-                resetModal();
-              }}
-              className="group p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
-            >
-              <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
-            </button>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">
+                Smart Import System
+              </h3>
+              <p className="text-sm text-gray-600">
+                AI-powered category detection and validation
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => {
+              onClose();
+              resetModal();
+            }}
+            className="group p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+          >
+            <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
+          </button>
+        </div>
 
-          {/* Steps Indicator */}
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
+        {/* Steps Indicator - Sticky */}
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center space-x-4">
+            <div
+              className={`flex items-center space-x-2 ${
+                step === "upload"
+                  ? "text-blue-600"
+                  : step === "categories" ||
+                    step === "preview" ||
+                    step === "importing"
+                  ? "text-green-600"
+                  : "text-gray-400"
+              }`}
+            >
               <div
-                className={`flex items-center space-x-2 ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
                   step === "upload"
-                    ? "text-blue-600"
+                    ? "bg-blue-100"
                     : step === "categories" ||
                       step === "preview" ||
                       step === "importing"
-                    ? "text-green-600"
-                    : "text-gray-400"
+                    ? "bg-green-100"
+                    : "bg-gray-100"
                 }`}
               >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    step === "upload"
-                      ? "bg-blue-100"
-                      : step === "categories" ||
-                        step === "preview" ||
-                        step === "importing"
-                      ? "bg-green-100"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <span className="text-sm font-medium">1</span>
-                </div>
-                <span className="font-medium">Upload</span>
+                <span className="text-sm font-medium">1</span>
               </div>
+              <span className="font-medium">Upload</span>
+            </div>
 
-              <div
-                className={`h-px flex-1 ${
-                  step === "categories" ||
-                  step === "preview" ||
-                  step === "importing"
-                    ? "bg-green-600"
-                    : "bg-gray-300"
-                }`}
-              ></div>
+            <div
+              className={`h-px flex-1 ${
+                step === "categories" ||
+                step === "preview" ||
+                step === "importing"
+                  ? "bg-green-600"
+                  : "bg-gray-300"
+              }`}
+            ></div>
 
+            <div
+              className={`flex items-center space-x-2 ${
+                step === "categories"
+                  ? "text-blue-600"
+                  : step === "preview" || step === "importing"
+                  ? "text-green-600"
+                  : "text-gray-400"
+              }`}
+            >
               <div
-                className={`flex items-center space-x-2 ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
                   step === "categories"
-                    ? "text-blue-600"
+                    ? "bg-blue-100"
                     : step === "preview" || step === "importing"
-                    ? "text-green-600"
-                    : "text-gray-400"
+                    ? "bg-green-100"
+                    : "bg-gray-100"
                 }`}
               >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    step === "categories"
-                      ? "bg-blue-100"
-                      : step === "preview" || step === "importing"
-                      ? "bg-green-100"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <span className="text-sm font-medium">2</span>
-                </div>
-                <span className="font-medium">Categories</span>
+                <span className="text-sm font-medium">2</span>
               </div>
+              <span className="font-medium">Categories</span>
+            </div>
 
-              <div
-                className={`h-px flex-1 ${
-                  step === "preview" || step === "importing"
-                    ? "bg-green-600"
-                    : "bg-gray-300"
-                }`}
-              ></div>
+            <div
+              className={`h-px flex-1 ${
+                step === "preview" || step === "importing"
+                  ? "bg-green-600"
+                  : "bg-gray-300"
+              }`}
+            ></div>
 
+            <div
+              className={`flex items-center space-x-2 ${
+                step === "preview"
+                  ? "text-blue-600"
+                  : step === "importing"
+                  ? "text-green-600"
+                  : "text-gray-400"
+              }`}
+            >
               <div
-                className={`flex items-center space-x-2 ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
                   step === "preview"
-                    ? "text-blue-600"
+                    ? "bg-blue-100"
                     : step === "importing"
-                    ? "text-green-600"
-                    : "text-gray-400"
+                    ? "bg-green-100"
+                    : "bg-gray-100"
                 }`}
               >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    step === "preview"
-                      ? "bg-blue-100"
-                      : step === "importing"
-                      ? "bg-green-100"
-                      : "bg-gray-100"
-                  }`}
-                >
-                  <span className="text-sm font-medium">3</span>
-                </div>
-                <span className="font-medium">Preview</span>
+                <span className="text-sm font-medium">3</span>
               </div>
+              <span className="font-medium">Preview</span>
             </div>
           </div>
+        </div>
 
-          {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto p-6">
+        {/* Modal Body */}
+        {/* Main Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto scrollable-modal-content">
+          <div className="p-6">
             {/* Upload Step */}
             {step === "upload" && (
               <div className="space-y-6">
@@ -450,6 +462,77 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                     <Download className="h-4 w-4" />
                     <span>Download Template</span>
                   </button>
+                </div>
+
+                {/* Smart Import Guide */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <Calendar className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-amber-900 mb-2 flex items-center">
+                        � Smart Import Tips
+                        <span className="ml-2 px-2 py-1 bg-amber-200 text-amber-800 text-xs rounded-full font-medium">
+                          AI-Powered
+                        </span>
+                      </h4>
+
+                      <div className="space-y-4">
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            📄 Required Fields
+                          </h5>
+                          <div className="text-xs text-gray-600 space-y-1">
+                            <div>
+                              <span className="font-medium">name</span> -
+                              Product name
+                            </div>
+                            <div>
+                              <span className="font-medium">price</span> - Unit
+                              price (number)
+                            </div>
+                            <div>
+                              <span className="font-medium">quantity</span> -
+                              Stock quantity
+                            </div>
+                            <div>
+                              <span className="font-medium">category</span> -
+                              Product category
+                            </div>
+                            <div>
+                              <span className="font-medium">
+                                expiration_date
+                              </span>{" "}
+                              - See formats below
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            📅 Date Formats
+                          </h5>
+                          <div className="text-xs text-gray-600 space-y-1">
+                            <div>✓ 2024-12-31 (ISO standard)</div>
+                            <div>✓ 31/12/2024 (European)</div>
+                            <div>✓ 12/31/2024 (US format)</div>
+                            <div>✓ 31.12.2024 (Dot notation)</div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            🤖 Smart Features
+                          </h5>
+                          <div className="text-xs text-gray-600 space-y-1">
+                            <div>• Auto-creates missing categories</div>
+                            <div>• Validates dates and prices</div>
+                            <div>• Flexible date format detection</div>
+                            <div>• Smart error prevention</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

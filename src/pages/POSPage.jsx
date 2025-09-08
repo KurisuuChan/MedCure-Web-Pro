@@ -14,6 +14,7 @@ import ProductSelector from "../features/pos/components/ProductSelector";
 import ShoppingCartComponent from "../features/pos/components/ShoppingCart";
 import { usePOS } from "../features/pos/hooks/usePOS";
 import { useAuth } from "../hooks/useAuth";
+import "../components/ui/ScrollableModal.css";
 import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
 import { salesService } from "../services/salesService";
@@ -208,9 +209,9 @@ export default function POSPage() {
       {/* Checkout Modal */}
       {showCheckout && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 border border-gray-200">
-            {/* Payment Header */}
-            <div className="bg-white border-b border-gray-200 p-6">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 border border-gray-200 max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Payment Header - Sticky */}
+            <div className="bg-white border-b border-gray-200 p-6 flex-shrink-0">
               <div className="flex items-center space-x-4">
                 <div className="bg-green-100 p-3 rounded-lg">
                   <CreditCard className="h-6 w-6 text-green-600" />
@@ -226,178 +227,181 @@ export default function POSPage() {
               </div>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* Order Summary */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                    <Receipt className="h-5 w-5 mr-2 text-gray-600" />
-                    Order Summary
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto scrollable-modal-content">
+              <div className="p-6 space-y-6">
+                {/* Order Summary */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                      <Receipt className="h-5 w-5 mr-2 text-gray-600" />
+                      Order Summary
+                    </h3>
+                    <span className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-sm font-medium">
+                      {cartItems.length} item{cartItems.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="font-medium">
+                        {formatCurrency(cartSummary.subtotal)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-600">VAT (12%)</span>
+                      <span className="font-medium">
+                        {formatCurrency(cartSummary.tax)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-2 border-t border-gray-300 font-semibold text-base">
+                      <span>Total</span>
+                      <span className="text-green-600">
+                        {formatCurrency(cartSummary.total)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Method */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">
+                    Payment Method
                   </h3>
-                  <span className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-sm font-medium">
-                    {cartItems.length} item{cartItems.length !== 1 ? "s" : ""}
-                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() =>
+                        setPaymentData((prev) => ({ ...prev, method: "cash" }))
+                      }
+                      className={`p-4 border-2 rounded-lg transition-colors ${
+                        paymentData.method === "cash"
+                          ? "border-green-500 bg-green-50 text-green-700"
+                          : "border-gray-200 hover:border-gray-300 text-gray-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <DollarSign className="h-5 w-5" />
+                        <span className="font-medium">Cash</span>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setPaymentData((prev) => ({ ...prev, method: "gcash" }))
+                      }
+                      className={`p-4 border-2 rounded-lg transition-colors ${
+                        paymentData.method === "gcash"
+                          ? "border-green-500 bg-green-50 text-green-700"
+                          : "border-gray-200 hover:border-gray-300 text-gray-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <Smartphone className="h-5 w-5" />
+                        <span className="font-medium">GCash</span>
+                      </div>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between py-1">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-medium">
-                      {formatCurrency(cartSummary.subtotal)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-gray-600">VAT (12%)</span>
-                    <span className="font-medium">
-                      {formatCurrency(cartSummary.tax)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-t border-gray-300 font-semibold text-base">
-                    <span>Total</span>
-                    <span className="text-green-600">
-                      {formatCurrency(cartSummary.total)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Method */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">
-                  Payment Method
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() =>
-                      setPaymentData((prev) => ({ ...prev, method: "cash" }))
-                    }
-                    className={`p-4 border-2 rounded-lg transition-colors ${
-                      paymentData.method === "cash"
-                        ? "border-green-500 bg-green-50 text-green-700"
-                        : "border-gray-200 hover:border-gray-300 text-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <DollarSign className="h-5 w-5" />
-                      <span className="font-medium">Cash</span>
+                {/* Amount Input */}
+                <div>
+                  <label className="block text-lg font-medium text-gray-900 mb-3">
+                    Amount Received
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 text-lg">₱</span>
                     </div>
-                  </button>
+                    <input
+                      type="number"
+                      value={paymentData.amount}
+                      onChange={(e) =>
+                        setPaymentData((prev) => ({
+                          ...prev,
+                          amount: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      step="0.01"
+                      min={cartSummary.total}
+                      className="w-full pl-8 pr-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      placeholder="0.00"
+                    />
+                  </div>
 
-                  <button
-                    onClick={() =>
-                      setPaymentData((prev) => ({ ...prev, method: "gcash" }))
-                    }
-                    className={`p-4 border-2 rounded-lg transition-colors ${
-                      paymentData.method === "gcash"
-                        ? "border-green-500 bg-green-50 text-green-700"
-                        : "border-gray-200 hover:border-gray-300 text-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <Smartphone className="h-5 w-5" />
-                      <span className="font-medium">GCash</span>
+                  {paymentData.amount >= cartSummary.total && (
+                    <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-green-800 font-medium text-center">
+                        Change:{" "}
+                        {formatCurrency(calculateChange(paymentData.amount))}
+                      </p>
                     </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Amount Input */}
-              <div>
-                <label className="block text-lg font-medium text-gray-900 mb-3">
-                  Amount Received
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 text-lg">₱</span>
-                  </div>
-                  <input
-                    type="number"
-                    value={paymentData.amount}
-                    onChange={(e) =>
-                      setPaymentData((prev) => ({
-                        ...prev,
-                        amount: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    step="0.01"
-                    min={cartSummary.total}
-                    className="w-full pl-8 pr-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                {paymentData.amount >= cartSummary.total && (
-                  <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
-                    <p className="text-green-800 font-medium text-center">
-                      Change:{" "}
-                      {formatCurrency(calculateChange(paymentData.amount))}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Customer Info */}
-              <div>
-                <h4 className="text-base font-medium text-gray-900 mb-3">
-                  Customer Information (Optional)
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Customer name"
-                    value={paymentData.customer_name}
-                    onChange={(e) =>
-                      setPaymentData((prev) => ({
-                        ...prev,
-                        customer_name: e.target.value,
-                      }))
-                    }
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone number"
-                    value={paymentData.customer_phone}
-                    onChange={(e) =>
-                      setPaymentData((prev) => ({
-                        ...prev,
-                        customer_phone: e.target.value,
-                      }))
-                    }
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setShowCheckout(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePayment}
-                  disabled={
-                    isProcessing || paymentData.amount < cartSummary.total
-                  }
-                  className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center space-x-2"
-                >
-                  {isProcessing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4" />
-                      <span>Complete Payment</span>
-                    </>
                   )}
-                </button>
+                </div>
+
+                {/* Customer Info */}
+                <div>
+                  <h4 className="text-base font-medium text-gray-900 mb-3">
+                    Customer Information (Optional)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Customer name"
+                      value={paymentData.customer_name}
+                      onChange={(e) =>
+                        setPaymentData((prev) => ({
+                          ...prev,
+                          customer_name: e.target.value,
+                        }))
+                      }
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone number"
+                      value={paymentData.customer_phone}
+                      onChange={(e) =>
+                        setPaymentData((prev) => ({
+                          ...prev,
+                          customer_phone: e.target.value,
+                        }))
+                      }
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons - Sticky Footer */}
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex-shrink-0">
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowCheckout(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePayment}
+                    disabled={
+                      isProcessing || paymentData.amount < cartSummary.total
+                    }
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center space-x-2"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="h-4 w-4" />
+                        <span>Complete Payment</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -407,16 +411,20 @@ export default function POSPage() {
       {/* Receipt Modal */}
       {showReceipt && lastTransaction && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <div className="text-center mb-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Receipt Header - Sticky */}
+            <div className="p-6 border-b border-gray-200 flex-shrink-0">
+              <div className="text-center">
                 <Receipt className="h-8 w-8 mx-auto mb-2 text-green-600" />
                 <h2 className="text-xl font-bold text-gray-900">
                   Transaction Complete
                 </h2>
                 <p className="text-gray-600">Receipt #{lastTransaction.id}</p>
               </div>
+            </div>
 
+            {/* Receipt Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto scrollable-modal-content p-6">
               {/* Receipt Details */}
               <div className="bg-gray-50 rounded-lg p-4 mb-4 font-mono text-sm">
                 <div className="text-center border-b pb-2 mb-2">
@@ -474,10 +482,13 @@ export default function POSPage() {
                   <p>Thank you for your business!</p>
                 </div>
               </div>
+            </div>
 
+            {/* Receipt Footer - Sticky */}
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
               <button
                 onClick={closeReceipt}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 New Transaction
               </button>
@@ -516,7 +527,7 @@ export default function POSPage() {
               </div>
             </div>
 
-            <div className="p-6 bg-white max-h-[calc(90vh-120px)] overflow-y-auto">
+            <div className="p-6 bg-white max-h-[calc(90vh-120px)] overflow-y-auto scrollable-modal-content">
               {loadingHistory ? (
                 <div className="flex flex-col items-center justify-center py-16">
                   <div className="relative">
