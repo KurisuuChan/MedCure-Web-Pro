@@ -1,6 +1,14 @@
 import React from "react";
-import { ShoppingCart, Plus, Minus, Trash2, Package } from "lucide-react";
+import {
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  Package,
+  AlertTriangle,
+} from "lucide-react";
 import { formatCurrency } from "../../../utils/formatting";
+import { usePOSStore } from "../../../stores/posStore";
 
 export default function ShoppingCartComponent({
   items = [],
@@ -9,6 +17,8 @@ export default function ShoppingCartComponent({
   onClearCart,
   className = "",
 }) {
+  // 🎯 Professional: Get real-time stock data
+  const { getAvailableStock } = usePOSStore();
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const tax = subtotal * 0.12; // 12% VAT
   const total = subtotal + tax;
@@ -93,6 +103,47 @@ export default function ShoppingCartComponent({
                       ({item.quantityInPieces} pieces total)
                     </span>
                   </div>
+
+                  {/* 🎯 Professional: Real-time stock indicator */}
+                  {(() => {
+                    const availableStock = getAvailableStock(item.productId);
+                    const currentCartQuantity = items
+                      .filter(
+                        (cartItem) => cartItem.productId === item.productId
+                      )
+                      .reduce(
+                        (total, cartItem) => total + cartItem.quantityInPieces,
+                        0
+                      );
+                    const remainingAfterCart =
+                      availableStock + currentCartQuantity; // Add back current cart to get original stock
+
+                    return (
+                      <div className="mt-1 flex items-center space-x-2">
+                        {remainingAfterCart <= 20 && (
+                          <div className="flex items-center space-x-1">
+                            <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                            <span className="text-xs text-yellow-600 font-medium">
+                              Low stock: {remainingAfterCart} pieces left
+                            </span>
+                          </div>
+                        )}
+                        {availableStock === 0 && (
+                          <div className="flex items-center space-x-1">
+                            <AlertTriangle className="h-3 w-3 text-red-500" />
+                            <span className="text-xs text-red-600 font-medium">
+                              No additional stock available
+                            </span>
+                          </div>
+                        )}
+                        {availableStock > 0 && remainingAfterCart > 20 && (
+                          <span className="text-xs text-green-600">
+                            ✓ {availableStock} more available
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Remove Button */}
@@ -123,12 +174,30 @@ export default function ShoppingCartComponent({
                     <span className="text-xs text-gray-500">{item.unit}</span>
                   </div>
 
-                  <button
-                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
+                  {/* 🎯 Professional: Stock-aware quantity increase */}
+                  {(() => {
+                    const availableStock = getAvailableStock(item.productId);
+                    const canIncrease = availableStock > 0;
+
+                    return (
+                      <button
+                        onClick={() =>
+                          onUpdateQuantity(item.id, item.quantity + 1)
+                        }
+                        disabled={!canIncrease}
+                        className={`p-1 transition-colors ${
+                          canIncrease
+                            ? "text-gray-400 hover:text-gray-600"
+                            : "text-red-300 cursor-not-allowed opacity-50"
+                        }`}
+                        title={
+                          canIncrease ? "Add more" : "No more stock available"
+                        }
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {/* Item Subtotal */}

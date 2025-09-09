@@ -7,6 +7,7 @@ import {
   History,
   User,
   DollarSign,
+  RotateCcw,
 } from "lucide-react";
 import { formatCurrency } from "../../utils/formatting";
 import { formatDate } from "../../utils/dateTime";
@@ -89,6 +90,28 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
       ...editedTransaction,
       items: updatedItems,
     });
+  };
+
+  // Handle revert to original
+  const handleRevertToOriginal = () => {
+    if (!transaction) return;
+
+    // Restore original transaction data
+    const originalTransaction = {
+      ...transaction,
+      items:
+        transaction.items?.map((item) => ({
+          ...item,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price || item.pricePerUnit || 0,
+          total_price: item.total_price || item.totalPrice || 0,
+        })) || [],
+    };
+
+    setEditedTransaction(originalTransaction);
+    setEditReason("Reverted to original transaction values");
+
+    console.log("🔄 Reverted to original transaction:", originalTransaction);
   };
 
   // Handle save
@@ -424,6 +447,18 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
           >
             Cancel
           </button>
+
+          {/* Revert to Original Button */}
+          {transaction.is_edited && (
+            <button
+              onClick={handleRevertToOriginal}
+              className="px-4 py-2 text-orange-700 bg-orange-50 border border-orange-300 rounded-lg hover:bg-orange-100 transition-colors flex items-center gap-2"
+              title="Restore original transaction values"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Revert to Original
+            </button>
+          )}
 
           <button
             onClick={handleSave}

@@ -10,6 +10,7 @@ import {
   X,
   ShoppingCart,
   Edit3,
+  RotateCcw,
 } from "lucide-react";
 import ProductSelector from "../features/pos/components/ProductSelector";
 import ShoppingCartComponent from "../features/pos/components/ShoppingCart";
@@ -68,27 +69,28 @@ export default function POSPage() {
 
   const cartSummary = getCartSummary();
 
+  // Function to load transaction history
+  const loadTransactionHistory = useCallback(async () => {
+    if (showTransactionHistory) {
+      setLoadingHistory(true);
+      try {
+        console.log("📊 Loading transaction history...");
+        const history = await unifiedTransactionService.getTodaysTransactions();
+        console.log("📊 Received transaction history:", history);
+        console.log("📊 First transaction items check:", history[0]?.items);
+        setTransactionHistory(history);
+      } catch (error) {
+        console.error("Failed to load transaction history:", error);
+      } finally {
+        setLoadingHistory(false);
+      }
+    }
+  }, [showTransactionHistory]);
+
   // Load transaction history
   useEffect(() => {
-    const loadHistory = async () => {
-      if (showTransactionHistory) {
-        setLoadingHistory(true);
-        try {
-          console.log("📊 Loading transaction history...");
-          const history =
-            await unifiedTransactionService.getTodaysTransactions();
-          console.log("📊 Received transaction history:", history);
-          console.log("📊 First transaction items check:", history[0]?.items);
-          setTransactionHistory(history);
-        } catch (error) {
-          console.error("Failed to load transaction history:", error);
-        } finally {
-          setLoadingHistory(false);
-        }
-      }
-    };
-    loadHistory();
-  }, [showTransactionHistory]); // Remove the length dependency to always reload
+    loadTransactionHistory();
+  }, [showTransactionHistory, loadTransactionHistory]); // Include loadTransactionHistory dependency
 
   const handleCheckout = () => {
     if (cartItems.length === 0) return;
@@ -233,18 +235,31 @@ export default function POSPage() {
       console.log("📝 Updating transaction with data:", editData);
 
       // Call the edit transaction service with correct transaction ID
-      const updatedTransaction =
-        await unifiedTransactionService.editTransaction(
-          editData.transaction_id,
-          editData
-        );
+      const result = await unifiedTransactionService.editTransaction(
+        editData.transaction_id,
+        editData
+      );
 
-      console.log("✅ Transaction updated successfully:", updatedTransaction);
+      console.log("✅ Transaction updated successfully:", result);
 
-      // Update the transaction in the history list
+      // Extract the updated transaction data
+      const updatedTransaction = result.data;
+
+      // Update the transaction in the history list with the new price
       setTransactionHistory((prev) =>
         prev.map((t) =>
-          t.id === updatedTransaction.id ? updatedTransaction : t
+          t.id === updatedTransaction.id
+            ? {
+                ...t,
+                total_amount: updatedTransaction.total_amount,
+                is_edited: updatedTransaction.is_edited,
+                edited_at: updatedTransaction.edited_at,
+                edit_reason: updatedTransaction.edit_reason,
+                status: updatedTransaction.status,
+                // Update items if needed
+                items: updatedTransaction.sale_items || t.items,
+              }
+            : t
         )
       );
 
@@ -252,11 +267,51 @@ export default function POSPage() {
       setEditingTransaction(null);
 
       // Show success message
-      console.log("🎉 Transaction edit completed successfully");
+      console.log(
+        "🎉 Transaction edit completed successfully - new price:",
+        updatedTransaction.total_amount
+      );
+
+      // Optional: Refresh the entire transaction history to ensure accuracy
+      setTimeout(() => {
+        loadTransactionHistory();
+      }, 500);
     } catch (error) {
       console.error("❌ Failed to update transaction:", error);
       // The error will be handled by the TransactionEditor component
       throw error;
+    }
+  };
+
+  const handleUndoTransaction = async (transaction) => {
+    if (
+      !confirm(
+        `Are you sure you want to undo transaction #${transaction.id.slice(
+          -8
+        )}? This will restore stock and mark the transaction as cancelled.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      console.log("↩️ Undoing transaction:", transaction.id);
+
+      // Call the undo transaction service
+      const result = await unifiedTransactionService.undoTransaction(
+        transaction.id
+      );
+
+      console.log("✅ Transaction undone successfully:", result);
+
+      // Refresh transaction history to show updated status and restored price
+      await loadTransactionHistory();
+
+      // Show success message
+      console.log("🎉 Transaction undone successfully - stock restored");
+    } catch (error) {
+      console.error("❌ Failed to undo transaction:", error);
+      alert(`Failed to undo transaction: ${error.message}`);
     }
   };
 
@@ -667,7 +722,7 @@ export default function POSPage() {
                 <div className="space-y-1 border-b pb-2 mb-2">
                   {lastTransaction.items.map((item) => (
                     <div
-                      key={`${item.id}-${item.quantity}`}
+                      key={item.id} // Use stable cart item ID
                       className="flex justify-between"
                     >
                       <span>
@@ -829,7 +884,8 @@ export default function POSPage() {
                               <p className="text-xl font-semibold text-gray-900">
                                 {formatCurrency(
                                   transactionHistory.reduce(
-                                    (sum, t) => sum + (t.total_amount || t.total || 0),
+                                    (sum, t) =>
+                                      sum + (t.total_amount || t.total || 0),
                                     0
                                   )
                                 )}
@@ -895,7 +951,11 @@ export default function POSPage() {
                               <div className="flex items-center space-x-3">
                                 <div className="text-right">
                                   <p className="font-semibold text-gray-900">
-                                    {formatCurrency(transaction.total_amount || transaction.total || 0)}
+                                    {formatCurrency(
+                                      transaction.total_amount ||
+                                        transaction.total ||
+                                        0
+                                    )}
                                   </p>
                                   <p className="text-sm text-gray-600">
                                     {transaction.items?.length || 0} item
@@ -904,22 +964,38 @@ export default function POSPage() {
                                       : ""}
                                   </p>
                                 </div>
-                                {/* Edit Button */}
-                                <button
-                                  onClick={() =>
-                                    handleEditTransaction(transaction)
-                                  }
-                                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                  title="Edit Transaction"
-                                  disabled={false} // TEMP: Always enable for debugging
-                                  // disabled={
-                                  //   new Date() -
-                                  //     new Date(transaction.created_at) >
-                                  //   24 * 60 * 60 * 1000
-                                  // }
-                                >
-                                  <Edit3 className="h-4 w-4" />
-                                </button>
+                                <div className="flex items-center space-x-2">
+                                  {/* Edit Button */}
+                                  <button
+                                    onClick={() =>
+                                      handleEditTransaction(transaction)
+                                    }
+                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Edit Transaction"
+                                    disabled={false} // TEMP: Always enable for debugging
+                                    // disabled={
+                                    //   new Date() -
+                                    //     new Date(transaction.created_at) >
+                                    //   24 * 60 * 60 * 1000
+                                    // }
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                  </button>
+
+                                  {/* Undo Button */}
+                                  <button
+                                    onClick={() =>
+                                      handleUndoTransaction(transaction)
+                                    }
+                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Undo Transaction (Restore Stock)"
+                                    disabled={
+                                      transaction.status === "cancelled"
+                                    }
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
 
@@ -936,10 +1012,19 @@ export default function POSPage() {
                                           className="flex justify-between text-sm"
                                         >
                                           <span className="text-gray-600">
-                                            {item.products?.name || item.name || 'Unknown Item'} x{item.quantity}
+                                            {item.products?.name ||
+                                              item.name ||
+                                              "Unknown Item"}{" "}
+                                            x{item.quantity}
                                           </span>
                                           <span className="text-gray-900">
-                                            {formatCurrency(item.total_price || item.subtotal || (item.unit_price * item.quantity) || 0)}
+                                            {formatCurrency(
+                                              item.total_price ||
+                                                item.subtotal ||
+                                                item.unit_price *
+                                                  item.quantity ||
+                                                0
+                                            )}
                                           </span>
                                         </div>
                                       ))}

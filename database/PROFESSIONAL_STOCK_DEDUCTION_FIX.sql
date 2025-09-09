@@ -270,9 +270,10 @@ BEGIN
         );
     END LOOP;
     
-    -- Mark transaction as undone (keep completed status but add undo flag)
+    -- Mark transaction as cancelled (CRITICAL: Change status so it's excluded from revenue)
     UPDATE sales 
-    SET is_edited = true,
+    SET status = 'cancelled', -- ✅ CRITICAL: Change status to exclude from revenue
+        is_edited = true,
         edited_at = NOW(),
         edit_reason = 'Transaction undone and stock restored',
         updated_at = NOW()

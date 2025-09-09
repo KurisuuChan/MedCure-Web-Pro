@@ -27,6 +27,7 @@ export class ReportingService {
           )
         `
         )
+        .eq("status", "completed") // ✅ CRITICAL: Only completed transactions
         .gte("created_at", startDate)
         .lte("created_at", endDate)
         .order("created_at", { ascending: false });
@@ -353,6 +354,7 @@ export class ReportingService {
           )
         `
         )
+        .eq("status", "completed") // ✅ CRITICAL: Only completed transactions
         .gte("created_at", startDate)
         .lte("created_at", endDate)
         .order("created_at", { ascending: true });

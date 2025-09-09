@@ -60,10 +60,11 @@ export function useInventory() {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (product) =>
-          product.name.toLowerCase().includes(term) ||
-          product.brand.toLowerCase().includes(term) ||
-          product.category.toLowerCase().includes(term) ||
-          product.description.toLowerCase().includes(term)
+          (product.name && product.name.toLowerCase().includes(term)) ||
+          (product.brand && product.brand.toLowerCase().includes(term)) ||
+          (product.category && product.category.toLowerCase().includes(term)) ||
+          (product.description &&
+            product.description.toLowerCase().includes(term))
       );
     }
 
@@ -139,9 +140,10 @@ export function useInventory() {
           : new Date("9999-12-31");
       }
 
-      if (typeof aValue === "string") {
+      if (typeof aValue === "string" && aValue !== null) {
         aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
+        bValue =
+          bValue && typeof bValue === "string" ? bValue.toLowerCase() : "";
       }
 
       if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;

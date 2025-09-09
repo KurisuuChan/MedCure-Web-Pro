@@ -12,6 +12,7 @@ export function usePOS() {
     clearCart,
     getCartItemCount,
     getCartTotal,
+    setAvailableProducts: setStoreProducts,
   } = usePOSStore();
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -30,13 +31,15 @@ export function usePOS() {
         availableProducts: availableProducts.length,
       });
       setAvailableProducts(availableProducts);
+      // 🎯 Update the store with available products
+      setStoreProducts(availableProducts);
     } catch (err) {
       console.error("Error loading products:", err);
       setError("Failed to load products");
     } finally {
       setIsLoadingProducts(false);
     }
-  }, []);
+  }, [setStoreProducts]);
 
   // Load available products on mount
   useEffect(() => {

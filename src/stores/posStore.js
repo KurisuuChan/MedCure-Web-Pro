@@ -8,6 +8,9 @@ export const usePOSStore = create(
       // Cart items
       cartItems: [],
 
+      // Available products for POS
+      availableProducts: [],
+
       // Customer information
       customer: null,
 
@@ -28,17 +31,48 @@ export const usePOSStore = create(
             pieces_per_sheet: product.pieces_per_sheet,
             sheets_per_box: product.sheets_per_box,
             price_per_piece: product.price_per_piece,
+            stock_in_pieces: product.stock_in_pieces,
           },
         });
 
         const state = get();
-        const existingItemIndex = state.cartItems.findIndex(
-          (item) => item.product.id === product.id && item.unit === unit
-        );
 
         // Convert quantity to pieces (base unit) - ensure quantity is a number
         const numQuantity = Number(quantity);
         const quantityInPieces = convertToBaseUnit(numQuantity, unit, product);
+
+        // 🛡️ PROFESSIONAL STOCK VALIDATION
+        const currentCartQuantity = state.cartItems
+          .filter((item) => item.productId === product.id)
+          .reduce((total, item) => total + item.quantityInPieces, 0);
+
+        const totalRequestedQuantity = currentCartQuantity + quantityInPieces;
+        const availableStock = product.stock_in_pieces || 0;
+
+        if (totalRequestedQuantity > availableStock) {
+          const remainingStock = Math.max(
+            0,
+            availableStock - currentCartQuantity
+          );
+          console.warn("⚠️ Insufficient stock:", {
+            product: product.name,
+            requested: quantityInPieces,
+            currentInCart: currentCartQuantity,
+            totalRequested: totalRequestedQuantity,
+            available: availableStock,
+            remaining: remainingStock,
+          });
+
+          // Throw error with detailed information
+          throw new Error(
+            `Insufficient stock! Available: ${remainingStock} pieces, Requested: ${quantityInPieces} pieces`
+          );
+        }
+
+        const existingItemIndex = state.cartItems.findIndex(
+          (item) => item.product.id === product.id && item.unit === unit
+        );
+
         const pricePerPiece = Number(product.price_per_piece);
         const pricePerUnit = calculatePricePerUnit(
           pricePerPiece,
@@ -172,6 +206,11 @@ export const usePOSStore = create(
         set({ syncQueue: unsynced });
       },
 
+      // Product management
+      setAvailableProducts: (products) => {
+        set({ availableProducts: products || [] });
+      },
+
       // Computed values
       getCartTotal: () => {
         const state = get();
@@ -179,6 +218,71 @@ export const usePOSStore = create(
           (total, item) => total + item.totalPrice,
           0
         );
+      },
+
+      // 🎯 PROFESSIONAL HELPER FUNCTIONS
+      getAvailableStock: (productId) => {
+        const state = get();
+        if (!state.availableProducts || !Array.isArray(state.availableProducts))
+          return 0;
+        const product = state.availableProducts.find((p) => p.id === productId);
+        if (!product) return 0;
+
+        const cartQuantity = state.cartItems
+          .filter((item) => item.productId === productId)
+          .reduce((total, item) => total + item.quantityInPieces, 0);
+
+        return Math.max(0, (product.stock_in_pieces || 0) - cartQuantity);
+      },
+
+      getAvailableVariants: (productId) => {
+        const state = get();
+        if (!state.availableProducts || !Array.isArray(state.availableProducts))
+          return [];
+        const product = state.availableProducts.find((p) => p.id === productId);
+        if (!product) return [];
+
+        const availableStock = state.getAvailableStock(productId);
+        const variants = [];
+
+        // Piece variant
+        if (availableStock >= 1) {
+          variants.push({
+            unit: "piece",
+            label: "Piece",
+            maxQuantity: availableStock,
+            pricePerUnit: product.price_per_piece,
+          });
+        }
+
+        // Sheet variant (if applicable)
+        if (
+          product.pieces_per_sheet &&
+          availableStock >= product.pieces_per_sheet
+        ) {
+          variants.push({
+            unit: "sheet",
+            label: "Sheet",
+            maxQuantity: Math.floor(availableStock / product.pieces_per_sheet),
+            pricePerUnit: product.price_per_piece * product.pieces_per_sheet,
+          });
+        }
+
+        // Box variant (if applicable)
+        if (product.sheets_per_box && product.pieces_per_sheet) {
+          const piecesPerBox =
+            product.pieces_per_sheet * product.sheets_per_box;
+          if (availableStock >= piecesPerBox) {
+            variants.push({
+              unit: "box",
+              label: "Box",
+              maxQuantity: Math.floor(availableStock / piecesPerBox),
+              pricePerUnit: product.price_per_piece * piecesPerBox,
+            });
+          }
+        }
+
+        return variants;
       },
 
       getCartItemCount: () => {

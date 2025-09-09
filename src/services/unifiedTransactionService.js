@@ -26,16 +26,62 @@ class UnifiedTransactionService {
 
     try {
       // Map items to database format
-      const mappedItems = saleData.items.map((item) => ({
-        product_id: item.product_id || item.productId,
-        quantity:
-          item.quantity_in_pieces || item.quantityInPieces || item.quantity,
-        unit_type: "piece", // Always use pieces for consistency
-        unit_price: item.price_per_unit || item.pricePerUnit || item.unit_price,
-        total_price: item.total_price || item.totalPrice,
-      }));
+      const mappedItems = saleData.items.map((item) => {
+        const quantity =
+          item.quantity_in_pieces || item.quantityInPieces || item.quantity;
+        const total_price = item.total_price || item.totalPrice;
+
+        // Calculate unit_price as price per piece (total_price / quantity_in_pieces)
+        const unit_price =
+          item.price_per_piece || item.pricePerPiece || total_price / quantity; // This gives us price per piece
+
+        console.log("🔍 Item mapping debug:", {
+          original: item,
+          mapped: {
+            product_id: item.product_id || item.productId,
+            quantity,
+            unit_type: "piece",
+            unit_price,
+            total_price,
+            constraint_check: `${quantity} * ${unit_price} = ${
+              quantity * unit_price
+            }`,
+            passes_constraint:
+              Math.abs(total_price - quantity * unit_price) < 0.01,
+          },
+        });
+
+        return {
+          product_id: item.product_id || item.productId,
+          quantity,
+          unit_type: "piece", // Always use pieces for consistency
+          unit_price,
+          total_price,
+        };
+      });
 
       console.log("📦 Mapped items:", mappedItems);
+
+      // Validate constraint before sending to database
+      const constraintViolations = mappedItems.filter((item) => {
+        const calculatedTotal = item.quantity * item.unit_price;
+        return Math.abs(item.total_price - calculatedTotal) > 0.01; // Allow for floating point precision
+      });
+
+      if (constraintViolations.length > 0) {
+        console.error(
+          "❌ Constraint violations detected:",
+          constraintViolations
+        );
+        throw new Error(
+          `Price constraint violations: ${constraintViolations
+            .map(
+              (v) =>
+                `Item ${v.product_id}: total_price(${v.total_price}) != quantity(${v.quantity}) * unit_price(${v.unit_price})`
+            )
+            .join(", ")}`
+        );
+      }
 
       const { data, error } = await supabase.rpc("create_sale_with_items", {
         sale_data: {
@@ -146,8 +192,8 @@ class UnifiedTransactionService {
     console.log("✏️ Editing transaction:", transactionId, editData);
 
     try {
-      // Try the newer edit function first
-      const { data, error } = await supabase.rpc(
+      // Step 1: Edit the transaction (undos old version, creates new pending version)
+      const { data: editResult, error: editError } = await supabase.rpc(
         "edit_transaction_with_stock_management",
         {
           p_edit_data: {
@@ -157,14 +203,52 @@ class UnifiedTransactionService {
         }
       );
 
-      if (error) throw error;
+      if (editError) throw editError;
+      console.log("✅ Transaction edited (pending):", editResult);
 
-      console.log("✅ Transaction edited successfully:", data);
+      // Step 2: Complete the edited transaction to finalize new price and deduct stock
+      const { data: completeResult, error: completeError } = await supabase.rpc(
+        "complete_transaction_with_stock",
+        {
+          p_transaction_id: transactionId,
+        }
+      );
+
+      if (completeError) throw completeError;
+      console.log("✅ Edited transaction completed:", completeResult);
+
+      // Step 3: Fetch the updated transaction to return current state
+      const { data: updatedTransaction, error: fetchError } = await supabase
+        .from("sales")
+        .select(
+          `
+          *,
+          sale_items (
+            id,
+            product_id,
+            quantity,
+            unit_type,
+            unit_price,
+            total_price,
+            products (name, description)
+          )
+        `
+        )
+        .eq("id", transactionId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      console.log(
+        "✅ Transaction edit and completion successful:",
+        updatedTransaction
+      );
       return {
         success: true,
-        data: data,
+        data: updatedTransaction,
         transaction_id: transactionId,
-        status: "edited",
+        status: "completed",
+        message: "Transaction edited and price updated successfully",
       };
     } catch (error) {
       console.error("❌ Edit transaction failed:", error);

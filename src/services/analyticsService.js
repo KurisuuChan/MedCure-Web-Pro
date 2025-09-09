@@ -31,6 +31,7 @@ export class AnalyticsService {
           )
         `
         )
+        .eq("status", "completed") // ✅ CRITICAL: Only completed transactions
         .gte("created_at", startDate)
         .lte("created_at", endDate)
         .order("created_at", { ascending: false });
@@ -52,23 +53,26 @@ export class AnalyticsService {
       const today = new Date().toISOString().split("T")[0];
       const thisMonth = new Date().toISOString().slice(0, 7);
 
-      // Today's sales
+      // Today's sales - ONLY COMPLETED TRANSACTIONS
       const { data: todaySales } = await supabase
         .from("sales")
         .select("total_amount")
+        .eq("status", "completed") // ✅ CRITICAL: Only completed transactions
         .gte("created_at", `${today}T00:00:00`)
         .lte("created_at", `${today}T23:59:59`);
 
-      // This month's sales
+      // This month's sales - ONLY COMPLETED TRANSACTIONS
       const { data: monthSales } = await supabase
         .from("sales")
         .select("total_amount")
+        .eq("status", "completed") // ✅ CRITICAL: Only completed transactions
         .gte("created_at", `${thisMonth}-01T00:00:00`);
 
-      // Transaction count today
+      // Transaction count today - ONLY COMPLETED TRANSACTIONS
       const { count: todayTransactions } = await supabase
         .from("sales")
         .select("*", { count: "exact", head: true })
+        .eq("status", "completed") // ✅ CRITICAL: Only completed transactions
         .gte("created_at", `${today}T00:00:00`)
         .lte("created_at", `${today}T23:59:59`);
 
@@ -209,6 +213,7 @@ export class AnalyticsService {
           )
         `
         )
+        .eq("status", "completed") // ✅ CRITICAL: Only completed transactions
         .gte("created_at", startDate)
         .lte("created_at", endDate);
 
@@ -233,6 +238,7 @@ export class AnalyticsService {
       const { data: salesData, error } = await supabase
         .from("sales")
         .select("total_amount, created_at")
+        .eq("status", "completed") // ✅ CRITICAL: Only completed transactions
         .gte("created_at", startDate)
         .lte("created_at", endDate)
         .order("created_at", { ascending: true });

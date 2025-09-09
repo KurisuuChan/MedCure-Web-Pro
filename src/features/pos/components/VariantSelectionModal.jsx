@@ -8,8 +8,10 @@ import {
   Plus,
   Minus,
   Info,
+  AlertTriangle,
 } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatting";
+import { usePOSStore } from "../../../stores/posStore";
 
 export default function VariantSelectionModal({
   product,
@@ -20,53 +22,78 @@ export default function VariantSelectionModal({
   const [selectedVariant, setSelectedVariant] = useState("piece");
   const [quantity, setQuantity] = useState(1);
 
+  // 🎯 Professional: Get real-time cart data
+  const { getAvailableStock, getAvailableVariants } = usePOSStore();
+
   if (!isOpen || !product) return null;
 
-  // Calculate pricing and stock for each variant
-  const variants = {
-    piece: {
-      name: "Piece",
-      icon: Package,
-      price: Number(product.price_per_piece),
-      stock: product.stock_in_pieces,
-      unit: "pc",
-      description: "Individual pieces",
-      multiplier: 1,
-    },
-    sheet: {
-      name: "Sheet",
-      icon: Layers,
-      price: Number(product.price_per_piece) * Number(product.pieces_per_sheet),
-      stock: Math.floor(product.stock_in_pieces / product.pieces_per_sheet),
-      unit: "sheet",
-      description: `${product.pieces_per_sheet} pieces per sheet`,
-      multiplier: product.pieces_per_sheet,
-    },
-    box: {
-      name: "Box",
-      icon: Box,
-      price:
-        Number(product.price_per_piece) *
-        Number(product.pieces_per_sheet) *
-        Number(product.sheets_per_box),
-      stock: Math.floor(
-        product.stock_in_pieces /
-          (product.pieces_per_sheet * product.sheets_per_box)
-      ),
-      unit: "box",
-      description: `${product.sheets_per_box} sheets per box (${
-        product.pieces_per_sheet * product.sheets_per_box
-      } pieces)`,
-      multiplier: product.pieces_per_sheet * product.sheets_per_box,
-    },
+  // 🚀 Professional: Calculate real-time available stock (original - cart items)
+  const availableStockInPieces = getAvailableStock
+    ? getAvailableStock(product.id)
+    : 0;
+
+  // 🎯 Professional: Get dynamic variants based on real available stock
+  const availableVariants = getAvailableVariants
+    ? getAvailableVariants(product.id)
+    : [];
+
+  if (!isOpen || !product) return null;
+
+  // � Professional: Check if product is completely out of stock
+  const isCompletelyOutOfStock = availableStockInPieces <= 0;
+
+  // �🚀 Professional: Convert dynamic variants to modal format
+  const variants = {};
+
+  availableVariants.forEach((variant) => {
+    const icons = {
+      piece: Package,
+      sheet: Layers,
+      box: Box,
+    };
+
+    variants[variant.unit] = {
+      name: variant.label,
+      icon: icons[variant.unit] || Package,
+      price: variant.pricePerUnit,
+      stock: variant.maxQuantity,
+      unit: variant.unit,
+      description:
+        variant.unit === "piece"
+          ? "Individual pieces"
+          : variant.unit === "sheet"
+          ? `${product.pieces_per_sheet} pieces per sheet`
+          : `${product.sheets_per_box} sheets per box (${
+              product.pieces_per_sheet * product.sheets_per_box
+            } pieces)`,
+      multiplier:
+        variant.unit === "piece"
+          ? 1
+          : variant.unit === "sheet"
+          ? product.pieces_per_sheet
+          : product.pieces_per_sheet * product.sheets_per_box,
+      availableStock: availableStockInPieces, // 🎯 Real-time available stock
+    };
+  });
+
+  // 🛡️ Professional: Safe access to current variant with fallback
+  const currentVariant = variants[selectedVariant] || {
+    name: "Out of Stock",
+    icon: AlertTriangle,
+    price: 0,
+    stock: 0,
+    unit: selectedVariant,
+    description: "No stock available",
+    multiplier: 1,
+    availableStock: 0,
   };
 
-  const currentVariant = variants[selectedVariant];
-  const maxQuantity = Math.min(currentVariant.stock, 9999); // Increase limit
-  const totalPrice = currentVariant.price * quantity;
-  const totalPieces = currentVariant.multiplier * quantity;
+  const maxQuantity = Math.max(0, Math.min(currentVariant.stock || 0, 9999));
+  const totalPrice = (currentVariant.price || 0) * quantity;
+  const totalPieces = (currentVariant.multiplier || 1) * quantity;
 
-  const isOutOfStock = currentVariant.stock <= 0;
+  const isOutOfStock = (currentVariant.stock || 0) <= 0;
+  const hasVariants = Object.keys(variants).length > 0;
 
   const handleQuantityChange = (change) => {
     const newQuantity = quantity + change;
@@ -123,6 +150,46 @@ export default function VariantSelectionModal({
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
+          {/* 🚨 Professional: Out of Stock Indicator */}
+          {isCompletelyOutOfStock && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <div className="flex items-center">
+                <div className="bg-red-100 p-2 rounded-xl mr-3">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-red-800">
+                    Product Unavailable
+                  </h3>
+                  <p className="text-red-600 text-sm mt-1">
+                    All stock for {product.name} is currently in your cart or
+                    out of stock. Available: {availableStockInPieces} pieces
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🎯 Professional: Low Stock Warning */}
+          {!isCompletelyOutOfStock && availableStockInPieces <= 20 && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+              <div className="flex items-center">
+                <div className="bg-yellow-100 p-2 rounded-xl mr-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-yellow-800">
+                    Low Stock Alert
+                  </h3>
+                  <p className="text-yellow-600 text-sm mt-1">
+                    Only {availableStockInPieces} pieces remaining for{" "}
+                    {product.name}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Enhanced Variant Selection */}
           <div className="mb-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
@@ -130,86 +197,126 @@ export default function VariantSelectionModal({
                 <Info className="h-5 w-5 text-blue-600" />
               </div>
               Select Purchase Unit
+              {hasVariants && (
+                <span className="ml-2 text-sm text-gray-500">
+                  ({Object.keys(variants).length} available)
+                </span>
+              )}
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {Object.entries(variants).map(([key, variant]) => {
-                const IconComponent = variant.icon;
-                const isSelected = selectedVariant === key;
-                const isAvailable = variant.stock > 0;
+              {hasVariants ? (
+                Object.entries(variants).map(([key, variant]) => {
+                  const IconComponent = variant.icon;
+                  const isSelected = selectedVariant === key;
+                  const isAvailable = variant.stock > 0;
 
-                return (
-                  <button
-                    key={key}
-                    onClick={() => isAvailable && setSelectedVariant(key)}
-                    disabled={!isAvailable}
-                    className={`relative p-4 border-2 rounded-xl transition-all duration-300 transform hover:scale-105 ${
-                      isSelected
-                        ? "border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg scale-105"
-                        : isAvailable
-                        ? "border-gray-200 hover:border-blue-300 hover:shadow-md"
-                        : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
-                    }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute -top-2 -right-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full p-2 shadow-lg">
-                        <div className="w-3 h-3 bg-white rounded-full"></div>
-                      </div>
-                    )}
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => isAvailable && setSelectedVariant(key)}
+                      disabled={!isAvailable}
+                      className={`relative p-4 border-2 rounded-xl transition-all duration-300 transform hover:scale-105 ${
+                        isSelected
+                          ? "border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg scale-105"
+                          : isAvailable
+                          ? "border-gray-200 hover:border-blue-300 hover:shadow-md"
+                          : "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full p-2 shadow-lg">
+                          <div className="w-3 h-3 bg-white rounded-full"></div>
+                        </div>
+                      )}
 
-                    <div className="text-center">
-                      <div
-                        className={`mx-auto mb-3 p-3 rounded-xl transition-all duration-300 ${
-                          isSelected
-                            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        <IconComponent className="h-6 w-6 mx-auto" />
-                      </div>
+                      <div className="text-center">
+                        <div
+                          className={`mx-auto mb-3 p-3 rounded-xl transition-all duration-300 ${
+                            isSelected
+                              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          <IconComponent className="h-6 w-6 mx-auto" />
+                        </div>
 
-                      <h4
-                        className={`font-bold text-base mb-2 ${
-                          isSelected ? "text-blue-700" : "text-gray-900"
-                        }`}
-                      >
-                        {variant.name}
-                      </h4>
-
-                      <p className="text-sm text-gray-600 mb-3 min-h-[2rem] flex items-center justify-center">
-                        {variant.description}
-                      </p>
-
-                      <div className="space-y-2">
-                        <p
-                          className={`font-bold text-lg ${
+                        <h4
+                          className={`font-bold text-base mb-2 ${
                             isSelected ? "text-blue-700" : "text-gray-900"
                           }`}
                         >
-                          {formatCurrency(variant.price)}
-                        </p>
-                        <div
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            isAvailable
-                              ? "bg-green-100 text-green-700 border border-green-200"
-                              : "bg-red-100 text-red-700 border border-red-200"
-                          }`}
-                        >
-                          Stock: {variant.stock} {variant.unit}
-                        </div>
-                      </div>
+                          {variant.name}
+                        </h4>
 
-                      {!isAvailable && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-95 rounded-xl">
-                          <span className="text-red-600 font-bold text-sm bg-red-50 px-3 py-2 rounded-full border border-red-200">
-                            Out of Stock
-                          </span>
+                        <p className="text-sm text-gray-600 mb-3 min-h-[2rem] flex items-center justify-center">
+                          {variant.description}
+                        </p>
+
+                        <div className="space-y-2">
+                          <p
+                            className={`font-bold text-lg ${
+                              isSelected ? "text-blue-700" : "text-gray-900"
+                            }`}
+                          >
+                            {formatCurrency(variant.price)}
+                          </p>
+
+                          {/* 🎯 Professional: Real-time stock display */}
+                          <div className="space-y-1">
+                            <div
+                              className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center justify-center gap-1 ${
+                                isAvailable
+                                  ? variant.stock > 10
+                                    ? "bg-green-100 text-green-700 border border-green-200"
+                                    : "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                                  : "bg-red-100 text-red-700 border border-red-200"
+                              }`}
+                            >
+                              {!isAvailable && (
+                                <AlertTriangle className="h-3 w-3" />
+                              )}
+                              {isAvailable
+                                ? `${variant.stock} available`
+                                : "Out of stock"}
+                            </div>
+
+                            {/* Show remaining pieces for transparency */}
+                            {variant.availableStock &&
+                              variant.unit !== "piece" && (
+                                <div className="text-xs text-gray-500">
+                                  ({variant.availableStock} pieces remaining)
+                                </div>
+                              )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+
+                        {!isAvailable && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-95 rounded-xl">
+                            <span className="text-red-600 font-bold text-sm bg-red-50 px-3 py-2 rounded-full border border-red-200">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                // 🚨 Professional: No variants available fallback
+                <div className="col-span-full p-8 text-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
+                  <div className="bg-gray-100 p-3 rounded-xl inline-block mb-3">
+                    <AlertTriangle className="h-6 w-6 text-gray-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    No Purchase Options Available
+                  </h3>
+                  <p className="text-gray-600">
+                    This product is currently out of stock or unavailable for
+                    purchase.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -328,15 +435,31 @@ export default function VariantSelectionModal({
 
             <button
               onClick={handleAddToCart}
-              disabled={isOutOfStock || quantity === 0}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200 font-medium text-base flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+              disabled={
+                isOutOfStock || quantity === 0 || isCompletelyOutOfStock
+              }
+              className={`flex-1 px-6 py-3 rounded-xl transition-all duration-200 font-medium text-base flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl ${
+                isOutOfStock || isCompletelyOutOfStock
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800"
+              }`}
             >
-              <ShoppingCart className="h-5 w-5" />
-              <span>
-                {isOutOfStock
-                  ? "Out of Stock"
-                  : `Add to Cart - ${formatCurrency(totalPrice)}`}
-              </span>
+              {isCompletelyOutOfStock ? (
+                <>
+                  <AlertTriangle className="h-5 w-5" />
+                  <span>Out of Stock</span>
+                </>
+              ) : isOutOfStock ? (
+                <>
+                  <AlertTriangle className="h-5 w-5" />
+                  <span>Variant Unavailable</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-5 w-5" />
+                  <span>Add to Cart - {formatCurrency(totalPrice)}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
