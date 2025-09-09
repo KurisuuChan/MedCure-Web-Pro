@@ -430,14 +430,22 @@ export default function POSPage() {
                     <input
                       type="number"
                       value={paymentData.amount}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        const maxReasonableAmount =
+                          (cartSummary.total - discount.amount) * 10; // Max 10x the required amount
+                        const clampedValue = Math.min(
+                          value,
+                          maxReasonableAmount
+                        );
                         setPaymentData((prev) => ({
                           ...prev,
-                          amount: parseFloat(e.target.value) || 0,
-                        }))
-                      }
+                          amount: clampedValue,
+                        }));
+                      }}
                       step="0.01"
                       min="0.01"
+                      max={(cartSummary.total - discount.amount) * 10}
                       className="w-full pl-8 pr-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder={`Minimum: ₱${(
                         cartSummary.total - discount.amount

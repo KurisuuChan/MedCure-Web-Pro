@@ -143,8 +143,15 @@ export function usePOS() {
 
         // Validate payment amount
         const total = getCartTotalWithTax();
-        if (paymentData.amount < total) {
-          throw new Error("Insufficient payment amount");
+        const finalTotalAfterDiscount =
+          total - (paymentData.discount_amount || 0);
+
+        if (paymentData.amount < finalTotalAfterDiscount) {
+          throw new Error(
+            `Insufficient payment amount. Need ₱${finalTotalAfterDiscount.toFixed(
+              2
+            )}, received ₱${paymentData.amount.toFixed(2)}`
+          );
         }
 
         // Prepare sale data with discount support
@@ -157,7 +164,7 @@ export function usePOS() {
             price_per_unit: item.pricePerUnit,
             total_price: item.totalPrice,
           })),
-          total: paymentData.amount, // Use the final amount (after discount)
+          total: finalTotalAfterDiscount, // ✅ FIXED: Use actual sale total after discount
           paymentMethod: paymentData.method,
           customer: paymentData.customer || null,
           cashierId: paymentData.cashierId || null,
@@ -182,7 +189,7 @@ export function usePOS() {
           payment: {
             method: paymentData.method,
             amount: paymentData.amount,
-            change: paymentData.amount - total,
+            change: paymentData.amount - finalTotalAfterDiscount, // ✅ FIXED: Use correct total for change calculation
           },
           items: cartItems.map((item) => ({
             id: item.productId,
@@ -227,9 +234,10 @@ export function usePOS() {
 
   // Calculate change
   const calculateChange = useCallback(
-    (amountPaid) => {
+    (amountPaid, discountAmount = 0) => {
       const total = getCartTotalWithTax();
-      return Math.max(0, amountPaid - total);
+      const finalTotal = total - discountAmount;
+      return Math.max(0, amountPaid - finalTotal);
     },
     [getCartTotalWithTax]
   );
@@ -248,8 +256,12 @@ export function usePOS() {
       }
 
       const total = getCartTotalWithTax();
-      if (paymentData.amount < total) {
-        errors.amount = "Insufficient payment amount";
+      const finalTotalAfterDiscount =
+        total - (paymentData.discount_amount || 0);
+      if (paymentData.amount < finalTotalAfterDiscount) {
+        errors.amount = `Insufficient payment amount. Need ₱${finalTotalAfterDiscount.toFixed(
+          2
+        )}`;
       }
 
       return {
