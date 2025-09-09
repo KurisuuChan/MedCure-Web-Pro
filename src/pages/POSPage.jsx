@@ -200,13 +200,30 @@ export default function POSPage() {
     setShowTransactionEditor(true);
   };
 
-  const handleTransactionUpdated = async (updatedTransaction) => {
-    // Update the transaction in the history list
-    setTransactionHistory((prev) =>
-      prev.map((t) => (t.id === updatedTransaction.id ? updatedTransaction : t))
-    );
-    setShowTransactionEditor(false);
-    setEditingTransaction(null);
+  const handleTransactionUpdated = async (editData) => {
+    try {
+      console.log("📝 Updating transaction with data:", editData);
+      
+      // Call the edit transaction service
+      const updatedTransaction = await salesService.editTransaction(editData.id, editData);
+      
+      console.log("✅ Transaction updated successfully:", updatedTransaction);
+      
+      // Update the transaction in the history list
+      setTransactionHistory((prev) =>
+        prev.map((t) => (t.id === updatedTransaction.id ? updatedTransaction : t))
+      );
+      
+      setShowTransactionEditor(false);
+      setEditingTransaction(null);
+      
+      // Show success message
+      console.log("🎉 Transaction edit completed successfully");
+    } catch (error) {
+      console.error("❌ Failed to update transaction:", error);
+      // The error will be handled by the TransactionEditor component
+      throw error;
+    }
   };
 
   const handleCloseEditor = () => {
@@ -918,12 +935,14 @@ export default function POSPage() {
 
       {/* Transaction Editor Modal */}
       {showTransactionEditor && editingTransaction && (
-        <TransactionEditor
-          transaction={editingTransaction}
-          isOpen={showTransactionEditor}
-          onClose={handleCloseEditor}
-          onSave={handleTransactionUpdated}
-        />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <TransactionEditor
+            transaction={editingTransaction}
+            onCancel={handleCloseEditor}
+            onSave={handleTransactionUpdated}
+            currentUser={user}
+          />
+        </div>
       )}
     </div>
   );

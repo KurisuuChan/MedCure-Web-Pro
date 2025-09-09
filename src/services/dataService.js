@@ -382,7 +382,7 @@ export class SalesService {
             *,
             products (*)
           ),
-          users (first_name, last_name)
+          users!user_id (first_name, last_name)
         `
         )
         .order("created_at", { ascending: false })
@@ -442,7 +442,7 @@ export class SalesService {
               category
             )
           ),
-          users (first_name, last_name)
+          users!user_id (first_name, last_name)
         `
         )
         .gte("created_at", startDate.toISOString())
@@ -571,7 +571,7 @@ export class SalesService {
           `
           *,
           sale_items (*),
-          users (first_name, last_name)
+          users!user_id (first_name, last_name)
         `
         )
         .eq("id", transactionId)
