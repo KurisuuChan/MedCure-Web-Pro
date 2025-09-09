@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transaction Pricing Diagnostic</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>🔍 Transaction Pricing Diagnostic</h1>
+    <div id="results"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://ehooclfzvcjwlplezlxz.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVob29jbGZ6dmNqd2xwbGV6bHh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjk5Mzk3MjUsImV4cCI6MjA0NTUxNTcyNX0.DGPdOjv2u4Gw5BlmyL8PbNLBd8W8LMK8vBR_Yb1sfeM';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        async function diagnosePricing() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>🔍 Starting diagnostic...</p>';
+            
+            try {
+                // 1. Check recent transactions
+                const { data: transactions, error: transError } = await supabase
+                    .from('sales')
+                    .select(`
+                        *,
+                        sale_items (
+                            *,
+                            products (name, price_per_piece, unit_type)
+                        )
+                    `)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                
+                if (transError) throw transError;
+                
+                results.innerHTML += '<h2>📊 Recent Transactions:</h2>';
+                transactions.forEach(trans => {
+                    results.innerHTML += `
+                        <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
+                            <strong>Transaction ${trans.id}</strong><br>
+                            Total: ₱${trans.total_amount || 0}<br>
+                            Status: ${trans.status}<br>
+                            Items: ${trans.sale_items?.length || 0}<br>
+                            
+                            <strong>Items Detail:</strong><br>
+                            ${trans.sale_items?.map(item => `
+                                - ${item.products?.name || 'Unknown'}: 
+                                  Qty: ${item.quantity}, 
+                                  Unit Price: ₱${item.unit_price || 0}, 
+                                  Total: ₱${item.total_price || 0}
+                                  (Product Price: ₱${item.products?.price_per_piece || 0})
+                            `).join('<br>') || 'No items'}
+                        </div>
+                    `;
+                });
+                
+                // 2. Check products with pricing
+                const { data: products, error: prodError } = await supabase
+                    .from('products')
+                    .select('id, name, price_per_piece, unit_type')
+                    .limit(10);
+                
+                if (prodError) throw prodError;
+                
+                results.innerHTML += '<h2>💊 Sample Products:</h2>';
+                products.forEach(prod => {
+                    results.innerHTML += `
+                        <div>
+                            ${prod.name}: ₱${prod.price_per_piece || 0} per ${prod.unit_type || 'piece'}
+                        </div>
+                    `;
+                });
+                
+            } catch (error) {
+                results.innerHTML += `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Run diagnostic when page loads
+        window.onload = diagnosePricing;
+    </script>
+</body>
+</html>

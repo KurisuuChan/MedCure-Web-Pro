@@ -1,4 +1,5 @@
 import { SalesService } from "./dataService";
+import { editTransactionWithStockManagement } from "./enhancedSalesService";
 
 export const salesService = {
   // Process a sale transaction (atomic operation via RPC)
@@ -83,8 +84,17 @@ export const salesService = {
     return transformedTransactions;
   },
 
-  // Edit an existing transaction
+  // Edit an existing transaction (with proper stock management)
   editTransaction: async (transactionId, editData) => {
+    console.log("🔧 Using enhanced transaction editing with stock management");
+    return await editTransactionWithStockManagement(transactionId, editData);
+  },
+
+  // Legacy unsafe edit method (for emergency use only)
+  editTransactionUnsafe: async (transactionId, editData) => {
+    console.warn(
+      "⚠️ Using UNSAFE edit method - stock levels may be incorrect!"
+    );
     return await SalesService.editTransaction(transactionId, editData);
   },
 };

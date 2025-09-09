@@ -613,11 +613,10 @@ export class DashboardService {
         usersCount: usersData.length,
       });
 
-      // Calculate dashboard metrics from real data
-      const totalSales = salesData.reduce(
-        (sum, sale) => sum + sale.total_amount,
-        0
-      );
+      // Calculate dashboard metrics from real data (FIXED: Exclude cancelled transactions)
+      const totalSales = salesData
+        .filter((sale) => sale.status === "completed") // ✅ Only count completed transactions
+        .reduce((sum, sale) => sum + sale.total_amount, 0);
       const lowStockProducts = productsData.filter(
         (p) => p.stock_in_pieces <= (p.reorder_level || 10)
       );
@@ -637,33 +636,53 @@ export class DashboardService {
         // Add the expected structure for DashboardPage
         todayMetrics: {
           totalSales: totalSales,
-          transactions: salesData.length,
+          transactions: salesData.filter((sale) => sale.status === "completed")
+            .length, // ✅ Only completed
           customers: new Set(
-            salesData.map((s) => s.customer_name).filter(Boolean)
+            salesData
+              .filter((sale) => sale.status === "completed") // ✅ Only completed
+              .map((s) => s.customer_name)
+              .filter(Boolean)
           ).size,
           averageOrder:
-            salesData.length > 0 ? totalSales / salesData.length : 0,
+            salesData.filter((sale) => sale.status === "completed").length > 0
+              ? totalSales /
+                salesData.filter((sale) => sale.status === "completed").length
+              : 0,
         },
         yesterdayMetrics: {
           totalSales: totalSales * 0.9, // Mock yesterday data
-          transactions: Math.max(0, salesData.length - 2),
+          transactions: Math.max(
+            0,
+            salesData.filter((sale) => sale.status === "completed").length - 2
+          ), // ✅ Only completed
           customers: Math.max(
             0,
-            new Set(salesData.map((s) => s.customer_name).filter(Boolean))
-              .size - 1
+            new Set(
+              salesData
+                .filter((sale) => sale.status === "completed") // ✅ Only completed
+                .map((s) => s.customer_name)
+                .filter(Boolean)
+            ).size - 1
           ),
           averageOrder:
-            salesData.length > 1
-              ? (totalSales * 0.9) / (salesData.length - 2)
+            salesData.filter((sale) => sale.status === "completed").length > 1
+              ? (totalSales * 0.9) /
+                (salesData.filter((sale) => sale.status === "completed")
+                  .length -
+                  2)
               : 0,
         },
-        weeklyData: salesData.slice(0, 7).map((sale) => ({
-          day: new Date(sale.created_at).toLocaleDateString("en-US", {
-            weekday: "short",
-          }),
-          sales: sale.total_amount,
-          date: sale.created_at,
-        })),
+        weeklyData: salesData
+          .filter((sale) => sale.status === "completed") // ✅ Only completed transactions
+          .slice(0, 7)
+          .map((sale) => ({
+            day: new Date(sale.created_at).toLocaleDateString("en-US", {
+              weekday: "short",
+            }),
+            sales: sale.total_amount,
+            date: sale.created_at,
+          })),
         topProducts: productsData
           .sort((a, b) => (b.stock_in_pieces || 0) - (a.stock_in_pieces || 0))
           .slice(0, 5)
@@ -672,13 +691,16 @@ export class DashboardService {
             sales: p.stock_in_pieces || 0,
             revenue: (p.stock_in_pieces || 0) * (p.price_per_piece || 0),
           })),
-        recentTransactions: salesData.slice(0, 5).map((sale) => ({
-          id: sale.id,
-          amount: sale.total_amount,
-          customer: sale.customer_name || "Walk-in Customer",
-          time: sale.created_at,
-          status: sale.status || "completed",
-        })),
+        recentTransactions: salesData
+          .filter((sale) => sale.status === "completed") // ✅ Only completed transactions
+          .slice(0, 5)
+          .map((sale) => ({
+            id: sale.id,
+            amount: sale.total_amount,
+            customer: sale.customer_name || "Walk-in Customer",
+            time: sale.created_at,
+            status: sale.status || "completed",
+          })),
         formatGrowth: (current, previous) => {
           if (!previous || previous === 0)
             return { percentage: 0, trend: "neutral" };

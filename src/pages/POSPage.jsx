@@ -13,14 +13,14 @@ import {
 } from "lucide-react";
 import ProductSelector from "../features/pos/components/ProductSelector";
 import ShoppingCartComponent from "../features/pos/components/ShoppingCart";
-import DiscountSelector from "../components/ui/DiscountSelector";
+import DiscountSelector from "../components/features/pos/DiscountSelector";
 import TransactionEditor from "../components/ui/TransactionEditor";
 import { usePOS } from "../features/pos/hooks/usePOS";
 import { useAuth } from "../hooks/useAuth";
 import "../components/ui/ScrollableModal.css";
 import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
-import { salesService } from "../services/salesService";
+import unifiedTransactionService from "../services/unifiedTransactionService";
 import { SimpleNotificationService } from "../services/simpleNotificationService";
 
 export default function POSPage() {
@@ -50,7 +50,13 @@ export default function POSPage() {
     type: "none",
     percentage: 0,
     amount: 0,
+    subtotal: 0,
+    finalTotal: 0,
     idNumber: "",
+    customerName: "",
+    isValid: true,
+    label: "No Discount",
+    description: "Regular customer",
   });
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastTransaction, setLastTransaction] = useState(null);
@@ -69,7 +75,8 @@ export default function POSPage() {
         setLoadingHistory(true);
         try {
           console.log("📊 Loading transaction history...");
-          const history = await salesService.getTodaysTransactions();
+          const history =
+            await unifiedTransactionService.getTodaysTransactions();
           console.log("📊 Received transaction history:", history);
           console.log("📊 First transaction items check:", history[0]?.items);
           setTransactionHistory(history);
@@ -121,6 +128,13 @@ export default function POSPage() {
 
   const handlePayment = async () => {
     try {
+      // Validate discount before processing
+      if (discount.type !== "none" && !discount.isValid) {
+        throw new Error(
+          "Please complete discount information (ID number and customer name required)"
+        );
+      }
+
       // Ensure we have user authentication for the cashier ID
       const paymentDataWithCashier = {
         ...paymentData,
@@ -131,6 +145,7 @@ export default function POSPage() {
         discount_amount: discount.amount,
         subtotal_before_discount: cartSummary.total,
         pwd_senior_id: discount.idNumber || null,
+        customer_name: discount.customerName || paymentData.customer_name,
       };
 
       console.log(
@@ -154,7 +169,13 @@ export default function POSPage() {
         type: "none",
         percentage: 0,
         amount: 0,
+        subtotal: 0,
+        finalTotal: 0,
         idNumber: "",
+        customerName: "",
+        isValid: true,
+        label: "No Discount",
+        description: "Regular customer",
       });
 
       // Trigger desktop notifications for sale completion and stock checks
@@ -181,7 +202,7 @@ export default function POSPage() {
       // Refresh transaction history if modal is open
       if (showTransactionHistory) {
         console.log("🔄 Refreshing transaction history after payment...");
-        const history = await salesService.getTodaysTransactions();
+        const history = await unifiedTransactionService.getTodaysTransactions();
         console.log("🔄 Updated transaction history:", history);
         setTransactionHistory(history);
       }
@@ -211,11 +232,12 @@ export default function POSPage() {
     try {
       console.log("📝 Updating transaction with data:", editData);
 
-      // Call the edit transaction service
-      const updatedTransaction = await salesService.editTransaction(
-        editData.id,
-        editData
-      );
+      // Call the edit transaction service with correct transaction ID
+      const updatedTransaction =
+        await unifiedTransactionService.editTransaction(
+          editData.transaction_id,
+          editData
+        );
 
       console.log("✅ Transaction updated successfully:", updatedTransaction);
 
@@ -403,7 +425,6 @@ export default function POSPage() {
                 {/* Discount Selector */}
                 <DiscountSelector
                   onDiscountChange={handleDiscountChange}
-                  currentDiscount={discount}
                   subtotal={cartSummary.total}
                 />
 
@@ -808,7 +829,7 @@ export default function POSPage() {
                               <p className="text-xl font-semibold text-gray-900">
                                 {formatCurrency(
                                   transactionHistory.reduce(
-                                    (sum, t) => sum + (t.total || 0),
+                                    (sum, t) => sum + (t.total_amount || t.total || 0),
                                     0
                                   )
                                 )}
@@ -874,7 +895,7 @@ export default function POSPage() {
                               <div className="flex items-center space-x-3">
                                 <div className="text-right">
                                   <p className="font-semibold text-gray-900">
-                                    {formatCurrency(transaction.total || 0)}
+                                    {formatCurrency(transaction.total_amount || transaction.total || 0)}
                                   </p>
                                   <p className="text-sm text-gray-600">
                                     {transaction.items?.length || 0} item
@@ -915,10 +936,10 @@ export default function POSPage() {
                                           className="flex justify-between text-sm"
                                         >
                                           <span className="text-gray-600">
-                                            {item.name} x{item.quantity}
+                                            {item.products?.name || item.name || 'Unknown Item'} x{item.quantity}
                                           </span>
                                           <span className="text-gray-900">
-                                            {formatCurrency(item.subtotal || 0)}
+                                            {formatCurrency(item.total_price || item.subtotal || (item.unit_price * item.quantity) || 0)}
                                           </span>
                                         </div>
                                       ))}

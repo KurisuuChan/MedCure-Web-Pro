@@ -106,19 +106,52 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
         amount: editedTransaction.discount_amount || 0,
       });
 
+      console.log(
+        "🔧 [TransactionEditor] Items for calculation:",
+        editedTransaction.items
+      );
+      console.log("🔧 [TransactionEditor] Calculated totals:", totals);
+
+      // Prepare edit data for enhanced stock-aware editing
       const editData = {
-        ...editedTransaction,
+        // Transaction metadata
+        transaction_id: transaction.id,
         total_amount: totals.total,
         subtotal_before_discount: totals.subtotal,
-        edit_reason: editReason.trim(),
-        edited_by: currentUser?.id,
-        is_edited: true,
-        edited_at: new Date().toISOString(),
+
+        // Payment information
+        payment_method:
+          editedTransaction.payment_method || transaction.payment_method,
+
+        // Discount information
+        discount_type: editedTransaction.discount_type || "none",
+        discount_percentage: editedTransaction.discount_percentage || 0,
+        discount_amount: editedTransaction.discount_amount || 0,
+        pwd_senior_id: editedTransaction.pwd_senior_id || null,
+
+        // Edit metadata for audit trail
+        editReason: editReason.trim(),
+        currentUser: currentUser,
         original_total: transaction.total_amount,
+
+        // Items with proper product_id mapping (quantity is already in pieces from DB)
+        items: editedTransaction.items.map((item) => ({
+          product_id: item.product_id || item.id,
+          quantity: item.quantity, // ✅ Database quantity is already in pieces
+          unit_type: "piece", // ✅ Always use "piece" since DB quantity is in pieces
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+        })),
       };
+
+      console.log(
+        "🔧 [TransactionEditor] Prepared edit data for enhanced editing:",
+        editData
+      );
 
       await onSave(editData);
     } catch (err) {
+      console.error("❌ [TransactionEditor] Save failed:", err);
       setError(err.message || "Failed to save changes");
     } finally {
       setIsLoading(false);

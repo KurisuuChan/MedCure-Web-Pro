@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { usePOSStore } from "../../../stores/posStore";
 import { inventoryService } from "../../../services/inventoryService";
-import { salesService } from "../../../services/salesService";
+import unifiedTransactionService from "../../../services/unifiedTransactionService";
 
 export function usePOS() {
   const {
@@ -180,8 +180,20 @@ export function usePOS() {
         console.log("🚀 POS Hook - Sale data being sent:", saleData);
         console.log("🛒 POS Hook - Cart items:", cartItems);
 
-        // Process sale through service
-        const transaction = await salesService.processSale(saleData);
+        // Use the new unified service complete payment workflow
+        const completedTransaction =
+          await unifiedTransactionService.processCompletePayment(saleData);
+        console.log(
+          "✅ POS Hook - Complete payment successful:",
+          completedTransaction
+        );
+
+        // Extract the transaction data
+        const transaction = {
+          id: completedTransaction.transaction_id,
+          ...completedTransaction.create_result,
+          status: "completed",
+        };
 
         // Enhance transaction with additional data
         const enhancedTransaction = {
