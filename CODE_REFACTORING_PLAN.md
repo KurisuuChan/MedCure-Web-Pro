@@ -21,7 +21,7 @@ PROFESSIONAL PRINCIPLE: "Complete Context, Not Arbitrary Limits"
 
 Current Problems:
 ❌ InventoryPage.jsx: 1600+ lines (BREAK DOWN to ~350 lines)
-❌ POSPage.jsx: 800+ lines (REFACTOR to ~300 lines)  
+❌ POSPage.jsx: 800+ lines (REFACTOR to ~300 lines)
 ❌ dataService.js: 500+ lines (GOOD SIZE - Just organize better)
 ```
 
@@ -60,7 +60,7 @@ CONFIRMED IMPLEMENTATION PRIORITIES:
 
 ✅ HIGH PRIORITY (Week 1-2):
   - PWD/Senior Citizen Discounts (Legal Compliance)
-  - Transaction Editing Capabilities  
+  - Transaction Editing Capabilities
   - Multiple Batch Management (FIFO)
   - Expired Medicine Workflow
   - Smart Reorder Suggestions (Sweet Spot Version)
@@ -86,7 +86,7 @@ SMART PLACEMENT STRATEGY - NO MAJOR REDESIGN NEEDED:
 // 1. PWD/SENIOR DISCOUNT (POS Page)
 Current POS → Add small "Discount" button next to payment method
 Location: Between payment methods and total amount
-UI: Toggle button: [No Discount] [PWD 20%] [Senior 20%] 
+UI: Toggle button: [No Discount] [PWD 20%] [Senior 20%]
 Integration: Slide-in input for ID number when selected
 
 // 2. TRANSACTION EDITING (Sales History)
@@ -121,7 +121,7 @@ DESIGN HARMONY - COMPLEMENT YOUR EXISTING PATTERNS:
 
 /* Use your existing color scheme */
 --primary-blue: Your current blue
---warning-amber: Your current warning color  
+--warning-amber: Your current warning color
 --success-green: Your current success color
 --danger-red: Your current error color
 
@@ -183,7 +183,7 @@ src/
 │       │   ├── ProductFormHandler.jsx   # Form + validation + logic
 │       │   └── BatchDisplayManager.jsx  # Batch UI + management
 │       ├── pos/
-│       │   ├── SalesInterface.jsx       # Complete POS interface  
+│       │   ├── SalesInterface.jsx       # Complete POS interface
 │       │   ├── CartPaymentManager.jsx   # Cart + payment together
 │       │   └── ReceiptGenerator.jsx     # Receipt logic + UI
 │       └── dashboard/
@@ -214,36 +214,38 @@ PRINCIPLE: "Domain-Driven File Organization"
 - Logical separation without over-fragmentation
 - Professional balance of file count vs. complexity
 ```
-│   │   │   └── ReceiptManager.jsx        # Receipt + printing
-│   │   └── dashboard/
-│   │       ├── AnalyticsDashboard.jsx    # Complete analytics view
-│   │       └── NotificationCenter.jsx    # All alerts + notifications
-├── services/                  # 200-400 lines each (complete domains)
-│   ├── inventory/
-│   │   ├── productService.js             # All product operations
-│   │   ├── batchService.js               # All batch operations
-│   │   └── stockService.js               # All stock operations
-│   ├── sales/
-│   │   ├── transactionService.js         # All transaction logic
-│   │   ├── discountService.js            # PWD/Senior + all discounts
-│   │   └── receiptService.js             # Receipt generation + printing
-│   └── core/
-│       ├── databaseService.js            # All DB operations
-│       ├── validationService.js          # All validations
-│       └── utilityService.js             # All utilities
-├── hooks/                     # 150-300 lines each (complete state domains)
-│   ├── useInventoryManager.js            # Complete inventory state
-│   ├── useSalesManager.js                # Complete sales state
-│   ├── useNotificationManager.js         # Complete notification state
-│   └── useAuthManager.js                 # Complete auth state
-└── pages/                     # 250-400 lines each (orchestration + logic)
-    ├── InventoryPage.jsx                 # ~350 lines (down from 1600)
-    ├── POSPage.jsx                       # ~300 lines (down from 800)
-    ├── DashboardPage.jsx                 # ~250 lines
-    └── AnalyticsPage.jsx                 # ~280 lines
+
+│ │ │ └── ReceiptManager.jsx # Receipt + printing
+│ │ └── dashboard/
+│ │ ├── AnalyticsDashboard.jsx # Complete analytics view
+│ │ └── NotificationCenter.jsx # All alerts + notifications
+├── services/ # 200-400 lines each (complete domains)
+│ ├── inventory/
+│ │ ├── productService.js # All product operations
+│ │ ├── batchService.js # All batch operations
+│ │ └── stockService.js # All stock operations
+│ ├── sales/
+│ │ ├── transactionService.js # All transaction logic
+│ │ ├── discountService.js # PWD/Senior + all discounts
+│ │ └── receiptService.js # Receipt generation + printing
+│ └── core/
+│ ├── databaseService.js # All DB operations
+│ ├── validationService.js # All validations
+│ └── utilityService.js # All utilities
+├── hooks/ # 150-300 lines each (complete state domains)
+│ ├── useInventoryManager.js # Complete inventory state
+│ ├── useSalesManager.js # Complete sales state
+│ ├── useNotificationManager.js # Complete notification state
+│ └── useAuthManager.js # Complete auth state
+└── pages/ # 250-400 lines each (orchestration + logic)
+├── InventoryPage.jsx # ~350 lines (down from 1600)
+├── POSPage.jsx # ~300 lines (down from 800)
+├── DashboardPage.jsx # ~250 lines
+└── AnalyticsPage.jsx # ~280 lines
 
 Total Files: ~25 files (instead of 50+ micro-files)
 Average Size: 250-350 lines (professional sweet spot)
+
 ```
 │       │   ├── PaymentProcessing.jsx
 │       │   └── ReceiptGeneration.jsx
@@ -308,11 +310,7 @@ export default function InventoryPage() {
   };
 
   // 1400+ lines more...
-  return (
-    <div>
-      {/* 200+ lines of JSX */}
-    </div>
-  );
+  return <div>{/* 200+ lines of JSX */}</div>;
 }
 ```
 
@@ -322,59 +320,59 @@ export default function InventoryPage() {
 
 ```javascript
 // OPTIMAL SIZE - COMPLETE CONTEXT FOR GITHUB COPILOT
-import { useProducts } from '../hooks/useProducts';
-import { useProductForm } from '../hooks/useProductForm';
-import { useBatchManagement } from '../hooks/useBatchManagement';
-import { ProductManagement } from '../components/features/inventory/ProductManagement';
-import { StockManagement } from '../components/features/inventory/StockManagement';
-import { BatchManagement } from '../components/features/inventory/BatchManagement';
+import { useProducts } from "../hooks/useProducts";
+import { useProductForm } from "../hooks/useProductForm";
+import { useBatchManagement } from "../hooks/useBatchManagement";
+import { ProductManagement } from "../components/features/inventory/ProductManagement";
+import { StockManagement } from "../components/features/inventory/StockManagement";
+import { BatchManagement } from "../components/features/inventory/BatchManagement";
 
 export default function InventoryPage() {
-  const { 
-    products, 
-    loading, 
-    error, 
+  const {
+    products,
+    loading,
+    error,
     refreshProducts,
     lowStockProducts,
-    expiringProducts 
+    expiringProducts,
   } = useProducts();
-  
-  const { 
-    formData, 
-    handleSubmit, 
+
+  const {
+    formData,
+    handleSubmit,
     resetForm,
     generateBatchNumber,
     validateForm,
-    isSubmitting 
+    isSubmitting,
   } = useProductForm();
 
   const {
     batchGroups,
     selectBatchForSale,
     getBatchAlerts,
-    consolidateBatches
+    consolidateBatches,
   } = useBatchManagement(products);
 
   const handleAddProduct = async (productData) => {
     try {
       await handleSubmit(productData);
       refreshProducts();
-      toast.success('Product added successfully');
+      toast.success("Product added successfully");
     } catch (error) {
-      toast.error('Failed to add product');
+      toast.error("Failed to add product");
     }
   };
 
   const handleBulkAction = async (action, productIds) => {
     try {
       switch (action) {
-        case 'archive':
+        case "archive":
           await ProductService.bulkArchive(productIds);
           break;
-        case 'update_stock':
+        case "update_stock":
           await ProductService.bulkUpdateStock(productIds);
           break;
-        case 'export':
+        case "export":
           await ExportService.exportProducts(productIds);
           break;
       }
@@ -389,11 +387,11 @@ export default function InventoryPage() {
 
   return (
     <div className="inventory-page">
-      <PageHeader 
-        title="Inventory Management" 
+      <PageHeader
+        title="Inventory Management"
         subtitle={`${products.length} products total`}
       />
-      
+
       {/* Alerts Section */}
       <AlertsSection>
         {lowStockProducts.length > 0 && (
@@ -412,7 +410,7 @@ export default function InventoryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Product Management */}
         <div className="lg:col-span-2">
-          <ProductManagement 
+          <ProductManagement
             products={products}
             onAddProduct={handleAddProduct}
             onBulkAction={handleBulkAction}
@@ -424,12 +422,12 @@ export default function InventoryPage() {
 
         {/* Side Panel */}
         <div className="space-y-6">
-          <StockManagement 
+          <StockManagement
             lowStockProducts={lowStockProducts}
             expiringProducts={expiringProducts}
           />
-          
-          <BatchManagement 
+
+          <BatchManagement
             batchGroups={batchGroups}
             alerts={getBatchAlerts()}
             onSelectBatch={selectBatchForSale}
@@ -446,19 +444,19 @@ export default function InventoryPage() {
 
 ```javascript
 // COMPREHENSIVE HOOK - COMPLETE PRODUCT MANAGEMENT LOGIC
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ProductService } from '../services/api/productService';
-import { InventoryLogic } from '../services/business/inventoryLogic';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { ProductService } from "../services/api/productService";
+import { InventoryLogic } from "../services/business/inventoryLogic";
 
 export const useProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
-    category: '',
-    searchTerm: '',
-    stockStatus: 'all',
-    expiryStatus: 'all'
+    category: "",
+    searchTerm: "",
+    stockStatus: "all",
+    expiryStatus: "all",
   });
 
   // Load products with error handling
@@ -470,7 +468,7 @@ export const useProducts = () => {
       setProducts(data);
     } catch (err) {
       setError(err.message);
-      console.error('Failed to load products:', err);
+      console.error("Failed to load products:", err);
     } finally {
       setLoading(false);
     }
@@ -480,7 +478,7 @@ export const useProducts = () => {
   const addProduct = useCallback(async (productData) => {
     try {
       const newProduct = await ProductService.create(productData);
-      setProducts(prev => [...prev, newProduct]);
+      setProducts((prev) => [...prev, newProduct]);
       return newProduct;
     } catch (error) {
       throw new Error(`Failed to add product: ${error.message}`);
@@ -490,7 +488,7 @@ export const useProducts = () => {
   const updateProduct = useCallback(async (id, updates) => {
     try {
       const updated = await ProductService.update(id, updates);
-      setProducts(prev => prev.map(p => p.id === id ? updated : p));
+      setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
       return updated;
     } catch (error) {
       throw new Error(`Failed to update product: ${error.message}`);
@@ -500,7 +498,7 @@ export const useProducts = () => {
   const deleteProduct = useCallback(async (id) => {
     try {
       await ProductService.delete(id);
-      setProducts(prev => prev.filter(p => p.id !== id));
+      setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (error) {
       throw new Error(`Failed to delete product: ${error.message}`);
     }
@@ -509,7 +507,7 @@ export const useProducts = () => {
   const archiveProduct = useCallback(async (id, reason) => {
     try {
       const archived = await ProductService.archive(id, reason);
-      setProducts(prev => prev.map(p => p.id === id ? archived : p));
+      setProducts((prev) => prev.map((p) => (p.id === id ? archived : p)));
       return archived;
     } catch (error) {
       throw new Error(`Failed to archive product: ${error.message}`);
@@ -540,15 +538,15 @@ export const useProducts = () => {
 
   // Update filters
   const updateFilters = useCallback((newFilters) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+    setFilters((prev) => ({ ...prev, ...newFilters }));
   }, []);
 
   const clearFilters = useCallback(() => {
     setFilters({
-      category: '',
-      searchTerm: '',
-      stockStatus: 'all',
-      expiryStatus: 'all'
+      category: "",
+      searchTerm: "",
+      stockStatus: "all",
+      expiryStatus: "all",
     });
   }, []);
 
@@ -556,9 +554,9 @@ export const useProducts = () => {
   const bulkUpdateStock = useCallback(async (updates) => {
     try {
       const updated = await ProductService.bulkUpdateStock(updates);
-      setProducts(prev => 
-        prev.map(product => {
-          const update = updated.find(u => u.id === product.id);
+      setProducts((prev) =>
+        prev.map((product) => {
+          const update = updated.find((u) => u.id === product.id);
           return update ? { ...product, ...update } : product;
         })
       );
@@ -571,9 +569,9 @@ export const useProducts = () => {
   const bulkArchive = useCallback(async (productIds, reason) => {
     try {
       await ProductService.bulkArchive(productIds, reason);
-      setProducts(prev => 
-        prev.map(p => 
-          productIds.includes(p.id) 
+      setProducts((prev) =>
+        prev.map((p) =>
+          productIds.includes(p.id)
             ? { ...p, is_archived: true, archived_at: new Date() }
             : p
         )
@@ -595,13 +593,13 @@ export const useProducts = () => {
     loading,
     error,
     filters,
-    
+
     // Analytics
     analytics,
     lowStockProducts,
     expiringProducts,
     categorizedProducts,
-    
+
     // Actions
     refreshProducts: loadProducts,
     addProduct,
@@ -610,10 +608,10 @@ export const useProducts = () => {
     archiveProduct,
     bulkUpdateStock,
     bulkArchive,
-    
+
     // Filters
     updateFilters,
-    clearFilters
+    clearFilters,
   };
 };
 ```
@@ -622,19 +620,19 @@ export const useProducts = () => {
 
 ```javascript
 // FORM LOGIC - ISOLATED & TESTABLE
-import { useState } from 'react';
-import { BatchGenerator } from '../services/business/batchLogic';
-import { ProductValidator } from '../services/business/validationLogic';
+import { useState } from "react";
+import { BatchGenerator } from "../services/business/batchLogic";
+import { ProductValidator } from "../services/business/validationLogic";
 
 export const useProductForm = (initialProduct = null) => {
   const [formData, setFormData] = useState({
-    name: '',
-    category: '',
-    price_per_piece: '',
-    stock_in_pieces: '',
-    expiry_date: '',
-    batch_number: '',
-    ...initialProduct
+    name: "",
+    category: "",
+    price_per_piece: "",
+    stock_in_pieces: "",
+    expiry_date: "",
+    batch_number: "",
+    ...initialProduct,
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -645,7 +643,7 @@ export const useProductForm = (initialProduct = null) => {
       formData.category,
       formData.expiry_date
     );
-    setFormData(prev => ({ ...prev, batch_number: batch }));
+    setFormData((prev) => ({ ...prev, batch_number: batch }));
   };
 
   const validateForm = () => {
@@ -656,7 +654,7 @@ export const useProductForm = (initialProduct = null) => {
 
   const handleSubmit = async (onSave) => {
     if (!validateForm()) return false;
-    
+
     setIsSubmitting(true);
     try {
       await onSave(formData);
@@ -672,12 +670,12 @@ export const useProductForm = (initialProduct = null) => {
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      category: '',
-      price_per_piece: '',
-      stock_in_pieces: '',
-      expiry_date: '',
-      batch_number: ''
+      name: "",
+      category: "",
+      price_per_piece: "",
+      stock_in_pieces: "",
+      expiry_date: "",
+      batch_number: "",
     });
     setErrors({});
   };
@@ -689,7 +687,7 @@ export const useProductForm = (initialProduct = null) => {
     isSubmitting,
     handleSubmit,
     resetForm,
-    generateBatchNumber
+    generateBatchNumber,
   };
 };
 ```
@@ -702,8 +700,8 @@ export class BatchGenerator {
   static create(productName, category, expiryDate) {
     const now = new Date();
     const year = now.getFullYear().toString().slice(-2);
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const day = now.getDate().toString().padStart(2, '0');
+    const month = (now.getMonth() + 1).toString().padStart(2, "0");
+    const day = now.getDate().toString().padStart(2, "0");
 
     const categoryPrefix = this.getCategoryPrefix(category);
     const productPrefix = this.getProductPrefix(productName);
@@ -715,18 +713,18 @@ export class BatchGenerator {
 
   static getCategoryPrefix(category) {
     const categoryMap = {
-      'Pain Relief': 'PA',
-      'Antibiotics': 'AB',
-      'Vitamins': 'VT',
-      'Antihistamine': 'AH'
+      "Pain Relief": "PA",
+      Antibiotics: "AB",
+      Vitamins: "VT",
+      Antihistamine: "AH",
     };
-    return categoryMap[category] || 'GN';
+    return categoryMap[category] || "GN";
   }
 
   static getProductPrefix(productName) {
-    if (!productName) return 'PR';
-    
-    const words = productName.split(' ').filter(w => w.length > 0);
+    if (!productName) return "PR";
+
+    const words = productName.split(" ").filter((w) => w.length > 0);
     if (words.length >= 2) {
       return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
     }
@@ -734,13 +732,13 @@ export class BatchGenerator {
   }
 
   static getShelfLifeIndicator(expiryDate) {
-    if (!expiryDate) return 'S';
-    
+    if (!expiryDate) return "S";
+
     const expiry = new Date(expiryDate);
     const now = new Date();
     const monthsUntilExpiry = (expiry - now) / (1000 * 60 * 60 * 24 * 30);
-    
-    return monthsUntilExpiry > 24 ? 'X' : 'S';
+
+    return monthsUntilExpiry > 24 ? "X" : "S";
   }
 }
 ```
@@ -749,16 +747,16 @@ export class BatchGenerator {
 
 ```javascript
 // UI COMPONENT - PRESENTATION ONLY
-import { Button } from '../../ui/Button';
-import { Input } from '../../ui/Input';
-import { Select } from '../../ui/Select';
+import { Button } from "../../ui/Button";
+import { Input } from "../../ui/Input";
+import { Select } from "../../ui/Select";
 
 export const ProductForm = ({ formData, onSubmit, onReset }) => {
   const categories = [
-    'Pain Relief',
-    'Antibiotics', 
-    'Vitamins',
-    'Antihistamine'
+    "Pain Relief",
+    "Antibiotics",
+    "Vitamins",
+    "Antihistamine",
   ];
 
   return (
@@ -767,51 +765,63 @@ export const ProductForm = ({ formData, onSubmit, onReset }) => {
         <Input
           label="Product Name"
           value={formData.name}
-          onChange={(value) => setFormData(prev => ({ ...prev, name: value }))}
+          onChange={(value) =>
+            setFormData((prev) => ({ ...prev, name: value }))
+          }
           required
         />
-        
+
         <Select
           label="Category"
           value={formData.category}
-          onChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+          onChange={(value) =>
+            setFormData((prev) => ({ ...prev, category: value }))
+          }
           options={categories}
           required
         />
-        
+
         <Input
           label="Price per Piece"
           type="number"
           value={formData.price_per_piece}
-          onChange={(value) => setFormData(prev => ({ ...prev, price_per_piece: value }))}
+          onChange={(value) =>
+            setFormData((prev) => ({ ...prev, price_per_piece: value }))
+          }
           required
         />
-        
+
         <Input
           label="Stock in Pieces"
           type="number"
           value={formData.stock_in_pieces}
-          onChange={(value) => setFormData(prev => ({ ...prev, stock_in_pieces: value }))}
+          onChange={(value) =>
+            setFormData((prev) => ({ ...prev, stock_in_pieces: value }))
+          }
           required
         />
-        
+
         <Input
           label="Expiry Date"
           type="date"
           value={formData.expiry_date}
-          onChange={(value) => setFormData(prev => ({ ...prev, expiry_date: value }))}
+          onChange={(value) =>
+            setFormData((prev) => ({ ...prev, expiry_date: value }))
+          }
           required
         />
-        
+
         <div className="batch-field">
           <Input
             label="Batch Number"
             value={formData.batch_number}
-            onChange={(value) => setFormData(prev => ({ ...prev, batch_number: value }))}
+            onChange={(value) =>
+              setFormData((prev) => ({ ...prev, batch_number: value }))
+            }
             required
           />
-          <Button 
-            type="button" 
+          <Button
+            type="button"
             onClick={generateBatchNumber}
             variant="secondary"
             size="sm"
@@ -820,7 +830,7 @@ export const ProductForm = ({ formData, onSubmit, onReset }) => {
           </Button>
         </div>
       </div>
-      
+
       <div className="form-actions">
         <Button type="submit" variant="primary">
           Save Product
@@ -885,7 +895,7 @@ Priority Refactoring (Focus on Problem Files):
 
 1. InventoryPage.jsx (1600→350 lines)
    ├── Extract: useInventoryManagement.js (200 lines)
-   ├── Extract: InventoryManager.jsx (300 lines)  
+   ├── Extract: InventoryManager.jsx (300 lines)
    ├── Extract: ProductFormHandler.jsx (250 lines)
    └── Keep: InventoryPage.jsx (350 lines - orchestration)
 
@@ -899,7 +909,7 @@ Priority Refactoring (Focus on Problem Files):
    ├── salesService.js (180 lines)
    └── userService.js (120 lines)
 
-PROFESSIONAL APPROACH: 
+PROFESSIONAL APPROACH:
 - Don't over-fragment (5-6 files instead of 15-20)
 - Keep related logic together
 - Maintain clear boundaries
@@ -917,7 +927,7 @@ Essential Services (Professional Focus):
   - Batch generation logic
   - Expiry tracking
 
-✅ salesService.js (200 lines)  
+✅ salesService.js (200 lines)
   - Transaction processing
   - PWD/Senior discount calculations
   - Receipt generation
@@ -952,7 +962,7 @@ Custom Hooks (Domain-Focused):
 
 ✅ useSalesOperations.js (180 lines)
   - Cart state
-  - Transaction processing  
+  - Transaction processing
   - Payment handling
   - Receipt generation
 
@@ -1008,7 +1018,7 @@ const calculateDiscount = (price, customerType) => {
     'Senior': 0.12,
     'Regular': 0.00
   };
-  
+
   const rate = discountRates[customerType] || 0;
   return price * rate;
 };
@@ -1061,7 +1071,7 @@ Target Achievements:
 ⚡ Function complexity: 5-30 lines
 🎯 Single responsibility: 100% compliance
 🧪 Test coverage: 80%+ (easier with small functions)
-🤖 AI assistance effectiveness: 90%+ 
+🤖 AI assistance effectiveness: 90%+
 🐛 Debug time reduction: 70%
 🚀 Development speed increase: 50%
 ```

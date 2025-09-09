@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   CreditCard,
   DollarSign,
@@ -9,9 +9,12 @@ import {
   Clock,
   X,
   ShoppingCart,
+  Edit3,
 } from "lucide-react";
 import ProductSelector from "../features/pos/components/ProductSelector";
 import ShoppingCartComponent from "../features/pos/components/ShoppingCart";
+import DiscountSelector from "../components/ui/DiscountSelector";
+import TransactionEditor from "../components/ui/TransactionEditor";
 import { usePOS } from "../features/pos/hooks/usePOS";
 import { useAuth } from "../hooks/useAuth";
 import "../components/ui/ScrollableModal.css";
@@ -32,7 +35,6 @@ export default function POSPage() {
     handleRemoveItem,
     handleClearCart,
     processPayment,
-    calculateChange,
     getCartSummary,
     clearError,
   } = usePOS();
@@ -44,11 +46,19 @@ export default function POSPage() {
     customer_name: "",
     customer_phone: "",
   });
+  const [discount, setDiscount] = useState({
+    type: "none",
+    percentage: 0,
+    amount: 0,
+    idNumber: "",
+  });
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastTransaction, setLastTransaction] = useState(null);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [transactionHistory, setTransactionHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showTransactionEditor, setShowTransactionEditor] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
 
   const cartSummary = getCartSummary();
 
@@ -74,14 +84,39 @@ export default function POSPage() {
 
   const handleCheckout = () => {
     if (cartItems.length === 0) return;
+
+    // Calculate final total with discount
+    const subtotalBeforeDiscount = cartSummary.total;
+    const finalTotal = subtotalBeforeDiscount - discount.amount;
+
     setPaymentData({
       method: "cash",
-      amount: cartSummary.total,
+      amount: finalTotal, // Set to exact amount needed
       customer_name: "",
       customer_phone: "",
     });
     setShowCheckout(true);
   };
+
+  const handleDiscountChange = useCallback(
+    (discountData) => {
+      setDiscount(discountData);
+
+      // Update payment amount if checkout is open
+      if (showCheckout) {
+        // Get current cart total without dependency
+        const currentCartSummary = getCartSummary();
+        const subtotalBeforeDiscount = currentCartSummary.total;
+        const finalTotal = subtotalBeforeDiscount - discountData.amount;
+
+        setPaymentData((prev) => ({
+          ...prev,
+          amount: Math.max(finalTotal, prev.amount), // Keep higher amount if customer already entered more
+        }));
+      }
+    },
+    [showCheckout, getCartSummary]
+  );
 
   const handlePayment = async () => {
     try {
@@ -89,10 +124,16 @@ export default function POSPage() {
       const paymentDataWithCashier = {
         ...paymentData,
         cashierId: user?.id || null,
+        // Add discount information
+        discount_type: discount.type,
+        discount_percentage: discount.percentage,
+        discount_amount: discount.amount,
+        subtotal_before_discount: cartSummary.total,
+        pwd_senior_id: discount.idNumber || null,
       };
 
       console.log(
-        "💳 POS Page - Processing payment with data:",
+        "💳 POS Page - Processing payment with discount data:",
         paymentDataWithCashier
       );
 
@@ -100,11 +141,19 @@ export default function POSPage() {
       setLastTransaction(transaction);
       setShowCheckout(false);
       setShowReceipt(true);
+
+      // Reset form data
       setPaymentData({
         method: "cash",
         amount: 0,
         customer_name: "",
         customer_phone: "",
+      });
+      setDiscount({
+        type: "none",
+        percentage: 0,
+        amount: 0,
+        idNumber: "",
       });
 
       // Trigger desktop notifications for sale completion and stock checks
@@ -144,6 +193,25 @@ export default function POSPage() {
   const closeReceipt = () => {
     setShowReceipt(false);
     setLastTransaction(null);
+  };
+
+  const handleEditTransaction = (transaction) => {
+    setEditingTransaction(transaction);
+    setShowTransactionEditor(true);
+  };
+
+  const handleTransactionUpdated = async (updatedTransaction) => {
+    // Update the transaction in the history list
+    setTransactionHistory((prev) =>
+      prev.map((t) => (t.id === updatedTransaction.id ? updatedTransaction : t))
+    );
+    setShowTransactionEditor(false);
+    setEditingTransaction(null);
+  };
+
+  const handleCloseEditor = () => {
+    setShowTransactionEditor(false);
+    setEditingTransaction(null);
   };
 
   return (
@@ -222,7 +290,13 @@ export default function POSPage() {
             >
               <CreditCard className="h-5 w-5" />
               <span>
-                Proceed to Checkout - {formatCurrency(cartSummary.total)}
+                Proceed to Checkout -{" "}
+                {formatCurrency(cartSummary.total - discount.amount)}
+                {discount.amount > 0 && (
+                  <span className="text-green-200 ml-2">
+                    (Save {formatCurrency(discount.amount)})
+                  </span>
+                )}
               </span>
             </button>
           )}
@@ -278,14 +352,31 @@ export default function POSPage() {
                         {formatCurrency(cartSummary.tax)}
                       </span>
                     </div>
+                    {discount.amount > 0 && (
+                      <div className="flex justify-between py-1">
+                        <span className="text-green-600">
+                          Discount ({discount.percentage}%)
+                        </span>
+                        <span className="font-medium text-green-600">
+                          -{formatCurrency(discount.amount)}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between py-2 border-t border-gray-300 font-semibold text-base">
                       <span>Total</span>
                       <span className="text-green-600">
-                        {formatCurrency(cartSummary.total)}
+                        {formatCurrency(cartSummary.total - discount.amount)}
                       </span>
                     </div>
                   </div>
                 </div>
+
+                {/* Discount Selector */}
+                <DiscountSelector
+                  onDiscountChange={handleDiscountChange}
+                  currentDiscount={discount}
+                  subtotal={cartSummary.total}
+                />
 
                 {/* Payment Method */}
                 <div>
@@ -346,20 +437,77 @@ export default function POSPage() {
                         }))
                       }
                       step="0.01"
-                      min={cartSummary.total}
+                      min="0.01"
                       className="w-full pl-8 pr-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      placeholder="0.00"
+                      placeholder={`Minimum: ₱${(
+                        cartSummary.total - discount.amount
+                      ).toFixed(2)}`}
                     />
                   </div>
 
-                  {paymentData.amount >= cartSummary.total && (
-                    <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
-                      <p className="text-green-800 font-medium text-center">
-                        Change:{" "}
-                        {formatCurrency(calculateChange(paymentData.amount))}
-                      </p>
-                    </div>
-                  )}
+                  {/* Quick Amount Buttons */}
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentData((prev) => ({
+                          ...prev,
+                          amount: cartSummary.total - discount.amount,
+                        }))
+                      }
+                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                    >
+                      Exact: ₱{(cartSummary.total - discount.amount).toFixed(2)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentData((prev) => ({
+                          ...prev,
+                          amount:
+                            Math.ceil(
+                              (cartSummary.total - discount.amount) / 100
+                            ) * 100,
+                        }))
+                      }
+                      className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                    >
+                      Round: ₱
+                      {(
+                        Math.ceil((cartSummary.total - discount.amount) / 100) *
+                        100
+                      ).toFixed(2)}
+                    </button>
+                  </div>
+
+                  {/* Payment Status Messages */}
+                  {paymentData.amount < cartSummary.total - discount.amount &&
+                    paymentData.amount > 0 && (
+                      <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-red-800 font-medium text-center">
+                          Insufficient Amount. Need: ₱
+                          {(
+                            cartSummary.total -
+                            discount.amount -
+                            paymentData.amount
+                          ).toFixed(2)}{" "}
+                          more
+                        </p>
+                      </div>
+                    )}
+
+                  {paymentData.amount >= cartSummary.total - discount.amount &&
+                    paymentData.amount > 0 && (
+                      <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-green-800 font-medium text-center">
+                          Change:{" "}
+                          {formatCurrency(
+                            paymentData.amount -
+                              (cartSummary.total - discount.amount)
+                          )}
+                        </p>
+                      </div>
+                    )}
                 </div>
 
                 {/* Customer Info */}
@@ -408,7 +556,10 @@ export default function POSPage() {
                   <button
                     onClick={handlePayment}
                     disabled={
-                      isProcessing || paymentData.amount < cartSummary.total
+                      isProcessing ||
+                      paymentData.amount <
+                        cartSummary.total - discount.amount ||
+                      cartSummary.total - discount.amount <= 0
                     }
                     className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center space-x-2"
                   >
@@ -663,6 +814,11 @@ export default function POSPage() {
                                   <h4 className="font-medium text-gray-900">
                                     Transaction #
                                     {transaction.id?.slice(-8) || "N/A"}
+                                    {transaction.is_edited && (
+                                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                        Edited
+                                      </span>
+                                    )}
                                   </h4>
                                   <div className="flex items-center space-x-3 text-sm text-gray-600">
                                     <span className="flex items-center space-x-1">
@@ -678,16 +834,33 @@ export default function POSPage() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className="font-semibold text-gray-900">
-                                  {formatCurrency(transaction.total || 0)}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {transaction.items?.length || 0} item
-                                  {(transaction.items?.length || 0) !== 1
-                                    ? "s"
-                                    : ""}
-                                </p>
+                              <div className="flex items-center space-x-3">
+                                <div className="text-right">
+                                  <p className="font-semibold text-gray-900">
+                                    {formatCurrency(transaction.total || 0)}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    {transaction.items?.length || 0} item
+                                    {(transaction.items?.length || 0) !== 1
+                                      ? "s"
+                                      : ""}
+                                  </p>
+                                </div>
+                                {/* Edit Button */}
+                                <button
+                                  onClick={() =>
+                                    handleEditTransaction(transaction)
+                                  }
+                                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Edit Transaction"
+                                  disabled={
+                                    new Date() -
+                                      new Date(transaction.created_at) >
+                                    24 * 60 * 60 * 1000
+                                  }
+                                >
+                                  <Edit3 className="h-4 w-4" />
+                                </button>
                               </div>
                             </div>
 
@@ -733,6 +906,16 @@ export default function POSPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Transaction Editor Modal */}
+      {showTransactionEditor && editingTransaction && (
+        <TransactionEditor
+          transaction={editingTransaction}
+          isOpen={showTransactionEditor}
+          onClose={handleCloseEditor}
+          onSave={handleTransactionUpdated}
+        />
       )}
     </div>
   );

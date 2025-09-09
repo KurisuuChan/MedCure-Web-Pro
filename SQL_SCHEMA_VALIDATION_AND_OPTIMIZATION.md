@@ -93,13 +93,13 @@ CREATE TABLE expired_products_clearance (
 -- 1. PWD/SENIOR CITIZEN DISCOUNT COLUMNS
 -- =================================================
 
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_type VARCHAR(20) 
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_type VARCHAR(20)
     DEFAULT 'none' CHECK (discount_type IN ('none', 'pwd', 'senior', 'custom'));
 
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_percentage DECIMAL(5,2) 
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_percentage DECIMAL(5,2)
     DEFAULT 0 CHECK (discount_percentage >= 0 AND discount_percentage <= 100);
 
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2) 
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2)
     DEFAULT 0 CHECK (discount_amount >= 0);
 
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS subtotal_before_discount DECIMAL(10,2);
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS batch_inventory (
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Ensure unique batch per product
     UNIQUE(product_id, batch_number)
 );
@@ -143,7 +143,7 @@ CREATE INDEX IF NOT EXISTS idx_batch_inventory_batch_number ON batch_inventory(b
 -- 4. EXPIRED PRODUCTS MANAGEMENT
 -- =================================================
 
-ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_status VARCHAR(20) 
+ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_status VARCHAR(20)
     DEFAULT 'valid' CHECK (expiry_status IN ('valid', 'expiring_soon', 'expired'));
 
 ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_alert_days INTEGER DEFAULT 30;
@@ -175,7 +175,7 @@ ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS expiry_date DATE;
 CREATE OR REPLACE FUNCTION update_expiry_status()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.expiry_status := CASE 
+    NEW.expiry_status := CASE
         WHEN NEW.expiry_date <= CURRENT_DATE THEN 'expired'
         WHEN NEW.expiry_date <= CURRENT_DATE + INTERVAL '1 day' * NEW.expiry_alert_days THEN 'expiring_soon'
         ELSE 'valid'
@@ -198,8 +198,8 @@ BEGIN
     RETURN QUERY
     SELECT bi.id, bi.stock_quantity, bi.expiry_date
     FROM batch_inventory bi
-    WHERE bi.product_id = p_product_id 
-      AND bi.stock_quantity > 0 
+    WHERE bi.product_id = p_product_id
+      AND bi.stock_quantity > 0
       AND bi.is_active = true
     ORDER BY bi.expiry_date ASC, bi.created_at ASC;
 END;
@@ -210,7 +210,7 @@ $$ LANGUAGE plpgsql;
 
 -- Enhanced product stock view with batch information
 CREATE OR REPLACE VIEW product_stock_detailed AS
-SELECT 
+SELECT
     p.id,
     p.name,
     p.brand,
@@ -221,7 +221,7 @@ SELECT
     COUNT(bi.id) as batch_count,
     MIN(bi.expiry_date) as earliest_expiry,
     SUM(bi.stock_quantity) as total_batch_stock,
-    CASE 
+    CASE
         WHEN p.stock_in_pieces <= 0 THEN 'OUT_OF_STOCK'
         WHEN p.stock_in_pieces <= p.reorder_level THEN 'LOW_STOCK'
         ELSE 'IN_STOCK'
@@ -233,9 +233,9 @@ GROUP BY p.id, p.name, p.brand, p.category, p.stock_in_pieces, p.reorder_level, 
 
 -- Sales with discount information view
 CREATE OR REPLACE VIEW sales_with_discounts AS
-SELECT 
+SELECT
     s.*,
-    CASE 
+    CASE
         WHEN s.discount_type = 'pwd' THEN 'PWD Discount'
         WHEN s.discount_type = 'senior' THEN 'Senior Citizen Discount'
         WHEN s.discount_type = 'custom' THEN 'Custom Discount'
@@ -308,7 +308,7 @@ FEATURE VALIDATION:
 2. Add transaction editing capabilities
 3. Deploy batch inventory system
 
--- Phase 2: Enhanced Features (Week 2)  
+-- Phase 2: Enhanced Features (Week 2)
 4. Implement expired products management
 5. Create professional views and functions
 6. Add performance indexes
@@ -343,7 +343,7 @@ src/services/database/
     ├── calculations.js          (150 lines - Business Calculations)
     └── queries.js               (200 lines - Common SQL Queries)
 
-PROFESSIONAL PRINCIPLE: 
+PROFESSIONAL PRINCIPLE:
 "Each file = One complete business domain"
 - Complete context for GitHub Copilot
 - Easy debugging and maintenance
@@ -358,7 +358,7 @@ PROFESSIONAL PRINCIPLE:
 COMPREHENSIVE FEATURE ASSESSMENT:
 
 ✅ Core Pharmacy Management: 100% Complete
-✅ Inventory Management: 100% Complete  
+✅ Inventory Management: 100% Complete
 ✅ Sales & POS System: 100% Complete
 ✅ User Management: 100% Complete
 ✅ PWD/Senior Discounts: 95% Ready (Schema Complete)
@@ -375,13 +375,14 @@ REMAINING WORK:
 - Testing and validation (Week 3)
 - UI/UX optimization for new features
 
-PROFESSIONAL ASSESSMENT: 
+PROFESSIONAL ASSESSMENT:
 System is production-ready with planned enhancements!
 ```
 
 ---
 
 **🎯 NEXT STEPS:**
+
 1. Deploy SQL schema updates to Supabase
 2. Begin Week 1 frontend implementation
 3. Test new features with existing data

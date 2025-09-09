@@ -319,7 +319,7 @@ export class UserService {
 export class SalesService {
   static async processSale(saleData) {
     try {
-      logDebug("Processing sale transaction", saleData);
+      logDebug("Processing sale transaction with discount support", saleData);
 
       // Debug: Log the mapped sale items
       const mappedItems = saleData.items.map((item) => ({
@@ -332,6 +332,13 @@ export class SalesService {
 
       console.log("🔍 Sales Service - Mapped sale items:", mappedItems);
       console.log("🔍 Sales Service - Original items:", saleData.items);
+      console.log("🔍 Sales Service - Discount data:", {
+        discount_type: saleData.discount_type,
+        discount_percentage: saleData.discount_percentage,
+        discount_amount: saleData.discount_amount,
+        subtotal_before_discount: saleData.subtotal_before_discount,
+        pwd_senior_id: saleData.pwd_senior_id,
+      });
 
       // Use stored procedure for atomic operation
       const { data, error } = await supabase.rpc("create_sale_with_items", {
@@ -342,13 +349,20 @@ export class SalesService {
           customer_name: saleData.customer?.name || null,
           customer_phone: saleData.customer?.phone || null,
           notes: saleData.notes || null,
+          // Add discount fields
+          discount_type: saleData.discount_type || "none",
+          discount_percentage: saleData.discount_percentage || 0,
+          discount_amount: saleData.discount_amount || 0,
+          subtotal_before_discount:
+            saleData.subtotal_before_discount || saleData.total,
+          pwd_senior_id: saleData.pwd_senior_id || null,
         },
         sale_items: mappedItems,
       });
 
       if (error) throw error;
 
-      logDebug("Successfully processed sale", data);
+      logDebug("Successfully processed sale with discount", data);
       return data;
     } catch (error) {
       handleError(error, "Process sale");
@@ -494,6 +508,80 @@ export class SalesService {
       return data;
     } catch (error) {
       handleError(error, "Get sales analytics");
+    }
+  }
+
+  static async editTransaction(transactionId, editData) {
+    try {
+      logDebug(`Editing transaction ${transactionId}`, editData);
+
+      // Update the main sales record
+      const { data: salesData, error: salesError } = await supabase
+        .from("sales")
+        .update({
+          total_amount: editData.total_amount,
+          subtotal_before_discount: editData.subtotal_before_discount,
+          discount_type: editData.discount_type || "none",
+          discount_percentage: editData.discount_percentage || 0,
+          discount_amount: editData.discount_amount || 0,
+          pwd_senior_id: editData.pwd_senior_id || null,
+          is_edited: true,
+          edited_at: editData.edited_at,
+          edited_by: editData.edited_by,
+          edit_reason: editData.edit_reason,
+          original_total: editData.original_total,
+        })
+        .eq("id", transactionId)
+        .select();
+
+      if (salesError) throw salesError;
+
+      // Delete existing sale items
+      const { error: deleteError } = await supabase
+        .from("sale_items")
+        .delete()
+        .eq("sale_id", transactionId);
+
+      if (deleteError) throw deleteError;
+
+      // Insert updated sale items
+      if (editData.items && editData.items.length > 0) {
+        const saleItems = editData.items.map((item) => ({
+          sale_id: transactionId,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_type: item.unit_type,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("sale_items")
+          .insert(saleItems);
+
+        if (itemsError) throw itemsError;
+      }
+
+      logDebug("Successfully edited transaction", salesData[0]);
+
+      // Return the updated transaction with items
+      const { data: fullTransaction, error: fetchError } = await supabase
+        .from("sales")
+        .select(
+          `
+          *,
+          sale_items (*),
+          users (first_name, last_name)
+        `
+        )
+        .eq("id", transactionId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      return fullTransaction;
+    } catch (error) {
+      handleError(error, "Edit transaction");
     }
   }
 }

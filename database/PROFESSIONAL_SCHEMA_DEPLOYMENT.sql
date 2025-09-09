@@ -10,6 +10,22 @@
 -- Execute it to add all required columns and tables for new features
 
 -- =================================================
+-- 0. CLEANUP CONFLICTING OBJECTS (IF ANY)
+-- =================================================
+
+-- Drop any problematic triggers that might conflict
+DROP TRIGGER IF EXISTS update_batch_inventory_updated_at ON batch_inventory;
+DROP TRIGGER IF EXISTS trigger_update_expiry_status ON products;
+DROP TRIGGER IF EXISTS low_stock_notification_trigger ON products;
+
+-- Drop any problematic functions that might cause issues
+DROP FUNCTION IF EXISTS handle_low_stock_notification();
+
+-- Drop any existing RLS policies that might conflict
+DROP POLICY IF EXISTS "batch_inventory_access" ON batch_inventory;
+DROP POLICY IF EXISTS "expired_clearance_access" ON expired_products_clearance;
+
+-- =================================================
 -- 1. PWD/SENIOR CITIZEN DISCOUNT SYSTEM
 -- =================================================
 
@@ -39,7 +55,40 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS edit_reason TEXT;
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS original_total DECIMAL(10,2);
 
 -- =================================================
--- 3. MULTIPLE BATCH INVENTORY MANAGEMENT
+-- 3. STOCK MOVEMENTS TABLE (ENSURE COMPATIBILITY)
+-- =================================================
+
+-- Create or update stock_movements table with correct structure
+CREATE TABLE IF NOT EXISTS stock_movements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    
+    -- Movement details
+    movement_type VARCHAR(20) CHECK (movement_type IN ('in', 'out', 'adjustment')) NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity != 0),
+    reason VARCHAR(255) NOT NULL,
+    
+    -- Reference to related transaction (optional)
+    reference_id UUID, -- Could reference sale_id or other transactions
+    reference_type VARCHAR(20), -- 'sale', 'purchase', 'adjustment', etc.
+    
+    -- Stock levels after movement
+    stock_before INTEGER NOT NULL,
+    stock_after INTEGER NOT NULL,
+    
+    -- Timestamp
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_user_id ON stock_movements(user_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_date ON stock_movements(created_at);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_type ON stock_movements(movement_type);
+
+-- =================================================
+-- 4. MULTIPLE BATCH INVENTORY MANAGEMENT
 -- =================================================
 
 -- Create batch inventory table for FIFO management
@@ -61,6 +110,7 @@ CREATE TABLE IF NOT EXISTS batch_inventory (
 );
 
 -- Add updated_at trigger for batch_inventory
+DROP TRIGGER IF EXISTS update_batch_inventory_updated_at ON batch_inventory;
 CREATE TRIGGER update_batch_inventory_updated_at BEFORE UPDATE
     ON batch_inventory FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -71,7 +121,7 @@ CREATE INDEX IF NOT EXISTS idx_batch_inventory_batch_number ON batch_inventory(b
 CREATE INDEX IF NOT EXISTS idx_batch_inventory_active ON batch_inventory(is_active);
 
 -- =================================================
--- 4. EXPIRED PRODUCTS MANAGEMENT SYSTEM
+-- 5. EXPIRED PRODUCTS MANAGEMENT SYSTEM
 -- =================================================
 
 -- Add expiry tracking columns to products
@@ -101,7 +151,7 @@ CREATE INDEX IF NOT EXISTS idx_expired_clearance_status ON expired_products_clea
 CREATE INDEX IF NOT EXISTS idx_expired_clearance_date ON expired_products_clearance(created_at);
 
 -- =================================================
--- 5. ENHANCED SALE ITEMS FOR BATCH TRACKING
+-- 6. ENHANCED SALE ITEMS FOR BATCH TRACKING
 -- =================================================
 
 -- Add batch tracking to sale items
@@ -109,7 +159,7 @@ ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS batch_id UUID REFERENCES batch_i
 ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS expiry_date DATE;
 
 -- =================================================
--- 6. SMART REORDER SUGGESTIONS (SIMPLE & PRACTICAL)
+-- 7. SMART REORDER SUGGESTIONS (SIMPLE & PRACTICAL)
 -- =================================================
 
 -- Add reorder tracking columns to products
@@ -230,7 +280,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =================================================
--- 7. ENHANCED BUSINESS FUNCTIONS
+-- 8. ENHANCED BUSINESS FUNCTIONS
 -- =================================================
 
 -- Function to automatically update expiry status
@@ -277,7 +327,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =================================================
--- 7. PROFESSIONAL VIEWS FOR REPORTING
+-- 9. PROFESSIONAL VIEWS FOR REPORTING
 -- =================================================
 
 -- Enhanced product stock view with batch and expiry information
@@ -391,6 +441,10 @@ COMMENT ON COLUMN products.expiry_alert_days IS 'Number of days before expiry to
 -- Enable RLS for new tables
 ALTER TABLE batch_inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expired_products_clearance ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist, then create new ones
+DROP POLICY IF EXISTS "batch_inventory_access" ON batch_inventory;
+DROP POLICY IF EXISTS "expired_clearance_access" ON expired_products_clearance;
 
 -- Basic RLS policies (authenticated users can access)
 CREATE POLICY "batch_inventory_access" ON batch_inventory FOR ALL TO authenticated USING (true);

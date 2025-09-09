@@ -82,4 +82,9 @@ export const salesService = {
 
     return transformedTransactions;
   },
+
+  // Edit an existing transaction
+  editTransaction: async (transactionId, editData) => {
+    return await SalesService.editTransaction(transactionId, editData);
+  },
 };

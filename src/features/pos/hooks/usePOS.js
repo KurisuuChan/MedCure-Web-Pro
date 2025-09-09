@@ -147,7 +147,7 @@ export function usePOS() {
           throw new Error("Insufficient payment amount");
         }
 
-        // Prepare sale data
+        // Prepare sale data with discount support
         const saleData = {
           items: cartItems.map((item) => ({
             product_id: item.productId,
@@ -157,10 +157,17 @@ export function usePOS() {
             price_per_unit: item.pricePerUnit,
             total_price: item.totalPrice,
           })),
-          total: total,
+          total: paymentData.amount, // Use the final amount (after discount)
           paymentMethod: paymentData.method,
           customer: paymentData.customer || null,
           cashierId: paymentData.cashierId || null,
+          // Add discount fields
+          discount_type: paymentData.discount_type || "none",
+          discount_percentage: paymentData.discount_percentage || 0,
+          discount_amount: paymentData.discount_amount || 0,
+          subtotal_before_discount:
+            paymentData.subtotal_before_discount || total,
+          pwd_senior_id: paymentData.pwd_senior_id || null,
         };
 
         console.log("🚀 POS Hook - Sale data being sent:", saleData);
