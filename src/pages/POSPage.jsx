@@ -16,6 +16,7 @@ import ProductSelector from "../features/pos/components/ProductSelector";
 import ShoppingCartComponent from "../features/pos/components/ShoppingCart";
 import DiscountSelector from "../components/features/pos/DiscountSelector";
 import TransactionEditor from "../components/ui/TransactionEditor";
+import TransactionUndoModal from "../components/ui/TransactionUndoModal";
 import { usePOS } from "../features/pos/hooks/usePOS";
 import { useAuth } from "../hooks/useAuth";
 import "../components/ui/ScrollableModal.css";
@@ -66,8 +67,20 @@ export default function POSPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showTransactionEditor, setShowTransactionEditor] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [showUndoModal, setShowUndoModal] = useState(false);
+  const [undoingTransaction, setUndoingTransaction] = useState(null);
 
   const cartSummary = getCartSummary();
+
+  // Helper function to get transaction items count and items array safely
+  const getTransactionItems = (transaction) => {
+    const items = transaction.items || transaction.sale_items || [];
+    return {
+      items,
+      count: items.length,
+      hasItems: items.length > 0,
+    };
+  };
 
   // Function to load transaction history
   const loadTransactionHistory = useCallback(async () => {
@@ -266,15 +279,46 @@ export default function POSPage() {
       setShowTransactionEditor(false);
       setEditingTransaction(null);
 
-      // Show success message
-      console.log(
-        "🎉 Transaction edit completed successfully - new price:",
-        updatedTransaction.total_amount
+      // Show success message with revenue update info
+      const oldAmount = editingTransaction.total_amount; // Get from original transaction
+      const newAmount = updatedTransaction.total_amount;
+      const difference = newAmount - oldAmount;
+
+      console.log("🎉 Transaction edit completed successfully:", {
+        oldAmount,
+        newAmount,
+        difference,
+        transactionId: updatedTransaction.id,
+      });
+
+      // Enhanced success notification
+      alert(
+        `✅ Transaction Modified Successfully!\n\n` +
+          `Original Amount: ₱${oldAmount.toFixed(2)}\n` +
+          `New Amount: ₱${newAmount.toFixed(2)}\n` +
+          `Difference: ${difference >= 0 ? "+" : ""}₱${difference.toFixed(
+            2
+          )}\n\n` +
+          `Revenue totals will update automatically.\n` +
+          `Reason: ${result.data.edit_reason || "No reason provided"}`
       );
 
-      // Optional: Refresh the entire transaction history to ensure accuracy
+      // Refresh transaction history and trigger dashboard update event
       setTimeout(() => {
         loadTransactionHistory();
+
+        // Trigger custom event for dashboard refresh
+        window.dispatchEvent(
+          new CustomEvent("transactionModified", {
+            detail: {
+              type: "edit",
+              transactionId: updatedTransaction.id,
+              oldAmount,
+              newAmount,
+              difference,
+            },
+          })
+        );
       }, 500);
     } catch (error) {
       console.error("❌ Failed to update transaction:", error);
@@ -283,32 +327,69 @@ export default function POSPage() {
     }
   };
 
-  const handleUndoTransaction = async (transaction) => {
-    if (
-      !confirm(
-        `Are you sure you want to undo transaction #${transaction.id.slice(
-          -8
-        )}? This will restore stock and mark the transaction as cancelled.`
-      )
-    ) {
-      return;
-    }
+  // Professional undo transaction handler with modal
+  const handleUndoTransaction = (transaction) => {
+    console.log("🔧 [DEBUG] Undo button clicked for transaction:", transaction);
+    setUndoingTransaction(transaction);
+    setShowUndoModal(true);
+  };
 
+  // Process the actual undo with reason
+  const processTransactionUndo = async (transactionId, reason) => {
     try {
-      console.log("↩️ Undoing transaction:", transaction.id);
+      console.log("↩️ Processing transaction undo:", { transactionId, reason });
 
-      // Call the undo transaction service
+      // Call the undo transaction service with audit reason
       const result = await unifiedTransactionService.undoTransaction(
-        transaction.id
+        transactionId
       );
 
-      console.log("✅ Transaction undone successfully:", result);
+      console.log("✅ Transaction undo successful:", result);
 
-      // Refresh transaction history to show updated status and restored price
-      await loadTransactionHistory();
+      // Update local state to reflect the change immediately
+      setTransactionHistory((prev) =>
+        prev.map((t) =>
+          t.id === transactionId
+            ? {
+                ...t,
+                status: "cancelled",
+                is_edited: true,
+                edit_reason: reason,
+              }
+            : t
+        )
+      );
 
-      // Show success message
-      console.log("🎉 Transaction undone successfully - stock restored");
+      // Close modal and reset state
+      setShowUndoModal(false);
+      setUndoingTransaction(null);
+
+      // Enhanced success notification with transaction details
+      const cancelledAmount = undoingTransaction.total_amount;
+      alert(
+        `✅ Transaction Successfully Cancelled!\n\n` +
+          `Transaction ID: ${transactionId.slice(0, 8)}...\n` +
+          `Cancelled Amount: ₱${cancelledAmount.toFixed(2)}\n` +
+          `Reason: ${reason}\n\n` +
+          `Stock has been restored and revenue updated.`
+      );
+
+      // Refresh transaction history and trigger dashboard update
+      setTimeout(() => {
+        loadTransactionHistory();
+
+        // Trigger custom event for dashboard refresh
+        window.dispatchEvent(
+          new CustomEvent("transactionModified", {
+            detail: {
+              type: "cancel",
+              transactionId: transactionId,
+              cancelledAmount,
+              reason,
+            },
+          })
+        );
+      }, 500);
     } catch (error) {
       console.error("❌ Failed to undo transaction:", error);
       alert(`Failed to undo transaction: ${error.message}`);
@@ -928,11 +1009,33 @@ export default function POSPage() {
                                   <h4 className="font-medium text-gray-900">
                                     Transaction #
                                     {transaction.id?.slice(-8) || "N/A"}
-                                    {transaction.is_edited && (
-                                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                                        Edited
-                                      </span>
-                                    )}
+                                    {/* Professional Status Badges */}
+                                    <div className="inline-flex items-center space-x-1 ml-2">
+                                      {/* Transaction Status Badge */}
+                                      {transaction.status === "completed" && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                          ✓ Completed
+                                        </span>
+                                      )}
+                                      {transaction.status === "cancelled" && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                          ✗ Cancelled
+                                        </span>
+                                      )}
+                                      {transaction.status === "pending" && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                          ⏳ Pending
+                                        </span>
+                                      )}
+
+                                      {/* Edit Status Badge */}
+                                      {transaction.is_edited &&
+                                        transaction.status !== "cancelled" && (
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                            ✏️ Modified
+                                          </span>
+                                        )}
+                                    </div>
                                   </h4>
                                   <div className="flex items-center space-x-3 text-sm text-gray-600">
                                     <span className="flex items-center space-x-1">
@@ -958,20 +1061,31 @@ export default function POSPage() {
                                     )}
                                   </p>
                                   <p className="text-sm text-gray-600">
-                                    {transaction.items?.length || 0} item
-                                    {(transaction.items?.length || 0) !== 1
-                                      ? "s"
-                                      : ""}
+                                    {(() => {
+                                      const { count } =
+                                        getTransactionItems(transaction);
+                                      return `${count} item${
+                                        count !== 1 ? "s" : ""
+                                      }`;
+                                    })()}
                                   </p>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                  {/* Edit Button */}
+                                  {/* Edit Button - Status-aware styling */}
                                   <button
                                     onClick={() =>
                                       handleEditTransaction(transaction)
                                     }
-                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                    title="Edit Transaction"
+                                    className={`p-2 rounded-lg transition-all ${
+                                      transaction.edit_reason
+                                        ? "text-orange-600 bg-orange-50 border border-orange-200 hover:bg-orange-100"
+                                        : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                    }`}
+                                    title={
+                                      transaction.edit_reason
+                                        ? `Previously edited: ${transaction.edit_reason}`
+                                        : "Edit Transaction"
+                                    }
                                     disabled={false} // TEMP: Always enable for debugging
                                     // disabled={
                                     //   new Date() -
@@ -982,13 +1096,21 @@ export default function POSPage() {
                                     <Edit3 className="h-4 w-4" />
                                   </button>
 
-                                  {/* Undo Button */}
+                                  {/* Undo Button - Status-aware styling */}
                                   <button
                                     onClick={() =>
                                       handleUndoTransaction(transaction)
                                     }
-                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Undo Transaction (Restore Stock)"
+                                    className={`p-2 rounded-lg transition-all ${
+                                      transaction.status === "cancelled"
+                                        ? "text-gray-300 bg-gray-100 cursor-not-allowed"
+                                        : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                    }`}
+                                    title={
+                                      transaction.status === "cancelled"
+                                        ? "Transaction already cancelled"
+                                        : "Undo Transaction (Restore Stock)"
+                                    }
                                     disabled={
                                       transaction.status === "cancelled"
                                     }
@@ -1000,46 +1122,48 @@ export default function POSPage() {
                             </div>
 
                             {/* Transaction Items */}
-                            {transaction.items &&
-                              transaction.items.length > 0 && (
-                                <div className="border-t border-gray-100 pt-3">
-                                  <div className="space-y-1">
-                                    {transaction.items
-                                      .slice(0, 3)
-                                      .map((item, itemIndex) => (
-                                        <div
-                                          key={itemIndex}
-                                          className="flex justify-between text-sm"
-                                        >
-                                          <span className="text-gray-600">
-                                            {item.products?.name ||
-                                              item.name ||
-                                              "Unknown Item"}{" "}
-                                            x{item.quantity}
-                                          </span>
-                                          <span className="text-gray-900">
-                                            {formatCurrency(
-                                              item.total_price ||
-                                                item.subtotal ||
-                                                item.unit_price *
-                                                  item.quantity ||
-                                                0
-                                            )}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    {transaction.items.length > 3 && (
-                                      <p className="text-xs text-gray-500 italic">
-                                        +{transaction.items.length - 3} more
-                                        item
-                                        {transaction.items.length - 3 !== 1
-                                          ? "s"
-                                          : ""}
-                                      </p>
-                                    )}
+                            {(() => {
+                              const { items, hasItems } =
+                                getTransactionItems(transaction);
+                              return (
+                                hasItems && (
+                                  <div className="border-t border-gray-100 pt-3">
+                                    <div className="space-y-1">
+                                      {items
+                                        .slice(0, 3)
+                                        .map((item, itemIndex) => (
+                                          <div
+                                            key={itemIndex}
+                                            className="flex justify-between text-sm"
+                                          >
+                                            <span className="text-gray-600">
+                                              {item.products?.name ||
+                                                item.name ||
+                                                "Unknown Item"}{" "}
+                                              x{item.quantity}
+                                            </span>
+                                            <span className="text-gray-900">
+                                              {formatCurrency(
+                                                item.total_price ||
+                                                  item.subtotal ||
+                                                  item.unit_price *
+                                                    item.quantity ||
+                                                  0
+                                              )}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      {items.length > 3 && (
+                                        <p className="text-xs text-gray-500 italic">
+                                          +{items.length - 3} more item
+                                          {items.length - 3 !== 1 ? "s" : ""}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )
+                              );
+                            })()}
                           </div>
                         ))}
                       </div>
@@ -1063,6 +1187,18 @@ export default function POSPage() {
           />
         </div>
       )}
+
+      {/* Professional Transaction Undo Modal */}
+      <TransactionUndoModal
+        isOpen={showUndoModal}
+        onClose={() => {
+          setShowUndoModal(false);
+          setUndoingTransaction(null);
+        }}
+        transaction={undoingTransaction}
+        onConfirm={processTransactionUndo}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 }

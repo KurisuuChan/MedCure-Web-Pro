@@ -114,10 +114,20 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
     console.log("🔄 Reverted to original transaction:", originalTransaction);
   };
 
-  // Handle save
+  // Handle save with enhanced validation
   const handleSave = async () => {
-    if (!editedTransaction || !editReason.trim()) {
-      setError("Edit reason is required");
+    if (!editedTransaction) {
+      setError("No transaction data available");
+      return;
+    }
+
+    if (!editReason.trim() || editReason.trim().length < 10) {
+      setError("Edit reason is required and must be at least 10 characters");
+      return;
+    }
+
+    if (!hasChanges()) {
+      setError("No changes detected. Please make changes before saving.");
       return;
     }
 
@@ -412,19 +422,44 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
           </div>
         </div>
 
-        {/* Edit Reason */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Reason for Edit <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            value={editReason}
-            onChange={(e) => setEditReason(e.target.value)}
-            placeholder="Please provide a detailed reason for editing this transaction..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            rows="3"
-            required
-          />
+        {/* Edit Reason - Enhanced Professional Input */}
+        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-yellow-800 mb-1">
+                Edit Justification Required
+              </h3>
+              <p className="text-sm text-yellow-700 mb-3">
+                All transaction modifications must be documented for audit
+                compliance and business transparency.
+              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for Modification <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                placeholder="Required: Provide specific reason (e.g., 'Customer requested quantity change', 'Price correction needed', 'Added additional items')..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                rows="3"
+                required
+                minLength="10"
+              />
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-xs text-gray-500">
+                  Minimum 10 characters required
+                </span>
+                <span
+                  className={`text-xs ${
+                    editReason.length >= 10 ? "text-green-600" : "text-red-500"
+                  }`}
+                >
+                  {editReason.length}/10+
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
