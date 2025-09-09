@@ -1,12 +1,203 @@
-# React + Vite
+# 🏥 MedCure-Pro: Professional Pharmacy Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 📋 System Overview
 
-Currently, two official plugins are available:
+MedCure-Pro is an enterprise-grade Point of Sale (POS) system specifically designed for pharmaceutical operations. Built with React and Supabase, it provides real-time inventory management, transaction processing, and comprehensive reporting capabilities.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Key Features
 
-## Expanding the ESLint configuration
+### 🎯 **Core POS Functionality**
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Real-time Stock Management**: Live inventory tracking with automatic deduction
+- **Multi-unit Support**: Handle pieces, sheets, and boxes with automatic conversion
+- **Professional Transaction Processing**: Two-phase commit (create → complete)
+- **PWD/Senior Discounts**: Automated discount application with ID validation
+
+### 💼 **Transaction Management**
+
+- **Edit Transactions**: Modify completed transactions within 24 hours
+- **Undo System**: Complete transaction reversal with stock restoration
+- **Audit Trail**: Full transaction history with edit reasons and timestamps
+- **Status Management**: Pending → Completed → Cancelled workflow
+
+### 📊 **Advanced Analytics**
+
+- **Revenue Tracking**: Daily, monthly, and yearly revenue reports
+- **Stock Analytics**: Low stock alerts and movement tracking
+- **Performance Metrics**: Transaction counts and average sale values
+- **Real-time Dashboard**: Live business metrics and KPIs
+
+### 🔒 **Security & Compliance**
+
+- **Row Level Security (RLS)**: Database-level access control
+- **User Authentication**: Secure login with role-based permissions
+- **Audit Logging**: Complete trail of all system changes
+- **Data Validation**: Comprehensive input validation and error handling
+
+## 🏗️ **Technical Architecture**
+
+### **Frontend Stack**
+
+- **React 18**: Modern component-based UI framework
+- **Vite**: Fast build tool and development server
+- **Tailwind CSS**: Utility-first styling framework
+- **Lucide React**: Professional icon library
+
+### **Backend Infrastructure**
+
+- **Supabase**: PostgreSQL database with real-time capabilities
+- **Row Level Security**: Database-level security policies
+- **Stored Procedures**: Business logic implemented in PostgreSQL
+- **Real-time Subscriptions**: Live data updates across clients
+
+### **Key Services**
+
+- `unifiedTransactionService.js`: Core transaction processing
+- `analyticsService.js`: Revenue and performance analytics
+- `reportingService.js`: Business intelligence reports
+- `posStore.js`: Real-time inventory state management
+
+## 🚀 **Installation & Setup**
+
+### **Prerequisites**
+
+- Node.js 18+
+- npm or yarn
+- Supabase account and project
+
+### **Environment Configuration**
+
+Create `.env.local` file:
+
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### **Database Setup**
+
+1. Execute `database/FINAL_OPTIMIZED_SCHEMA.sql` in Supabase SQL Editor
+2. This creates all tables, functions, and security policies
+3. Import initial product data if needed
+
+### **Development Server**
+
+```bash
+npm install
+npm run dev
+```
+
+## 💡 **Core Workflows**
+
+### **1. Sale Processing**
+
+```
+Add Products to Cart → Apply Discounts → Process Payment → Complete Transaction
+```
+
+### **2. Transaction Editing**
+
+```
+Select Transaction → Edit Items/Quantities → Provide Reason → Save Changes
+```
+
+### **3. Stock Management**
+
+```
+Real-time Stock Check → Prevent Overselling → Auto-deduct on Sale → Restore on Undo
+```
+
+## 📈 **Business Benefits**
+
+### **Operational Efficiency**
+
+- ⚡ **Fast Processing**: Optimized checkout workflow
+- 🎯 **Error Prevention**: Real-time stock validation
+- 📱 **User-friendly**: Intuitive interface design
+- 🔄 **Real-time Updates**: Live inventory synchronization
+
+### **Financial Control**
+
+- 💰 **Accurate Revenue**: Automated discount calculations
+- 📊 **Comprehensive Reports**: Detailed sales analytics
+- 🔍 **Audit Trail**: Complete transaction history
+- ⚖️ **Compliance**: PWD/Senior discount regulations
+
+### **Inventory Management**
+
+- 📦 **Multi-unit Tracking**: Pieces, sheets, boxes
+- ⚠️ **Low Stock Alerts**: Proactive inventory monitoring
+- 🔄 **FIFO Support**: Batch inventory management
+- 📈 **Movement History**: Complete stock audit trail
+
+## 🔧 **Professional Features**
+
+### **Transaction Edit/Undo System**
+
+- **Edit Window**: 24-hour modification period
+- **Stock Management**: Automatic stock restoration on edits
+- **Audit Compliance**: Mandatory edit reasons and user tracking
+- **Price Accuracy**: Real-time revenue calculation updates
+
+### **Revenue Analytics**
+
+- **Accurate Calculations**: Excludes cancelled transactions
+- **Real-time Reporting**: Live dashboard updates
+- **Historical Analysis**: Trend tracking and comparisons
+- **Performance Metrics**: KPIs and business intelligence
+
+### **Error Handling**
+
+- **Graceful Degradation**: System continues operating during errors
+- **User Feedback**: Clear error messages and guidance
+- **Data Integrity**: Transaction rollback on failures
+- **Recovery Procedures**: Automatic system recovery
+
+## 🎯 **Production Deployment**
+
+### **Performance Optimization**
+
+- Database indexes for fast queries
+- Optimized component rendering
+- Efficient state management
+- Real-time subscription optimization
+
+### **Security Measures**
+
+- Row Level Security (RLS) policies
+- Input validation and sanitization
+- Secure authentication flow
+- API endpoint protection
+
+### **Monitoring & Maintenance**
+
+- Error logging and tracking
+- Performance monitoring
+- Database maintenance procedures
+- Regular backup strategies
+
+## 📞 **Support & Maintenance**
+
+### **System Health Checks**
+
+- Daily revenue reconciliation
+- Stock level monitoring
+- User activity tracking
+- Error rate monitoring
+
+### **Regular Maintenance**
+
+- Database optimization
+- Security updates
+- Performance tuning
+- Feature enhancements
+
+---
+
+## 🎉 **System Status: Production Ready**
+
+MedCure-Pro is a fully operational, enterprise-grade pharmacy management system with comprehensive POS functionality, real-time inventory management, and professional-grade reporting capabilities. The system is optimized for pharmaceutical operations and compliant with industry standards.
+
+**Latest Version**: v2.0 (Optimized)  
+**Last Updated**: December 2024  
+**Status**: ✅ Production Ready
