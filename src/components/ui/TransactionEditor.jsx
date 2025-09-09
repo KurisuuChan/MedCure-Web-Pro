@@ -19,8 +19,13 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
 
   // Initialize edited transaction state
   useEffect(() => {
+    console.log(
+      "🔧 [TransactionEditor] Initializing with transaction:",
+      transaction
+    );
+
     if (transaction) {
-      setEditedTransaction({
+      const editedTx = {
         ...transaction,
         items:
           transaction.items?.map((item) => ({
@@ -29,7 +34,13 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
             unit_price: item.unit_price || item.pricePerUnit || 0,
             total_price: item.total_price || item.totalPrice || 0,
           })) || [],
-      });
+      };
+
+      console.log(
+        "🔧 [TransactionEditor] Prepared edited transaction:",
+        editedTx
+      );
+      setEditedTransaction(editedTx);
     }
   }, [transaction]);
 
@@ -118,13 +129,15 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
   const canEdit = () => {
     if (!transaction) return false;
 
-    const transactionDate = new Date(transaction.created_at);
-    const now = new Date();
-    const timeDiff = now - transactionDate;
-    const hoursDiff = timeDiff / (1000 * 60 * 60);
+    // TEMP: Always allow editing for debugging
+    return true;
 
-    // Allow editing within 24 hours
-    return hoursDiff <= 24;
+    // Original logic (commented for debugging):
+    // const transactionDate = new Date(transaction.created_at);
+    // const now = new Date();
+    // const timeDiff = now - transactionDate;
+    // const hoursDiff = timeDiff / (1000 * 60 * 60);
+    // return hoursDiff <= 24;
   };
 
   // Check if there are changes

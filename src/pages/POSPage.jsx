@@ -71,6 +71,7 @@ export default function POSPage() {
           console.log("📊 Loading transaction history...");
           const history = await salesService.getTodaysTransactions();
           console.log("📊 Received transaction history:", history);
+          console.log("📊 First transaction items check:", history[0]?.items);
           setTransactionHistory(history);
         } catch (error) {
           console.error("Failed to load transaction history:", error);
@@ -196,27 +197,38 @@ export default function POSPage() {
   };
 
   const handleEditTransaction = (transaction) => {
+    console.log("🔧 [DEBUG] Edit button clicked for transaction:", transaction);
+    console.log("🔧 [DEBUG] Transaction items:", transaction.items);
+    console.log("🔧 [DEBUG] Setting editing transaction...");
+
     setEditingTransaction(transaction);
     setShowTransactionEditor(true);
+
+    console.log("🔧 [DEBUG] Edit modal state updated");
   };
 
   const handleTransactionUpdated = async (editData) => {
     try {
       console.log("📝 Updating transaction with data:", editData);
-      
+
       // Call the edit transaction service
-      const updatedTransaction = await salesService.editTransaction(editData.id, editData);
-      
+      const updatedTransaction = await salesService.editTransaction(
+        editData.id,
+        editData
+      );
+
       console.log("✅ Transaction updated successfully:", updatedTransaction);
-      
+
       // Update the transaction in the history list
       setTransactionHistory((prev) =>
-        prev.map((t) => (t.id === updatedTransaction.id ? updatedTransaction : t))
+        prev.map((t) =>
+          t.id === updatedTransaction.id ? updatedTransaction : t
+        )
       );
-      
+
       setShowTransactionEditor(false);
       setEditingTransaction(null);
-      
+
       // Show success message
       console.log("🎉 Transaction edit completed successfully");
     } catch (error) {
@@ -878,11 +890,12 @@ export default function POSPage() {
                                   }
                                   className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                   title="Edit Transaction"
-                                  disabled={
-                                    new Date() -
-                                      new Date(transaction.created_at) >
-                                    24 * 60 * 60 * 1000
-                                  }
+                                  disabled={false} // TEMP: Always enable for debugging
+                                  // disabled={
+                                  //   new Date() -
+                                  //     new Date(transaction.created_at) >
+                                  //   24 * 60 * 60 * 1000
+                                  // }
                                 >
                                   <Edit3 className="h-4 w-4" />
                                 </button>

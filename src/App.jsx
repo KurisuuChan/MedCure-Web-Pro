@@ -24,7 +24,7 @@ import DashboardPage from "./pages/DashboardPage";
 import POSPage from "./pages/POSPage";
 import InventoryPage from "./pages/InventoryPage";
 import ManagementPage from "./pages/ManagementPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
+import EnhancedAnalyticsDashboard from "./pages/EnhancedAnalyticsDashboard";
 import SettingsPage from "./pages/SettingsPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 
@@ -134,7 +134,18 @@ function AppContent() {
         element={
           <PageErrorBoundary title="Analytics Error">
             <ProtectedRoute requiredRole={["admin", "manager"]}>
-              <AnalyticsPage />
+              <EnhancedAnalyticsDashboard />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/enhanced-analytics"
+        element={
+          <PageErrorBoundary title="Enhanced Analytics Error">
+            <ProtectedRoute requiredRole={["admin", "manager"]}>
+              <EnhancedAnalyticsDashboard />
             </ProtectedRoute>
           </PageErrorBoundary>
         }

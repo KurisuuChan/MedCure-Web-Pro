@@ -1,0 +1,592 @@
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from "chart.js";
+import { Line, Bar, Pie, Doughnut } from "react-chartjs-2";
+import {
+  TrendingUp,
+  BarChart3,
+  PieChart,
+  DollarSign,
+  Package,
+  ShoppingCart,
+  Users,
+  Calendar,
+  RefreshCw,
+  Download,
+  Filter,
+  Eye,
+  Activity,
+  AlertTriangle,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
+import { AnalyticsService } from "../services/analyticsService";
+import { formatCurrency, formatNumber } from "../utils/formatting";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
+
+export default function EnhancedAnalyticsDashboard() {
+  const [dashboardData, setDashboardData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedPeriod, setSelectedPeriod] = useState("30days");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadAnalyticsData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Load comprehensive analytics data
+      const [
+        salesAnalytics,
+        salesTrends,
+        topProducts,
+        profitAnalytics,
+        inventoryAnalytics,
+        salesKPIs,
+      ] = await Promise.all([
+        AnalyticsService.getSalesAnalytics(selectedPeriod),
+        AnalyticsService.getSalesTrends(selectedPeriod),
+        AnalyticsService.getTopProducts(10, selectedPeriod),
+        AnalyticsService.getProfitAnalytics(selectedPeriod),
+        AnalyticsService.getInventoryAnalytics(),
+        AnalyticsService.getSalesKPIs(),
+      ]);
+
+      setDashboardData({
+        salesAnalytics,
+        salesTrends,
+        topProducts,
+        profitAnalytics,
+        inventoryAnalytics,
+        salesKPIs,
+        lastUpdated: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("Error loading enhanced analytics:", err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedPeriod]);
+
+  useEffect(() => {
+    loadAnalyticsData();
+  }, [loadAnalyticsData]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadAnalyticsData();
+  };
+
+  const exportDashboard = () => {
+    // TODO: Implement export functionality
+    alert("📊 Dashboard export feature coming soon!");
+  };
+
+  // Chart configurations
+  const getRevenueChartConfig = () => {
+    if (!dashboardData?.salesTrends) return null;
+
+    return {
+      labels: dashboardData.salesTrends.map((item) => item.period),
+      datasets: [
+        {
+          label: "Revenue",
+          data: dashboardData.salesTrends.map((item) => item.revenue),
+          borderColor: "rgb(59, 130, 246)",
+          backgroundColor: "rgba(59, 130, 246, 0.1)",
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: "rgb(59, 130, 246)",
+          pointBorderColor: "#ffffff",
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+        },
+      ],
+    };
+  };
+
+  const getTopProductsChartConfig = () => {
+    if (!dashboardData?.topProducts) return null;
+
+    return {
+      labels: dashboardData.topProducts.map(
+        (p) => p.name.substring(0, 15) + (p.name.length > 15 ? "..." : "")
+      ),
+      datasets: [
+        {
+          label: "Sales Volume",
+          data: dashboardData.topProducts.map((p) => p.totalSold),
+          backgroundColor: [
+            "rgba(59, 130, 246, 0.8)",
+            "rgba(16, 185, 129, 0.8)",
+            "rgba(245, 158, 11, 0.8)",
+            "rgba(239, 68, 68, 0.8)",
+            "rgba(139, 92, 246, 0.8)",
+            "rgba(236, 72, 153, 0.8)",
+            "rgba(6, 182, 212, 0.8)",
+            "rgba(34, 197, 94, 0.8)",
+            "rgba(251, 146, 60, 0.8)",
+            "rgba(168, 85, 247, 0.8)",
+          ],
+          borderColor: [
+            "rgb(59, 130, 246)",
+            "rgb(16, 185, 129)",
+            "rgb(245, 158, 11)",
+            "rgb(239, 68, 68)",
+            "rgb(139, 92, 246)",
+            "rgb(236, 72, 153)",
+            "rgb(6, 182, 212)",
+            "rgb(34, 197, 94)",
+            "rgb(251, 146, 60)",
+            "rgb(168, 85, 247)",
+          ],
+          borderWidth: 2,
+        },
+      ],
+    };
+  };
+
+  const getCategoryDistributionConfig = () => {
+    if (!dashboardData?.salesAnalytics?.categoryBreakdown) return null;
+
+    const categories = Object.keys(
+      dashboardData.salesAnalytics.categoryBreakdown
+    );
+    const values = Object.values(
+      dashboardData.salesAnalytics.categoryBreakdown
+    );
+
+    return {
+      labels: categories,
+      datasets: [
+        {
+          data: values,
+          backgroundColor: [
+            "rgba(59, 130, 246, 0.8)",
+            "rgba(16, 185, 129, 0.8)",
+            "rgba(245, 158, 11, 0.8)",
+            "rgba(239, 68, 68, 0.8)",
+            "rgba(139, 92, 246, 0.8)",
+            "rgba(236, 72, 153, 0.8)",
+          ],
+          borderColor: [
+            "rgb(59, 130, 246)",
+            "rgb(16, 185, 129)",
+            "rgb(245, 158, 11)",
+            "rgb(239, 68, 68)",
+            "rgb(139, 92, 246)",
+            "rgb(236, 72, 153)",
+          ],
+          borderWidth: 2,
+          hoverOffset: 4,
+        },
+      ],
+    };
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top",
+        labels: {
+          usePointStyle: true,
+          padding: 20,
+          font: {
+            size: 12,
+            weight: "500",
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        titleColor: "#ffffff",
+        bodyColor: "#ffffff",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+        borderWidth: 1,
+        cornerRadius: 8,
+        displayColors: true,
+        callbacks: {
+          label: function (context) {
+            if (context.dataset.label === "Revenue") {
+              return `Revenue: ${formatCurrency(context.parsed.y)}`;
+            }
+            return `${context.dataset.label}: ${formatNumber(
+              context.parsed.y
+            )}`;
+          },
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: "rgba(0, 0, 0, 0.05)",
+          drawBorder: false,
+        },
+        ticks: {
+          font: {
+            size: 11,
+          },
+          color: "#6B7280",
+          callback: function (value) {
+            return formatNumber(value);
+          },
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          font: {
+            size: 11,
+          },
+          color: "#6B7280",
+        },
+      },
+    },
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Failed to Load Analytics
+          </h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadAnalyticsData}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Enhanced Analytics Dashboard
+              </h1>
+              <p className="text-sm text-gray-600">
+                Advanced business intelligence and insights
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              {/* Period Selector */}
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="90days">Last 90 Days</option>
+                <option value="1year">Last Year</option>
+              </select>
+
+              {/* Action Buttons */}
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                />
+                <span>Refresh</span>
+              </button>
+
+              <button
+                onClick={exportDashboard}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Key Metrics Row */}
+        {dashboardData?.salesKPIs && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <MetricCard
+              title="Today's Revenue"
+              value={formatCurrency(dashboardData.salesKPIs.todayRevenue)}
+              icon={DollarSign}
+              color="green"
+              trend={12.5}
+              trendText="vs yesterday"
+            />
+            <MetricCard
+              title="Monthly Revenue"
+              value={formatCurrency(dashboardData.salesKPIs.monthRevenue)}
+              icon={TrendingUp}
+              color="blue"
+              trend={8.2}
+              trendText="vs last month"
+            />
+            <MetricCard
+              title="Total Transactions"
+              value={formatNumber(dashboardData.salesKPIs.todayTransactions)}
+              icon={ShoppingCart}
+              color="purple"
+              trend={-2.1}
+              trendText="vs yesterday"
+            />
+            <MetricCard
+              title="Avg Order Value"
+              value={formatCurrency(dashboardData.salesKPIs.avgOrderValue)}
+              icon={BarChart3}
+              color="orange"
+              trend={5.8}
+              trendText="improvement"
+            />
+          </div>
+        )}
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Revenue Trends Chart */}
+          <ChartWidget
+            title="Revenue Trends"
+            subtitle={`Sales performance over ${selectedPeriod}`}
+            icon={TrendingUp}
+          >
+            {getRevenueChartConfig() ? (
+              <div className="h-80">
+                <Line data={getRevenueChartConfig()} options={chartOptions} />
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                No trend data available
+              </div>
+            )}
+          </ChartWidget>
+
+          {/* Top Products Chart */}
+          <ChartWidget
+            title="Top Performing Products"
+            subtitle="Best sellers by volume"
+            icon={Package}
+          >
+            {getTopProductsChartConfig() ? (
+              <div className="h-80">
+                <Bar
+                  data={getTopProductsChartConfig()}
+                  options={chartOptions}
+                />
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                No product data available
+              </div>
+            )}
+          </ChartWidget>
+        </div>
+
+        {/* Second Row Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Category Distribution */}
+          <ChartWidget
+            title="Sales by Category"
+            subtitle="Revenue distribution"
+            icon={PieChart}
+          >
+            {getCategoryDistributionConfig() ? (
+              <div className="h-64">
+                <Doughnut
+                  data={getCategoryDistributionConfig()}
+                  options={{
+                    ...chartOptions,
+                    scales: undefined, // Remove scales for pie chart
+                    plugins: {
+                      ...chartOptions.plugins,
+                      legend: {
+                        position: "bottom",
+                        labels: {
+                          usePointStyle: true,
+                          padding: 15,
+                          font: {
+                            size: 11,
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                No category data available
+              </div>
+            )}
+          </ChartWidget>
+
+          {/* Inventory Insights */}
+          <div className="lg:col-span-2">
+            <ChartWidget
+              title="Inventory Intelligence"
+              subtitle="Stock levels and performance"
+              icon={Activity}
+            >
+              {dashboardData?.inventoryAnalytics ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {formatNumber(
+                          dashboardData.inventoryAnalytics.totalProducts
+                        )}
+                      </div>
+                      <div className="text-sm text-blue-700">
+                        Total Products
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatCurrency(
+                          dashboardData.inventoryAnalytics.totalValue
+                        )}
+                      </div>
+                      <div className="text-sm text-green-700">Total Value</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-4 bg-amber-50 rounded-lg">
+                      <div className="text-2xl font-bold text-amber-600">
+                        {formatNumber(
+                          dashboardData.inventoryAnalytics.lowStockItems
+                        )}
+                      </div>
+                      <div className="text-sm text-amber-700">Low Stock</div>
+                    </div>
+                    <div className="text-center p-4 bg-red-50 rounded-lg">
+                      <div className="text-2xl font-bold text-red-600">
+                        {formatNumber(
+                          dashboardData.inventoryAnalytics.expiringItems
+                        )}
+                      </div>
+                      <div className="text-sm text-red-700">Expiring Soon</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-gray-500">
+                  Loading inventory data...
+                </div>
+              )}
+            </ChartWidget>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Reusable Components
+const MetricCard = ({ title, value, icon: Icon, color, trend, trendText }) => {
+  const colorClasses = {
+    green: "bg-green-50 text-green-600 border-green-200",
+    blue: "bg-blue-50 text-blue-600 border-blue-200",
+    purple: "bg-purple-50 text-purple-600 border-purple-200",
+    orange: "bg-orange-50 text-orange-600 border-orange-200",
+  };
+
+  const isPositiveTrend = trend > 0;
+  const TrendIcon = isPositiveTrend ? ArrowUp : ArrowDown;
+  const trendColor = isPositiveTrend ? "text-green-600" : "text-red-600";
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+          {trend !== undefined && (
+            <div className={`flex items-center mt-2 text-sm ${trendColor}`}>
+              <TrendIcon className="h-4 w-4 mr-1" />
+              <span>
+                {Math.abs(trend)}% {trendText}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
+          <Icon className="h-6 w-6" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ChartWidget = ({ title, subtitle, icon: Icon, children }) => {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Icon className="h-5 w-5 mr-2 text-gray-600" />
+            {title}
+          </h3>
+          {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+};

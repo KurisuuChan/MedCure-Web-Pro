@@ -10,6 +10,7 @@ import {
   Settings,
   X,
   UserCheck,
+  TrendingUp,
 } from "lucide-react";
 
 const navigationItems = [
@@ -36,7 +37,7 @@ const navigationItems = [
   },
   {
     name: "Pharmacy Analytics",
-    href: "/analytics",
+    href: "/enhanced-analytics",
     icon: BarChart3,
     roles: ["admin", "manager"],
     category: "insights",
@@ -73,6 +74,10 @@ export function Sidebar({ isOpen, onClose }) {
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={onClose}
+          onKeyDown={(e) => e.key === "Escape" && onClose()}
+          role="button"
+          tabIndex={0}
+          aria-label="Close sidebar"
         />
       )}
 
