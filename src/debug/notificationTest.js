@@ -3,7 +3,7 @@
  * Use these in browser console to test notifications
  */
 
-import { NotificationService } from "../services/notificationService.js";
+import { NotificationService } from "../services/domains/notifications/notificationService";
 
 // Make functions globally available for testing
 window.notificationTest = {

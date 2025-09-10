@@ -3,7 +3,7 @@
 // Fixes the critical stock inventory issue during transaction editing
 // =================================================
 
-import { supabase } from "../config/supabase";
+import { supabase } from "\.\.\/\.\.\/\.\.\/config\/supabase";
 
 // Enhanced editTransaction method with proper stock management
 export const editTransactionWithStockManagement = async (

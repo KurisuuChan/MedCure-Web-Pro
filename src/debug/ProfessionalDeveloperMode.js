@@ -210,12 +210,13 @@ class ProfessionalDeveloperMode {
     const serviceTests = {};
 
     try {
-      // Dynamically import ML services
-      const MLService = await import("../services/mlService.js");
+      // Import ML services statically
+      const { MLService } = await import(
+        "../services/infrastructure/mlService"
+      );
       serviceTests.mlService = {
         loaded: true,
-        hasRequiredMethods:
-          typeof MLService.default?.getDemandForecast === "function",
+        hasRequiredMethods: typeof MLService?.getDemandForecast === "function",
       };
     } catch (err) {
       serviceTests.mlService = {
@@ -225,7 +226,7 @@ class ProfessionalDeveloperMode {
     }
 
     try {
-      const RealTimePredictionEngine = await import("../services/mlService.js");
+      // const RealTimePredictionEngine = await import("../services/infrastructure/realTimePredictionEngine");
       serviceTests.realTimeEngine = {
         loaded: true,
         hasRequiredMethods:

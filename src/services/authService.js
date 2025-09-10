@@ -1,5 +1,5 @@
-import { AuthService } from "./dataService";
-import { LoginTrackingService } from "./loginTrackingService";
+import { AuthService } from "./domains/auth/authService";
+import { LoginTrackingService } from "./domains/auth/loginTrackingService";
 
 export const authService = {
   // Sign in with email and password

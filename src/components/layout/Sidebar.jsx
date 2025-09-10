@@ -37,7 +37,7 @@ const navigationItems = [
   },
   {
     name: "Pharmacy Analytics",
-    href: "/enhanced-analytics",
+    href: "/analytics",
     icon: BarChart3,
     roles: ["admin", "manager"],
     category: "insights",

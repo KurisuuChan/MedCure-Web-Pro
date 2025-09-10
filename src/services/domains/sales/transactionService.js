@@ -5,7 +5,7 @@
 // Eliminates conflicts between multiple service layers
 // =====================================================
 
-import { supabase } from "../config/supabase";
+import { supabase } from "\.\.\/\.\.\/\.\.\/config\/supabase";
 
 class UnifiedTransactionService {
   constructor() {

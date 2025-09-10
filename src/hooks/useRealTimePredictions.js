@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { RealTimePredictionEngine } from "../services/realTimePredictionEngine";
+// import { RealTimePredictionEngine } from "../services/infrastructure/realTimePredictionEngine";
 
 /**
  * Hook for managing real-time ML predictions

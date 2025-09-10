@@ -3,9 +3,9 @@
  * Comprehensive testing and debugging of the entire ML workflow
  */
 
-import { MLService } from "../services/mlService.js";
-import { RealTimePredictionEngine } from "../services/realTimePredictionEngine.js";
-import { NotificationAnalyticsService } from "../services/notificationAnalyticsService.js";
+import { MLService } from "../services/infrastructure/mlService";
+// import { RealTimePredictionEngine } from "../services/realTimePredictionEngine.js";
+// import { NotificationAnalyticsService } from "../services/notificationAnalyticsService.js";
 import { supabase } from "../config/supabase.js";
 
 /**

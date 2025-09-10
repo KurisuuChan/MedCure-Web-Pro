@@ -1,10 +1,44 @@
-# 🗄️ **MedCure Pro - Complete Database Schema Reference**
+# MedCure Pro Schema Reference
 
-This is a comprehensive reference guide for all Supabase tables, their structure, relationships, and intended usage within the MedCure Pro system.
+_Professional Development Edition - September 2025_
+
+## 🚨 **CRITICAL CONFLICTS TO RESOLVE FIRST**
+
+### **Database Schema Issues (MUST FIX - Phase 1)**
+
+1. **DUPLICATE USER TABLES**: `users` vs `user_profiles`
+
+   - ✅ **Use**: `user_profiles` linked to `auth.users(id)`
+   - ❌ **Deprecated**: `users` table (migrate data in Phase 1)
+   - **Time**: 2-3 hours
+
+2. **DUPLICATE BATCH TABLES**: `batch_inventory` vs `batches`
+
+   - ✅ **Use**: `batches` table (modern batch tracking)
+   - ❌ **Deprecated**: `batch_inventory` (consolidate in Phase 1)
+   - **Time**: 2-3 hours
+
+3. **FOREIGN KEY INCONSISTENCY**: Mixed references
+
+   - ❌ **Problem**: Some FK point to `public.users(id)`, others to `auth.users(id)`
+   - ✅ **Solution**: Standardize all references to `user_profiles(id)` or `auth.users(id)`
+   - **Time**: 1-2 hours
+
+4. **SECURITY VULNERABILITY**: Credentials exposed in `.env` files
+   - ❌ **Problem**: Production credentials in repository
+   - ✅ **Solution**: Remove credentials, create `.env.template`
+   - **Time**: 30 minutes
 
 ---
 
-## 📋 **Table Structure Overview**
+## 🏗️ **PROFESSIONAL DEVELOPMENT TABLE GUIDE**
+
+### **AI Development Standards**
+
+- **File Size**: Components <200 lines, services <300 lines
+- **Naming**: Clear, descriptive, intention-revealing
+- **References**: Always use recommended tables (marked ✅)
+- **Dependencies**: Follow FK relationship standards
 
 ### 👥 **USER MANAGEMENT SCHEMA**
 

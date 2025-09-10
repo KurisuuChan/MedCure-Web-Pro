@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { LoginTrackingService } from "../../services/loginTrackingService";
-import { UserService } from "../../services/dataService";
+import { LoginTrackingService } from "../../services/domains/auth/loginTrackingService";
+import { UserService } from "../../services";
 
 export default function LoginTrackingTest() {
   const [testResults, setTestResults] = useState([]);

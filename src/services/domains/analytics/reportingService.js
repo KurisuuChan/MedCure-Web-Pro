@@ -2,8 +2,8 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import html2canvas from "html2canvas";
 import { format } from "date-fns";
-import { supabase } from "../config/supabase";
-import { formatCurrency } from "../utils/formatting";
+import { supabase } from "../../../config/supabase";
+import { formatCurrency } from "../../../utils/formatting";
 
 export class ReportingService {
   // Generate Financial Report

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { usePOSStore } from "../../../stores/posStore";
-import { inventoryService } from "../../../services/inventoryService";
-import unifiedTransactionService from "../../../services/unifiedTransactionService";
+import { inventoryService } from "../../../services/domains/inventory/inventoryService";
+import transactionService from "../../../services/domains/sales/transactionService";
 
 export function usePOS() {
   const {

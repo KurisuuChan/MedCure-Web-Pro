@@ -1,5 +1,5 @@
-import { supabase } from "../config/supabase";
-import { AnalyticsService } from "./analyticsService";
+import { supabase } from "../../../config/supabase";
+import { AnalyticsService } from "../analytics/analyticsService";
 
 /**
  * Enhanced Inventory Management Service

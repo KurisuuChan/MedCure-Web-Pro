@@ -1,4 +1,4 @@
-import { ProductService } from "./dataService";
+import { ProductService } from "./productService";
 
 export const inventoryService = {
   // Get all products with variant information

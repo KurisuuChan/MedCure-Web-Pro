@@ -1,18 +1,68 @@
-# MedCure-Pro Database Schema Alignment Deployment Guide
+# MedCure Pro Deployment Guide
 
-## 🚨 CRITICAL ISSUE DISCOVERED
+_Professional Development Edition - September 2025_
 
-During comprehensive system validation, we discovered critical database schema mismatches that prevent the ML system from functioning:
+## 🚨 **PRE-DEPLOYMENT CRITICAL FIXES**
 
-### Primary Issues Identified:
+### **PHASE 1: Security & Schema Conflicts (MUST COMPLETE FIRST)**
 
-1. **Table Name Mismatch**: ML services expect `pos_transactions` and `pos_transaction_items` tables, but database has `sales` and `sale_items`
-2. **Missing Columns**:
-   - `products.status` column missing (ML services expect this)
-   - `notifications.delivery_status` column missing
-3. **Schema Incompatibility**: Prevents entire ML pipeline from accessing data
+⚠️ **DO NOT DEPLOY until these issues are resolved:**
 
-## 🎯 PROFESSIONAL RESOLUTION STRATEGY
+1. **Remove Security Vulnerabilities** (30 minutes)
+
+   ```bash
+   # Remove all credentials from repository
+   git rm .env .env.example
+   # Create secure template
+   echo "VITE_SUPABASE_URL=your_supabase_url_here" > .env.template
+   echo "VITE_SUPABASE_ANON_KEY=your_anon_key_here" >> .env.template
+   ```
+
+2. **Resolve Database Schema Conflicts** (4-6 hours)
+
+   - **User Tables**: Migrate `users` data to `user_profiles`, update all FK references
+   - **Batch Tables**: Consolidate `batch_inventory` into `batches`, update FK references
+   - **FK Standardization**: Change all user FKs to point to `auth.users(id)` or `user_profiles(id)`
+
+3. **Code Quality Verification** (1 hour)
+
+   ```bash
+   # Check component sizes (must be <200 lines)
+   find src/components -name "*.jsx" -exec wc -l {} + | sort -nr | head -10
+
+   # Check service sizes (must be <300 lines)
+   find src/services -name "*.js" -exec wc -l {} + | sort -nr | head -10
+
+   # Verify build succeeds
+   npm run build
+   ```
+
+---
+
+## 🎯 **Professional Deployment Standards**
+
+### **Environment Configuration Checklist**
+
+- [ ] ✅ No credentials in repository files
+- [ ] ✅ Environment validation implemented in `src/config/supabase.js`
+- [ ] ✅ Proper error handling throughout application
+- [ ] ✅ All components under 200 lines
+- [ ] ✅ All services under 300 lines
+- [ ] ✅ Build succeeds without warnings
+
+### **Database Requirements Checklist**
+
+- [ ] ✅ Use `user_profiles` table (not deprecated `users` table)
+- [ ] ✅ Use `batches` table (not deprecated `batch_inventory` table)
+- [ ] ✅ All FK references point to correct tables
+- [ ] ✅ RLS policies enabled and tested
+- [ ] ✅ Migration script updated and tested
+
+---
+
+## 🚀 **Deployment Process**
+
+### **Step 1: Environment Setup**
 
 ## ❌ **IMPORTANT: RLS ERROR FIX**
 

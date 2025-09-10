@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./providers/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
-import { SimpleNotificationService } from "./services/simpleNotificationService";
+import { SimpleNotificationService } from "./services/domains/notifications/simpleNotificationService";
 import { GlobalSpinner } from "./components/common/GlobalSpinner";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
 import {
@@ -18,18 +18,20 @@ import {
   PageErrorBoundary,
 } from "./components/ui";
 
-// Import pages (we'll create these in Phase 2)
-import LoginPage from "./pages/LoginPage";
-import DashboardPage from "./pages/DashboardPage";
-import POSPage from "./pages/POSPage";
-import InventoryPage from "./pages/InventoryPage";
-import ManagementPage from "./pages/ManagementPage";
-import EnhancedAnalyticsDashboard from "./pages/EnhancedAnalyticsDashboard";
-import SettingsPage from "./pages/SettingsPage";
-import UnauthorizedPage from "./pages/UnauthorizedPage";
-
-// Import Phase 4 Advanced Management Pages
-import UserManagementPage from "./pages/UserManagementPage";
+// Lazy load pages for better code splitting
+const LoginPage = React.lazy(() => import("./pages/LoginPage"));
+const DashboardPage = React.lazy(() => import("./pages/DashboardPage"));
+const POSPage = React.lazy(() => import("./pages/POSPage"));
+const InventoryPage = React.lazy(() => import("./pages/InventoryPage"));
+const ManagementPage = React.lazy(() => import("./pages/ManagementPage"));
+const EnhancedAnalyticsDashboard = React.lazy(() =>
+  import("./pages/EnhancedAnalyticsDashboard")
+);
+const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
+const UnauthorizedPage = React.lazy(() => import("./pages/UnauthorizedPage"));
+const UserManagementPage = React.lazy(() =>
+  import("./pages/UserManagementPage")
+);
 
 // Create a client
 const queryClient = new QueryClient({

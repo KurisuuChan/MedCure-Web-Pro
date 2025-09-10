@@ -25,7 +25,7 @@ import {
   productCategories,
   productBrands,
 } from "../utils/productUtils";
-import { formatCurrency, formatNumber } from "../utils/formatting";
+import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
 import { getStockBreakdown } from "../utils/unitConversion";
 import ProductSearch from "../features/inventory/components/ProductSearch";
@@ -34,7 +34,12 @@ import { useInventory } from "../features/inventory/hooks/useInventory";
 import ExportModal from "../components/ui/ExportModal";
 import { EnhancedImportModal } from "../components/ui/EnhancedImportModal";
 import { useAuth } from "../hooks/useAuth"; // Not currently used
-import { ProductService } from "../services/dataService";
+import { ProductService } from "../services";
+
+// Extracted Components
+import InventoryHeader from "../features/inventory/components/InventoryHeader";
+import InventorySummary from "../features/inventory/components/InventorySummary";
+import ProductListSection from "../features/inventory/components/ProductListSection";
 
 // Enhanced scrollbar styles
 const scrollbarStyles = `
@@ -214,112 +219,20 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="bg-blue-100 p-3 rounded-xl">
-              <Package className="h-8 w-8 text-blue-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                <span>Inventory Management</span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  Active
-                </span>
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Manage your pharmacy inventory, track stock levels, and monitor
-                expiry dates
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3 mt-4 lg:mt-0">
-            <button
-              onClick={() => setShowExportModal(true)}
-              className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-all duration-200"
-            >
-              <Download className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-              <span className="font-medium">Export</span>
-            </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
-            >
-              <Upload className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-              <span className="font-medium">Import</span>
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="group flex items-center space-x-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
-            >
-              <Plus className="h-4 w-4 group-hover:rotate-90 transition-transform duration-200" />
-              <span className="font-semibold">Add Product</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="border-t border-gray-200 mt-6 pt-6">
-          <div className="flex space-x-1">
-            <button
-              onClick={() => setActiveTab("inventory")}
-              className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${
-                activeTab === "inventory"
-                  ? "bg-blue-100 text-blue-700 border border-blue-200"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-              }`}
-            >
-              <Package className="h-4 w-4" />
-              <span>Inventory List</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("dashboard")}
-              className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${
-                activeTab === "dashboard"
-                  ? "bg-blue-100 text-blue-700 border border-blue-200"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span>Enhanced View</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Header with Tab Navigation */}
+      <InventoryHeader
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        setShowExportModal={setShowExportModal}
+        setShowImportModal={setShowImportModal}
+        setShowAddModal={setShowAddModal}
+      />
 
       {/* Tab Content */}
       {activeTab === "inventory" ? (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <SummaryCard
-              title="Total Products"
-              value={formatNumber(analytics.totalProducts)}
-              icon={Package}
-              color="blue"
-            />
-            <SummaryCard
-              title="Low Stock Items"
-              value={formatNumber(analytics.lowStockProducts)}
-              icon={TrendingDown}
-              color="yellow"
-              alert={analytics.lowStockProducts > 0}
-            />
-            <SummaryCard
-              title="Expiring Soon"
-              value={formatNumber(analytics.expiringProducts)}
-              icon={Calendar}
-              color="red"
-              alert={analytics.expiringProducts > 0}
-            />
-            <SummaryCard
-              title="Total Value"
-              value={formatCurrency(analytics.totalValue)}
-              icon={TrendingUp}
-              color="green"
-            />
-          </div>
+          <InventorySummary analytics={analytics} />
 
           {/* Search and Filters */}
           <ProductSearch
@@ -329,171 +242,23 @@ export default function InventoryPage() {
             brands={productBrands.slice(1)} // Remove "All Brands"
           />
 
-          {/* View Controls and Results Info */}
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Showing {startIndex + 1}-
-              {Math.min(startIndex + itemsPerPage, filteredProducts.length)} of{" "}
-              {filteredProducts.length} products
-            </p>
-
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl p-1 shadow-sm">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`group flex items-center justify-center p-2.5 rounded-lg transition-all duration-200 ${
-                    viewMode === "grid"
-                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  }`}
-                  title="Grid View"
-                >
-                  <Grid
-                    className={`h-4 w-4 ${
-                      viewMode === "grid"
-                        ? "scale-110"
-                        : "group-hover:scale-110"
-                    } transition-transform duration-200`}
-                  />
-                </button>
-                <button
-                  onClick={() => setViewMode("table")}
-                  className={`group flex items-center justify-center p-2.5 rounded-lg transition-all duration-200 ${
-                    viewMode === "table"
-                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  }`}
-                  title="Table View"
-                >
-                  <List
-                    className={`h-4 w-4 ${
-                      viewMode === "table"
-                        ? "scale-110"
-                        : "group-hover:scale-110"
-                    } transition-transform duration-200`}
-                  />
-                </button>
-              </div>
-
-              <button className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-all duration-200">
-                <RefreshCw className="h-4 w-4" />
-                <span>Refresh</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Products Display */}
-          {viewMode === "grid" ? (
-            /* Grid View */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {paginatedProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={transformProduct(product)}
-                  onEdit={handleEditProduct}
-                  onView={handleViewProduct}
-                  onDelete={handleArchiveProduct}
-                />
-              ))}
-            </div>
-          ) : (
-            /* Table View */
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Product
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Category
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Stock
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Price
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Expiry
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedProducts.map((product) => (
-                      <ProductRow
-                        key={product.id}
-                        product={product}
-                        onView={() => handleViewProduct(product)}
-                        onEdit={() => handleEditProduct(product)}
-                        onDelete={() => handleArchiveProduct(product)}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && filteredProducts.length === 0 && (
-            <div className="text-center py-12">
-              <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No products found
-              </h3>
-              <p className="text-gray-500">
-                Try adjusting your search terms or filters.
-              </p>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="bg-white px-6 py-4 border-2 border-gray-200 rounded-xl shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-gray-700">
-                  Page{" "}
-                  <span className="text-blue-600 font-semibold">
-                    {currentPage}
-                  </span>{" "}
-                  of{" "}
-                  <span className="text-blue-600 font-semibold">
-                    {totalPages}
-                  </span>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="group flex items-center space-x-1 px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 transition-all duration-200"
-                  >
-                    <span>Previous</span>
-                  </button>
-                  <button
-                    onClick={() =>
-                      setCurrentPage(Math.min(totalPages, currentPage + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                    className="group flex items-center space-x-1 px-4 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 transition-all duration-200"
-                  >
-                    <span>Next</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Product List/Grid Section */}
+          <ProductListSection
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            paginatedProducts={paginatedProducts}
+            filteredProducts={filteredProducts}
+            isLoading={isLoading}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            transformProduct={transformProduct}
+            handleViewProduct={handleViewProduct}
+            handleEditProduct={handleEditProduct}
+            handleArchiveProduct={handleArchiveProduct}
+            loadProducts={loadProducts}
+          />
 
           {/* Modals */}
           {showAddModal && (
@@ -594,154 +359,6 @@ export default function InventoryPage() {
         }}
       />
     </div>
-  );
-}
-
-// Summary Card Component
-function SummaryCard({ title, value, icon: IconComponent, color, alert }) {
-  const colorClasses = {
-    blue: "bg-blue-50 text-blue-600",
-    yellow: "bg-yellow-50 text-yellow-600",
-    red: "bg-red-50 text-red-600",
-    green: "bg-green-50 text-green-600",
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-2">{value}</p>
-        </div>
-        <div
-          className={`p-3 rounded-lg ${colorClasses[color]} ${
-            alert ? "animate-pulse" : ""
-          }`}
-        >
-          <IconComponent className="h-6 w-6" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Product Row Component
-function ProductRow({ product, onView, onEdit, onDelete }) {
-  const stockStatus = getStockStatus(product);
-  const expiryStatus = getExpiryStatus(product);
-  const stockBreakdown = getStockBreakdown(product.stock_in_pieces, product);
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "critical_stock":
-      case "expired":
-        return "text-red-600 bg-red-50";
-      case "low_stock":
-      case "expiring_soon":
-        return "text-yellow-600 bg-yellow-50";
-      case "expiring_warning":
-        return "text-orange-600 bg-orange-50";
-      default:
-        return "text-green-600 bg-green-50";
-    }
-  };
-
-  return (
-    <tr className="hover:bg-gray-50">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <div className="flex-shrink-0 h-10 w-10">
-            <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
-              <Package className="h-5 w-5 text-gray-400" />
-            </div>
-          </div>
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900">
-              {product.name}
-            </div>
-            <div className="text-sm text-gray-500 flex items-center space-x-2">
-              <span>{product.brand}</span>
-              <span>•</span>
-              <span>{product.category}</span>
-            </div>
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-          {product.category}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-900">
-          <span
-            className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-              stockStatus
-            )}`}
-          >
-            {product.stock_in_pieces} pcs
-          </span>
-          <div className="text-xs text-gray-500 mt-1">
-            {stockBreakdown.boxes > 0 &&
-              `${stockBreakdown.boxes} box${
-                stockBreakdown.boxes > 1 ? "es" : ""
-              } `}
-            {stockBreakdown.sheets > 0 &&
-              `${stockBreakdown.sheets} sheet${
-                stockBreakdown.sheets > 1 ? "s" : ""
-              } `}
-            {stockBreakdown.pieces > 0 &&
-              `${stockBreakdown.pieces} pc${
-                stockBreakdown.pieces > 1 ? "s" : ""
-              }`}
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        <div>{formatCurrency(product.price_per_piece)}/pc</div>
-        <div className="text-xs text-gray-500">
-          Value:{" "}
-          {formatCurrency(product.stock_in_pieces * product.price_per_piece)}
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-900">
-          {formatDate(product.expiry_date)}
-        </div>
-        <span
-          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-            expiryStatus
-          )}`}
-        >
-          {expiryStatus.replace("_", " ")}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={onView}
-            className="group flex items-center justify-center p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all duration-200"
-            title="View Details"
-          >
-            <Eye className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-          </button>
-          <button
-            onClick={onEdit}
-            className="group flex items-center justify-center p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-all duration-200"
-            title="Edit Product"
-          >
-            <Edit className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="group flex items-center justify-center p-2 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-lg transition-all duration-200"
-            title="Archive Product"
-          >
-            <Archive className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-          </button>
-        </div>
-      </td>
-    </tr>
   );
 }
 
@@ -924,367 +541,369 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-hidden">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Package className="w-4 h-4 text-blue-600" />
+        <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-hidden">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Package className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+                <p className="text-sm text-gray-600">
+                  {product
+                    ? "Update product information"
+                    : "Enter product details"}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-              <p className="text-sm text-gray-600">
-                {product ? 'Update product information' : 'Enter product details'}
-              </p>
-            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Modal Body */}
-        <div className="p-4 max-h-96 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Information Section */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                <Package className="w-4 h-4 mr-2 text-gray-600" />
-                Basic Information
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Product Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.name}
-                        onChange={(e) =>
-                          setFormData({ ...formData, name: e.target.value })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="Enter product name"
-                      />
-                    </div>
+          {/* Modal Body */}
+          <div className="p-4 max-h-96 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Basic Information Section */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                  <Package className="w-4 h-4 mr-2 text-gray-600" />
+                  Basic Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Product Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="Enter product name"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Category *
-                      </label>
-                      <select
-                        required
-                        value={formData.category}
-                        onChange={(e) =>
-                          setFormData({ ...formData, category: e.target.value })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      >
-                        <option value="">Select category</option>
-                        {categories.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Category *
+                    </label>
+                    <select
+                      required
+                      value={formData.category}
+                      onChange={(e) =>
+                        setFormData({ ...formData, category: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                    >
+                      <option value="">Select category</option>
+                      {categories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            description: e.target.value,
-                          })
-                        }
-                        rows={3}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300 resize-none"
-                        placeholder="Enter product description"
-                      />
-                    </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
+                      rows={3}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300 resize-none"
+                      placeholder="Enter product description"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Brand
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.brand}
-                        onChange={(e) =>
-                          setFormData({ ...formData, brand: e.target.value })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="Enter brand name"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Brand
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.brand}
+                      onChange={(e) =>
+                        setFormData({ ...formData, brand: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="Enter brand name"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced Pricing Section */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
+                <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                  <DollarSign className="h-6 w-6 mr-2 text-blue-600" />
+                  Enhanced Pricing Structure
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Cost Price (₱)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.cost_price}
+                      onChange={(e) => handleCostPriceChange(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Selling Price (₱) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={formData.price_per_piece}
+                      onChange={(e) => handleSellPriceChange(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300 bg-white"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Margin (%)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.margin_percentage}
+                      onChange={(e) => handleMarginChange(e.target.value)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="0.00"
+                      readOnly={
+                        !formData.cost_price || formData.cost_price <= 0
+                      }
+                    />
                   </div>
                 </div>
 
-                {/* Enhanced Pricing Section */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                    <DollarSign className="h-6 w-6 mr-2 text-blue-600" />
-                    Enhanced Pricing Structure
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Cost Price (₱)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.cost_price}
-                        onChange={(e) => handleCostPriceChange(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Selling Price (₱) *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        required
-                        value={formData.price_per_piece}
-                        onChange={(e) => handleSellPriceChange(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300 bg-white"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Margin (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.margin_percentage}
-                        onChange={(e) => handleMarginChange(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="0.00"
-                        readOnly={
-                          !formData.cost_price || formData.cost_price <= 0
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Enhanced Pricing Summary */}
-                  {formData.cost_price && formData.price_per_piece && (
-                    <div className="mt-6 p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-blue-200">
-                      <h5 className="text-sm font-semibold text-gray-700 mb-3">
-                        Pricing Summary
-                      </h5>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div className="text-center p-3 bg-gray-50 rounded-lg">
-                          <div className="text-xs text-gray-500 uppercase tracking-wide">
-                            Cost Price
-                          </div>
-                          <div className="text-lg font-bold text-gray-900">
-                            ₱{parseFloat(formData.cost_price).toFixed(2)}
-                          </div>
+                {/* Enhanced Pricing Summary */}
+                {formData.cost_price && formData.price_per_piece && (
+                  <div className="mt-6 p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-blue-200">
+                    <h5 className="text-sm font-semibold text-gray-700 mb-3">
+                      Pricing Summary
+                    </h5>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">
+                          Cost Price
                         </div>
-                        <div className="text-center p-3 bg-blue-50 rounded-lg">
-                          <div className="text-xs text-blue-600 uppercase tracking-wide">
-                            Selling Price
-                          </div>
-                          <div className="text-lg font-bold text-blue-900">
-                            ₱{parseFloat(formData.price_per_piece).toFixed(2)}
-                          </div>
+                        <div className="text-lg font-bold text-gray-900">
+                          ₱{parseFloat(formData.cost_price).toFixed(2)}
                         </div>
-                        <div className="text-center p-3 bg-green-50 rounded-lg">
-                          <div className="text-xs text-green-600 uppercase tracking-wide">
-                            Profit per Unit
-                          </div>
-                          <div className="text-lg font-bold text-green-700">
-                            ₱
-                            {(
-                              parseFloat(formData.price_per_piece) -
-                              parseFloat(formData.cost_price)
-                            ).toFixed(2)}
-                          </div>
+                      </div>
+                      <div className="text-center p-3 bg-blue-50 rounded-lg">
+                        <div className="text-xs text-blue-600 uppercase tracking-wide">
+                          Selling Price
                         </div>
-                        <div className="text-center p-3 bg-purple-50 rounded-lg">
-                          <div className="text-xs text-purple-600 uppercase tracking-wide">
-                            Margin
-                          </div>
-                          <div className="text-lg font-bold text-purple-700">
-                            {formData.margin_percentage}%
-                          </div>
+                        <div className="text-lg font-bold text-blue-900">
+                          ₱{parseFloat(formData.price_per_piece).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 rounded-lg">
+                        <div className="text-xs text-green-600 uppercase tracking-wide">
+                          Profit per Unit
+                        </div>
+                        <div className="text-lg font-bold text-green-700">
+                          ₱
+                          {(
+                            parseFloat(formData.price_per_piece) -
+                            parseFloat(formData.cost_price)
+                          ).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="text-center p-3 bg-purple-50 rounded-lg">
+                        <div className="text-xs text-purple-600 uppercase tracking-wide">
+                          Margin
+                        </div>
+                        <div className="text-lg font-bold text-purple-700">
+                          {formData.margin_percentage}%
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
 
-                {/* Stock and Inventory Section */}
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                    <Package className="h-5 w-5 mr-2 text-gray-600" />
-                    Stock Management
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Stock (Pieces) *
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        value={formData.stock_in_pieces}
-                        onChange={(e) =>
+              {/* Stock and Inventory Section */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                  <Package className="h-5 w-5 mr-2 text-gray-600" />
+                  Stock Management
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Stock (Pieces) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={formData.stock_in_pieces}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          stock_in_pieces: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="Enter stock quantity"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="flex items-center justify-between text-sm font-semibold text-gray-700 mb-2">
+                      <span>Batch Number *</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newBatch = generateSmartBatchNumber(
+                            formData.name,
+                            formData.category,
+                            formData.expiry_date
+                          );
                           setFormData({
                             ...formData,
-                            stock_in_pieces: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="Enter stock quantity"
-                      />
-                    </div>
+                            batch_number: newBatch,
+                          });
+                        }}
+                        className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors"
+                        title="Generate new batch number"
+                      >
+                        🔄 Generate
+                      </button>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.batch_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          batch_number: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300 bg-blue-50 font-mono text-sm"
+                      placeholder="Auto-generated batch number"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: CategoryProduct-Date-Sequence-ShelfLife
+                    </p>
+                  </div>
 
-                    <div>
-                      <label className="flex items-center justify-between text-sm font-semibold text-gray-700 mb-2">
-                        <span>Batch Number *</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newBatch = generateSmartBatchNumber(
-                              formData.name,
-                              formData.category,
-                              formData.expiry_date
-                            );
-                            setFormData({
-                              ...formData,
-                              batch_number: newBatch,
-                            });
-                          }}
-                          className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors"
-                          title="Generate new batch number"
-                        >
-                          🔄 Generate
-                        </button>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.batch_number}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            batch_number: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300 bg-blue-50 font-mono text-sm"
-                        placeholder="Auto-generated batch number"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Format: CategoryProduct-Date-Sequence-ShelfLife
-                      </p>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Pieces per Sheet
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.pieces_per_sheet}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          pieces_per_sheet: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="1"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Pieces per Sheet
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={formData.pieces_per_sheet}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            pieces_per_sheet: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="1"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Sheets per Box
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.sheets_per_box}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          sheets_per_box: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="1"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Sheets per Box
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={formData.sheets_per_box}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            sheets_per_box: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="1"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Reorder Level
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.reorder_level}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          reorder_level: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="0"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Reorder Level
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.reorder_level}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            reorder_level: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="0"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Supplier
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.supplier}
+                      onChange={(e) =>
+                        setFormData({ ...formData, supplier: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="Enter supplier name"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Supplier
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.supplier}
-                        onChange={(e) =>
-                          setFormData({ ...formData, supplier: e.target.value })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="Enter supplier name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Expiry Date
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.expiry_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            expiry_date: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.expiry_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          expiry_date: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                    />
                   </div>
                 </div>
+              </div>
             </form>
           </div>
 
@@ -1304,7 +923,7 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                 className="group px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
               >
                 <span className="flex items-center space-x-2">
-                  <span>{product ? 'Update Product' : 'Add Product'}</span>
+                  <span>{product ? "Update Product" : "Add Product"}</span>
                 </span>
               </button>
             </div>
@@ -1323,7 +942,10 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center z-50 p-4 py-8 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col my-auto" style={{minHeight: '90vh', maxHeight: 'fit-content'}}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col my-auto"
+        style={{ minHeight: "90vh", maxHeight: "fit-content" }}
+      >
         <div className="flex flex-col h-full min-h-0">
           {/* Modal Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0">

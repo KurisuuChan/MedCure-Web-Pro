@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { inventoryService } from "../../../services/inventoryService";
+import { inventoryService } from "../../../services/domains/inventory/inventoryService";
 
 export function useInventory() {
   const [products, setProducts] = useState([]);

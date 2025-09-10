@@ -1,5 +1,5 @@
-import { AnalyticsService } from "./analyticsService";
-import { supabase } from "../config/supabase";
+import { AnalyticsService } from "../domains/analytics/analyticsService";
+import { supabase } from "../../config/supabase";
 
 /**
  * Machine Learning Service

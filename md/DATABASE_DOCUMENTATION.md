@@ -1,6 +1,38 @@
-# MedCure Pro - Production Database Documentation
+# MedCure Pro Database Documentation
+
+_Professional Development Edition - September 2025_
+
+## 🚨 CRITICAL ISSUES TO RESOLVE FIRST
+
+### **Database Schema Conflicts (MUST FIX - Phase 1)**
+
+1. **DUPLICATE USER TABLES**: `users` vs `user_profiles`
+
+   - **Solution**: Use `user_profiles` linked to `auth.users(id)`
+   - **Action**: Migrate data, update all FK references
+   - **Priority**: Critical (30 minutes - 2 hours)
+
+2. **DUPLICATE BATCH TABLES**: `batch_inventory` vs `batches`
+
+   - **Solution**: Use `batches` table as primary
+   - **Action**: Consolidate data, update all FK references
+   - **Priority**: Critical (2-3 hours)
+
+3. **FOREIGN KEY INCONSISTENCY**: Mixed references to `public.users(id)` vs `auth.users(id)`
+
+   - **Solution**: Standardize all references to `auth.users(id)` or `user_profiles(id)`
+   - **Priority**: Critical (1-2 hours)
+
+4. **SECURITY VULNERABILITY**: Production credentials exposed in `.env` files
+   - **Action**: Remove credentials, create `.env.template`
+   - **Priority**: Critical (30 minutes)
 
 ## 🎯 **System Overview**
+
+**Database Version**: 2.0 (Professional Development Edition)  
+**Total Tables**: 30+ interconnected tables  
+**AI-Ready**: Optimized for GitHub Copilot/Claude development  
+**Code Standards**: Components <200 lines, services <300 lines
 
 MedCure Pro is a professional pharmacy management system with enterprise-grade features including:
 

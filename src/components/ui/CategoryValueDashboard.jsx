@@ -13,7 +13,7 @@ import {
   PieChart,
   Activity,
 } from "lucide-react";
-import { CategoryValueMonitor } from "../services/smartCategoryService";
+import { CategoryValueMonitor } from "../../services/domains/inventory/smartCategoryService";
 
 export function CategoryValueDashboard() {
   const [analytics, setAnalytics] = useState(null);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Bell, Check, X, AlertTriangle, Info } from "lucide-react";
-import { SimpleNotificationService } from "../../services/simpleNotificationService";
+import { SimpleNotificationService } from "../../services/domains/notifications/simpleNotificationService";
 
 export default function NotificationSettings() {
   const [permissionStatus, setPermissionStatus] = useState("default");

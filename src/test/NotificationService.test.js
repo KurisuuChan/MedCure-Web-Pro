@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NotificationService } from "../services/notificationService.js";
+import { NotificationService } from "../services/domains/notifications/notificationService";
 
 // Mock Supabase
 const mockSupabase = {

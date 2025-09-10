@@ -6,7 +6,7 @@
  * Version: 1.0
  */
 
-import { supabase } from "../config/supabase";
+import { supabase } from "\.\.\/\.\.\/\.\.\/config\/supabase";
 
 export class IntelligentCategoryService {
   /**

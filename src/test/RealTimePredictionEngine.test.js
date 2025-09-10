@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { RealTimePredictionEngine } from "../services/realTimePredictionEngine.js";
+// import { RealTimePredictionEngine } from "../services/infrastructure/realTimePredictionEngine";
 
 // Mock MLService
-vi.mock("../services/mlService.js", () => ({
+vi.mock("../services/infrastructure/mlService", () => ({
   MLService: vi.fn(() => ({
     generateDemandForecast: vi.fn().mockResolvedValue({
       productId: 1,
@@ -27,7 +27,7 @@ vi.mock("../services/mlService.js", () => ({
 }));
 
 // Mock NotificationService
-vi.mock("../services/notificationService.js", () => ({
+vi.mock("../services/domains/notifications/notificationService", () => ({
   NotificationService: vi.fn(() => ({
     sendInventoryAlert: vi.fn().mockResolvedValue({ success: true }),
     sendDemandSurgeAlert: vi.fn().mockResolvedValue({ success: true }),

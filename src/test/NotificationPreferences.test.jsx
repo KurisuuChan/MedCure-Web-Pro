@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import NotificationPreferences from "../features/notifications/components/NotificationPreferences.jsx";
-import { NotificationService } from "../services/notificationService.js";
+import { NotificationService } from "../services/domains/notifications/notificationService";
 
 // Mock the notification service
-vi.mock("../services/notificationService.js", () => ({
+vi.mock("../services/domains/notifications/notificationService", () => ({
   NotificationService: vi.fn(() => ({
     getUserPreferences: vi.fn().mockResolvedValue({
       email: true,

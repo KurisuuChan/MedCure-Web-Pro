@@ -19,8 +19,16 @@ export function ProtectedRoute({ children, requiredRole = null }) {
   }
 
   // If specific role is required and user doesn't have it
-  if (requiredRole && role !== requiredRole && role !== "admin") {
-    return <Navigate to="/unauthorized" replace />;
+  if (requiredRole) {
+    const allowedRoles = Array.isArray(requiredRole)
+      ? requiredRole
+      : [requiredRole];
+    const hasRequiredRole =
+      allowedRoles.includes(role) || role === "admin" || role === "super_admin";
+
+    if (!hasRequiredRole) {
+      return <Navigate to="/unauthorized" replace />;
+    }
   }
 
   return <MainLayout>{children}</MainLayout>;
@@ -28,5 +36,8 @@ export function ProtectedRoute({ children, requiredRole = null }) {
 
 ProtectedRoute.propTypes = {
   children: PropTypes.node.isRequired,
-  requiredRole: PropTypes.string,
+  requiredRole: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
 };

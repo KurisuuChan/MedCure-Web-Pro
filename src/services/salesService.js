@@ -1,5 +1,5 @@
-import { SalesService } from "./dataService";
-import { editTransactionWithStockManagement } from "./enhancedSalesService";
+import { SalesService } from "./domains/sales/salesService";
+import { editTransactionWithStockManagement } from "./domains/sales/enhancedSalesService";
 
 export const salesService = {
   // Process a sale transaction (atomic operation via RPC)

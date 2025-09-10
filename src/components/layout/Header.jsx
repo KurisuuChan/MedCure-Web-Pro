@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Bell, Search, User, LogOut, Menu } from "lucide-react";
-import { SimpleNotificationService } from "../../services/simpleNotificationService";
+import { SimpleNotificationService } from "../../services/domains/notifications/simpleNotificationService";
 
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();

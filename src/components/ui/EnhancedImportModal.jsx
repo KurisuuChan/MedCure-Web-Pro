@@ -12,7 +12,7 @@ import {
   Calendar,
   Info,
 } from "lucide-react";
-import { SmartCategoryService } from "../../services/smartCategoryService";
+import { SmartCategoryService } from "../../services/domains/inventory/smartCategoryService";
 import { useAuth } from "../../hooks/useAuth";
 import {
   parseFlexibleDate,

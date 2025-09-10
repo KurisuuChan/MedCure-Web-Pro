@@ -3,10 +3,10 @@
  * Verifies that all major services connect to real data instead of mock data
  */
 
-import { MLService } from "../services/mlService";
-import { RealTimePredictionEngine } from "../services/realTimePredictionEngine";
-import { NotificationAnalyticsService } from "../services/notificationAnalyticsService";
-import { AnalyticsService } from "../services/analyticsService";
+import { MLService } from "../services/infrastructure/mlService";
+// import { RealTimePredictionEngine } from "../services/infrastructure/realTimePredictionEngine";
+// import { NotificationAnalyticsService } from "../services/domains/notifications/notificationAnalyticsService";
+import { AnalyticsService } from "../services/domains/analytics/analyticsService";
 
 /**
  * Test MLService data connections

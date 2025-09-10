@@ -1,4 +1,4 @@
-import { supabase } from "../config/supabase";
+import { supabase } from "../../../config/supabase";
 
 // Simplified category operations to replace CategoryService
 const SimpleCategoryService = {
@@ -191,6 +191,80 @@ export const SmartCategoryService = {
       };
     }
   },
+
+  // Get category insights for intelligent sorting
+  getCategoryInsights: async () => {
+    try {
+      console.log("🔍 [SmartCategory] Getting category insights...");
+
+      // Get all products with their categories
+      const { data: products, error } = await supabase
+        .from("products")
+        .select("category, price, stock_in_pieces")
+        .not("category", "is", null);
+
+      if (error) throw error;
+
+      // Calculate category statistics
+      const categoryStats = {};
+      products.forEach((product) => {
+        const category = product.category;
+        if (!categoryStats[category]) {
+          categoryStats[category] = {
+            name: category,
+            stats: {
+              total_products: 0,
+              total_value: 0,
+              total_stock: 0,
+              avg_price: 0,
+            },
+          };
+        }
+
+        categoryStats[category].stats.total_products += 1;
+        categoryStats[category].stats.total_value +=
+          (product.price || 0) * (product.stock_in_pieces || 0);
+        categoryStats[category].stats.total_stock +=
+          product.stock_in_pieces || 0;
+      });
+
+      // Calculate average prices
+      Object.values(categoryStats).forEach((category) => {
+        if (category.stats.total_products > 0) {
+          const totalPrice = products
+            .filter((p) => p.category === category.name)
+            .reduce((sum, p) => sum + (p.price || 0), 0);
+          category.stats.avg_price = totalPrice / category.stats.total_products;
+        }
+      });
+
+      // Sort by total value (highest first)
+      const sortedCategories = Object.values(categoryStats).sort(
+        (a, b) => b.stats.total_value - a.stats.total_value
+      );
+
+      return {
+        success: true,
+        data: {
+          top_value_categories: sortedCategories,
+          total_categories: sortedCategories.length,
+        },
+      };
+    } catch (error) {
+      console.error(
+        "❌ [SmartCategory] Error getting category insights:",
+        error
+      );
+      return {
+        success: false,
+        error: error.message,
+        data: {
+          top_value_categories: [],
+          total_categories: 0,
+        },
+      };
+    }
+  },
 };
 
 // ==========================================
@@ -202,7 +276,7 @@ export const CategoryValueMonitor = {
     try {
       console.log("📊 [CategoryValueMonitor] Generating category analytics...");
 
-      const categoriesResult = await CategoryService.getAllCategories();
+      const categoriesResult = await SimpleCategoryService.getAllCategories();
       if (!categoriesResult.success) {
         throw new Error("Failed to fetch categories");
       }

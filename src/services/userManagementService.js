@@ -3,12 +3,9 @@ import { supabase } from "../config/supabase";
 export class UserManagementService {
   // User role constants
   static ROLES = {
-    SUPER_ADMIN: "super_admin",
     ADMIN: "admin",
     MANAGER: "manager",
-    PHARMACIST: "pharmacist",
     CASHIER: "cashier",
-    STAFF: "staff",
   };
 
   // Permission constants
@@ -26,7 +23,6 @@ export class UserManagementService {
     DELETE_PRODUCTS: "delete_products",
     VIEW_INVENTORY: "view_inventory",
     MANAGE_STOCK: "manage_stock",
-    APPROVE_ORDERS: "approve_orders",
 
     // Sales & POS
     PROCESS_SALES: "process_sales",
@@ -39,68 +35,21 @@ export class UserManagementService {
     VIEW_FINANCIAL_REPORTS: "view_financial_reports",
     MANAGE_PRICING: "manage_pricing",
     VIEW_PROFIT_MARGINS: "view_profit_margins",
-    EXPORT_FINANCIAL_DATA: "export_financial_data",
 
     // System Administration
     MANAGE_SETTINGS: "manage_settings",
     VIEW_AUDIT_LOGS: "view_audit_logs",
-    MANAGE_NOTIFICATIONS: "manage_notifications",
-    BACKUP_RESTORE: "backup_restore",
-
-    // Customer Management
-    CREATE_CUSTOMERS: "create_customers",
-    EDIT_CUSTOMERS: "edit_customers",
-    VIEW_CUSTOMER_DATA: "view_customer_data",
-    MANAGE_LOYALTY: "manage_loyalty",
-
-    // Supplier Management
-    CREATE_SUPPLIERS: "create_suppliers",
-    EDIT_SUPPLIERS: "edit_suppliers",
-    MANAGE_PURCHASE_ORDERS: "manage_purchase_orders",
-    VIEW_SUPPLIER_REPORTS: "view_supplier_reports",
   };
 
   // Role-Permission mapping
   static ROLE_PERMISSIONS = {
-    [this.ROLES.SUPER_ADMIN]: Object.values(this.PERMISSIONS),
-    [this.ROLES.ADMIN]: [
-      this.PERMISSIONS.CREATE_USERS,
-      this.PERMISSIONS.EDIT_USERS,
-      this.PERMISSIONS.VIEW_USERS,
-      this.PERMISSIONS.MANAGE_ROLES,
-      this.PERMISSIONS.CREATE_PRODUCTS,
-      this.PERMISSIONS.EDIT_PRODUCTS,
-      this.PERMISSIONS.VIEW_INVENTORY,
-      this.PERMISSIONS.MANAGE_STOCK,
-      this.PERMISSIONS.APPROVE_ORDERS,
-      this.PERMISSIONS.PROCESS_SALES,
-      this.PERMISSIONS.HANDLE_RETURNS,
-      this.PERMISSIONS.VOID_TRANSACTIONS,
-      this.PERMISSIONS.VIEW_SALES_REPORTS,
-      this.PERMISSIONS.MANAGE_DISCOUNTS,
-      this.PERMISSIONS.VIEW_FINANCIAL_REPORTS,
-      this.PERMISSIONS.MANAGE_PRICING,
-      this.PERMISSIONS.VIEW_PROFIT_MARGINS,
-      this.PERMISSIONS.EXPORT_FINANCIAL_DATA,
-      this.PERMISSIONS.MANAGE_SETTINGS,
-      this.PERMISSIONS.VIEW_AUDIT_LOGS,
-      this.PERMISSIONS.MANAGE_NOTIFICATIONS,
-      this.PERMISSIONS.CREATE_CUSTOMERS,
-      this.PERMISSIONS.EDIT_CUSTOMERS,
-      this.PERMISSIONS.VIEW_CUSTOMER_DATA,
-      this.PERMISSIONS.MANAGE_LOYALTY,
-      this.PERMISSIONS.CREATE_SUPPLIERS,
-      this.PERMISSIONS.EDIT_SUPPLIERS,
-      this.PERMISSIONS.MANAGE_PURCHASE_ORDERS,
-      this.PERMISSIONS.VIEW_SUPPLIER_REPORTS,
-    ],
+    [this.ROLES.ADMIN]: Object.values(this.PERMISSIONS),
     [this.ROLES.MANAGER]: [
       this.PERMISSIONS.VIEW_USERS,
       this.PERMISSIONS.CREATE_PRODUCTS,
       this.PERMISSIONS.EDIT_PRODUCTS,
       this.PERMISSIONS.VIEW_INVENTORY,
       this.PERMISSIONS.MANAGE_STOCK,
-      this.PERMISSIONS.APPROVE_ORDERS,
       this.PERMISSIONS.PROCESS_SALES,
       this.PERMISSIONS.HANDLE_RETURNS,
       this.PERMISSIONS.VIEW_SALES_REPORTS,
@@ -108,37 +57,11 @@ export class UserManagementService {
       this.PERMISSIONS.VIEW_FINANCIAL_REPORTS,
       this.PERMISSIONS.MANAGE_PRICING,
       this.PERMISSIONS.VIEW_PROFIT_MARGINS,
-      this.PERMISSIONS.MANAGE_NOTIFICATIONS,
-      this.PERMISSIONS.CREATE_CUSTOMERS,
-      this.PERMISSIONS.EDIT_CUSTOMERS,
-      this.PERMISSIONS.VIEW_CUSTOMER_DATA,
-      this.PERMISSIONS.MANAGE_LOYALTY,
-      this.PERMISSIONS.EDIT_SUPPLIERS,
-      this.PERMISSIONS.MANAGE_PURCHASE_ORDERS,
-      this.PERMISSIONS.VIEW_SUPPLIER_REPORTS,
-    ],
-    [this.ROLES.PHARMACIST]: [
-      this.PERMISSIONS.VIEW_INVENTORY,
-      this.PERMISSIONS.MANAGE_STOCK,
-      this.PERMISSIONS.PROCESS_SALES,
-      this.PERMISSIONS.HANDLE_RETURNS,
-      this.PERMISSIONS.VIEW_SALES_REPORTS,
-      this.PERMISSIONS.VIEW_CUSTOMER_DATA,
-      this.PERMISSIONS.CREATE_CUSTOMERS,
-      this.PERMISSIONS.EDIT_CUSTOMERS,
-      this.PERMISSIONS.VIEW_SUPPLIER_REPORTS,
+      this.PERMISSIONS.VIEW_AUDIT_LOGS,
     ],
     [this.ROLES.CASHIER]: [
       this.PERMISSIONS.VIEW_INVENTORY,
       this.PERMISSIONS.PROCESS_SALES,
-      this.PERMISSIONS.HANDLE_RETURNS,
-      this.PERMISSIONS.VIEW_CUSTOMER_DATA,
-      this.PERMISSIONS.CREATE_CUSTOMERS,
-    ],
-    [this.ROLES.STAFF]: [
-      this.PERMISSIONS.VIEW_INVENTORY,
-      this.PERMISSIONS.PROCESS_SALES,
-      this.PERMISSIONS.VIEW_CUSTOMER_DATA,
     ],
   };
 
@@ -146,31 +69,15 @@ export class UserManagementService {
   static async getAllUsers() {
     try {
       const { data, error } = await supabase
-        .from("user_profiles")
-        .select(
-          `
-          *,
-          user_roles (
-            role,
-            assigned_at,
-            assigned_by
-          ),
-          user_sessions!inner (
-            last_login,
-            last_activity,
-            is_active
-          )
-        `
-        )
+        .from("users")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       return data.map((user) => ({
         ...user,
-        permissions: this.getUserPermissions(
-          user.user_roles?.role || this.ROLES.STAFF
-        ),
+        permissions: this.getUserPermissions(user.role || this.ROLES.CASHIER),
       }));
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -182,28 +89,8 @@ export class UserManagementService {
   static async getUserById(userId) {
     try {
       const { data, error } = await supabase
-        .from("user_profiles")
-        .select(
-          `
-          *,
-          user_roles (
-            role,
-            assigned_at,
-            assigned_by
-          ),
-          user_sessions (
-            session_id,
-            last_login,
-            last_activity,
-            is_active
-          ),
-          user_activity_logs (
-            activity_type,
-            description,
-            created_at
-          )
-        `
-        )
+        .from("users")
+        .select("*")
         .eq("id", userId)
         .single();
 
@@ -211,9 +98,7 @@ export class UserManagementService {
 
       return {
         ...data,
-        permissions: this.getUserPermissions(
-          data.user_roles?.role || this.ROLES.STAFF
-        ),
+        permissions: this.getUserPermissions(data.role || this.ROLES.CASHIER),
       };
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -230,8 +115,7 @@ export class UserManagementService {
         firstName,
         lastName,
         phone,
-        role = this.ROLES.STAFF,
-        department,
+        role = this.ROLES.CASHIER,
       } = userData;
 
       // Create auth user
@@ -249,45 +133,25 @@ export class UserManagementService {
 
       if (authError) throw authError;
 
-      // Create user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("user_profiles")
+      // Create user record directly in users table
+      const { data: newUserData, error: userError } = await supabase
+        .from("users")
         .insert({
           id: authData.user.id,
           email,
           first_name: firstName,
           last_name: lastName,
           phone,
-          department,
-          status: "active",
+          role,
+          is_active: true,
         })
         .select()
         .single();
 
-      if (profileError) throw profileError;
-
-      // Assign role
-      const { error: roleError } = await supabase.from("user_roles").insert({
-        user_id: authData.user.id,
-        role,
-        assigned_by: (await supabase.auth.getUser()).data.user.id,
-        assigned_at: new Date().toISOString(),
-      });
-
-      if (roleError) throw roleError;
-
-      // Log activity
-      await this.logUserActivity(
-        (
-          await supabase.auth.getUser()
-        ).data.user.id,
-        "USER_CREATED",
-        `Created new user: ${firstName} ${lastName} (${email})`
-      );
+      if (userError) throw userError;
 
       return {
-        ...profileData,
-        role,
+        ...newUserData,
         permissions: this.getUserPermissions(role),
       };
     } catch (error) {
@@ -299,53 +163,29 @@ export class UserManagementService {
   // Update user information
   static async updateUser(userId, updateData) {
     try {
-      const { firstName, lastName, phone, department, status, role } =
-        updateData;
+      const { firstName, lastName, phone, role } = updateData;
 
-      // Update profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("user_profiles")
+      // Update user directly in users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
         .update({
           first_name: firstName,
           last_name: lastName,
           phone,
-          department,
-          status,
+          role,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId)
         .select()
         .single();
 
-      if (profileError) throw profileError;
-
-      // Update role if provided
-      if (role) {
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .update({
-            role,
-            assigned_by: (await supabase.auth.getUser()).data.user.id,
-            assigned_at: new Date().toISOString(),
-          })
-          .eq("user_id", userId);
-
-        if (roleError) throw roleError;
-      }
-
-      // Log activity
-      await this.logUserActivity(
-        (
-          await supabase.auth.getUser()
-        ).data.user.id,
-        "USER_UPDATED",
-        `Updated user: ${firstName} ${lastName}`
-      );
+      if (userError) throw userError;
 
       return {
-        ...profileData,
-        role: role || profileData.role,
-        permissions: this.getUserPermissions(role || profileData.role),
+        ...userData,
+        permissions: this.getUserPermissions(
+          userData.role || this.ROLES.CASHIER
+        ),
       };
     } catch (error) {
       console.error("Error updating user:", error);
@@ -358,9 +198,9 @@ export class UserManagementService {
     try {
       // Soft delete - mark as inactive
       const { data, error } = await supabase
-        .from("user_profiles")
+        .from("users")
         .update({
-          status: "inactive",
+          is_active: false,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId)
@@ -368,24 +208,6 @@ export class UserManagementService {
         .single();
 
       if (error) throw error;
-
-      // End all active sessions
-      await supabase
-        .from("user_sessions")
-        .update({
-          is_active: false,
-          ended_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-
-      // Log activity
-      await this.logUserActivity(
-        (
-          await supabase.auth.getUser()
-        ).data.user.id,
-        "USER_DEACTIVATED",
-        `Deactivated user: ${data.first_name} ${data.last_name}`
-      );
 
       return data;
     } catch (error) {
@@ -405,226 +227,84 @@ export class UserManagementService {
     return permissions.includes(permission);
   }
 
-  // Get user activity logs
-  static async getUserActivityLogs(userId, limit = 50) {
-    try {
-      const { data, error } = await supabase
-        .from("user_activity_logs")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error("Error fetching activity logs:", error);
-      throw error;
-    }
+  // Validate role
+  static isValidRole(role) {
+    return Object.values(this.ROLES).includes(role);
   }
 
-  // Log user activity
-  static async logUserActivity(
-    userId,
-    activityType,
-    description,
-    metadata = {}
-  ) {
-    try {
-      const { error } = await supabase.from("user_activity_logs").insert({
-        user_id: userId,
-        activity_type: activityType,
-        description,
-        metadata,
-        ip_address: await this.getClientIP(),
-        user_agent: navigator.userAgent,
-        created_at: new Date().toISOString(),
-      });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error logging activity:", error);
-    }
+  // Get role hierarchy level (for permission comparisons)
+  static getRoleLevel(role) {
+    const levels = {
+      [this.ROLES.ADMIN]: 3,
+      [this.ROLES.MANAGER]: 2,
+      [this.ROLES.CASHIER]: 1,
+    };
+    return levels[role] || 0;
   }
 
-  // Get active user sessions
-  static async getActiveSessions() {
-    try {
-      const { data, error } = await supabase
-        .from("user_sessions")
-        .select(
-          `
-          *,
-          user_profiles (
-            first_name,
-            last_name,
-            email
-          )
-        `
-        )
-        .eq("is_active", true)
-        .order("last_activity", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error("Error fetching active sessions:", error);
-      throw error;
-    }
+  // Check if user can manage another user (based on role hierarchy)
+  static canManageUser(managerRole, targetRole) {
+    return this.getRoleLevel(managerRole) > this.getRoleLevel(targetRole);
   }
 
-  // End user session
-  static async endUserSession(sessionId) {
+  // Search users
+  static async searchUsers(query, filters = {}) {
     try {
-      const { data, error } = await supabase
-        .from("user_sessions")
-        .update({
-          is_active: false,
-          ended_at: new Date().toISOString(),
-        })
-        .eq("session_id", sessionId)
-        .select()
-        .single();
+      let dbQuery = supabase.from("users").select("*");
 
-      if (error) throw error;
-
-      // Log activity
-      await this.logUserActivity(
-        data.user_id,
-        "SESSION_ENDED",
-        "Session ended by administrator"
-      );
-
-      return data;
-    } catch (error) {
-      console.error("Error ending session:", error);
-      throw error;
-    }
-  }
-
-  // Update user session activity
-  static async updateSessionActivity(userId) {
-    try {
-      const { error } = await supabase
-        .from("user_sessions")
-        .update({
-          last_activity: new Date().toISOString(),
-        })
-        .eq("user_id", userId)
-        .eq("is_active", true);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error updating session activity:", error);
-    }
-  }
-
-  // Get user statistics
-  static async getUserStatistics() {
-    try {
-      const { data: totalUsers, error: totalError } = await supabase
-        .from("user_profiles")
-        .select("id", { count: "exact" })
-        .eq("status", "active");
-
-      const { data: activeUsers, error: activeError } = await supabase
-        .from("user_sessions")
-        .select("user_id", { count: "exact" })
-        .eq("is_active", true);
-
-      const { data: roleBreakdown, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .order("role");
-
-      if (totalError || activeError || roleError) {
-        throw totalError || activeError || roleError;
-      }
-
-      // Count roles
-      const roleCounts = {};
-      roleBreakdown.forEach(({ role }) => {
-        roleCounts[role] = (roleCounts[role] || 0) + 1;
-      });
-
-      return {
-        totalUsers: totalUsers?.length || 0,
-        activeUsers: activeUsers?.length || 0,
-        roleBreakdown: roleCounts,
-        roles: Object.values(this.ROLES),
-      };
-    } catch (error) {
-      console.error("Error fetching user statistics:", error);
-      throw error;
-    }
-  }
-
-  // Helper method to get client IP (simplified)
-  static async getClientIP() {
-    // In a real application, you'd want to implement proper IP detection
-    return "unknown";
-  }
-
-  // Password reset functionality
-  static async resetUserPassword(email) {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) throw error;
-
-      // Log activity
-      const { data: user } = await supabase
-        .from("user_profiles")
-        .select("id")
-        .eq("email", email)
-        .single();
-
-      if (user) {
-        await this.logUserActivity(
-          user.id,
-          "PASSWORD_RESET_REQUESTED",
-          "Password reset requested"
+      // Apply search query
+      if (query) {
+        dbQuery = dbQuery.or(
+          `first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`
         );
       }
 
-      return { success: true };
+      // Apply filters
+      if (filters.role) {
+        dbQuery = dbQuery.eq("role", filters.role);
+      }
+
+      if (filters.is_active !== undefined) {
+        dbQuery = dbQuery.eq("is_active", filters.is_active);
+      }
+
+      const { data, error } = await dbQuery.order("created_at", {
+        ascending: false,
+      });
+
+      if (error) throw error;
+
+      return data.map((user) => ({
+        ...user,
+        permissions: this.getUserPermissions(user.role || this.ROLES.CASHIER),
+      }));
     } catch (error) {
-      console.error("Error resetting password:", error);
+      console.error("Error searching users:", error);
       throw error;
     }
   }
 
-  // Bulk operations
-  static async bulkUpdateUsers(userIds, updateData) {
+  // Get users by role
+  static async getUsersByRole(role) {
     try {
       const { data, error } = await supabase
-        .from("user_profiles")
-        .update({
-          ...updateData,
-          updated_at: new Date().toISOString(),
-        })
-        .in("id", userIds)
-        .select();
+        .from("users")
+        .select("*")
+        .eq("role", role)
+        .eq("is_active", true);
 
       if (error) throw error;
 
-      // Log activity
-      await this.logUserActivity(
-        (
-          await supabase.auth.getUser()
-        ).data.user.id,
-        "BULK_USER_UPDATE",
-        `Bulk updated ${userIds.length} users`
-      );
-
-      return data;
+      return data.map((user) => ({
+        ...user,
+        permissions: this.getUserPermissions(role),
+      }));
     } catch (error) {
-      console.error("Error bulk updating users:", error);
+      console.error("Error fetching users by role:", error);
       throw error;
     }
   }
 }
 
+// Default export for compatibility
 export default UserManagementService;

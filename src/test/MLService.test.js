@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MLService } from "../services/mlService.js";
+import { MLService } from "../services/infrastructure/mlService";
 
 // Mock Supabase
 const mockSupabase = {

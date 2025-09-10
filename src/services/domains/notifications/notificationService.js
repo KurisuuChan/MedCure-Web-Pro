@@ -4,6 +4,8 @@
  *
  * Note: This is the simplified notification service that replaced the over-engineered system
  */
+import { supabase } from "../../../config/supabase";
+
 export class SimpleNotificationService {
   static NOTIFICATION_TYPES = {
     LOW_STOCK: "low_stock",
@@ -152,8 +154,6 @@ export class SimpleNotificationService {
   // Check for low stock products and show alerts
   static async checkAndNotifyLowStock() {
     try {
-      const { supabase } = await import("../config/supabase");
-
       const { data: lowStockProducts, error } = await supabase
         .from("products")
         .select("name, stock_in_pieces")
@@ -177,8 +177,6 @@ export class SimpleNotificationService {
   // Check for expiring products and show warnings
   static async checkAndNotifyExpiring() {
     try {
-      const { supabase } = await import("../config/supabase");
-
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
@@ -211,8 +209,6 @@ export class SimpleNotificationService {
     }
 
     try {
-      const { supabase } = await import("../config/supabase");
-
       // Stop existing subscription if any
       this.stopRealtimeMonitoring();
 
@@ -283,8 +279,6 @@ export class SimpleNotificationService {
   // Check specific product stock level
   static async checkSpecificProductStock(productId) {
     try {
-      const { supabase } = await import("../config/supabase");
-
       const { data: product, error } = await supabase
         .from("products")
         .select("name, stock_in_pieces")

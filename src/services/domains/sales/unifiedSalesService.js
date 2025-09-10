@@ -5,7 +5,7 @@
 // Eliminates conflicting service layers and logical errors
 // =====================================================
 
-import { supabase } from "../config/supabase";
+import { supabase } from "\.\.\/\.\.\/\.\.\/config\/supabase";
 
 /**
  * 🎯 UNIFIED SALES SERVICE

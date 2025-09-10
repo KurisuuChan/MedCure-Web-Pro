@@ -5,9 +5,9 @@
 
 // Import required services for testing
 import { supabase } from "../config/supabase";
-import { MLService } from "../services/mlService";
-import { AnalyticsService } from "../services/analyticsService";
-import { SimpleNotificationService } from "../services/simpleNotificationService";
+import { MLService } from "../services/infrastructure/mlService";
+import { AnalyticsService } from "../services/domains/analytics/analyticsService";
+import { SimpleNotificationService } from "../services/domains/notifications/simpleNotificationService";
 
 export class SystemValidationRoadmap {
   /**

@@ -22,8 +22,8 @@ import { useAuth } from "../hooks/useAuth";
 import "../components/ui/ScrollableModal.css";
 import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
-import unifiedTransactionService from "../services/unifiedTransactionService";
-import { SimpleNotificationService } from "../services/simpleNotificationService";
+import unifiedTransactionService from "../services/domains/sales/transactionService";
+import { SimpleNotificationService } from "../services/domains/notifications/simpleNotificationService";
 
 export default function POSPage() {
   const { user } = useAuth();

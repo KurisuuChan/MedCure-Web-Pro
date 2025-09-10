@@ -31,7 +31,7 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { AnalyticsService } from "../services/analyticsService";
+import { AnalyticsService } from "../services/domains/analytics/analyticsService";
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 
