@@ -5,7 +5,6 @@ import {
   Smartphone,
   Receipt,
   History,
-  User,
   Clock,
   X,
   ShoppingCart,
@@ -606,7 +605,10 @@ export default function POSPage() {
 
                 {/* Amount Input */}
                 <div>
-                  <label className="block text-lg font-medium text-gray-900 mb-3">
+                  <label
+                    htmlFor="amount-received"
+                    className="block text-lg font-medium text-gray-900 mb-3"
+                  >
                     Amount Received
                   </label>
                   <div className="relative">
@@ -614,6 +616,7 @@ export default function POSPage() {
                       <span className="text-gray-500 text-lg">₱</span>
                     </div>
                     <input
+                      id="amount-received"
                       type="number"
                       value={paymentData.amount}
                       onChange={(e) => {
@@ -1133,7 +1136,11 @@ export default function POSPage() {
                                         .slice(0, 3)
                                         .map((item, itemIndex) => (
                                           <div
-                                            key={itemIndex}
+                                            key={`item-${
+                                              item.product_id ||
+                                              item.id ||
+                                              itemIndex
+                                            }`}
                                             className="flex justify-between text-sm"
                                           >
                                             <span className="text-gray-600">
