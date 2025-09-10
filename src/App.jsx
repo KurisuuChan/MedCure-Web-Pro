@@ -24,7 +24,9 @@ const DashboardPage = React.lazy(() => import("./pages/DashboardPage"));
 const POSPage = React.lazy(() => import("./pages/POSPage"));
 const InventoryPage = React.lazy(() => import("./pages/InventoryPage"));
 const ManagementPage = React.lazy(() => import("./pages/ManagementPage"));
-const EnhancedAnalyticsDashboard = React.lazy(() => import("./pages/EnhancedAnalyticsDashboard"));
+const EnhancedAnalyticsDashboard = React.lazy(() =>
+  import("./pages/EnhancedAnalyticsDashboard")
+);
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const UnauthorizedPage = React.lazy(() => import("./pages/UnauthorizedPage"));
 const UserManagementPage = React.lazy(() =>

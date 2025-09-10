@@ -76,7 +76,9 @@ const UserAnalyticsDashboard = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `user-analytics-${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `user-analytics-${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -310,7 +312,9 @@ const UserAnalyticsDashboard = () => {
               </span>
               <span className="text-lg font-bold text-green-600">
                 {userStats
-                  ? Math.round((userStats.active_users / userStats.total_users) * 100)
+                  ? Math.round(
+                      (userStats.active_users / userStats.total_users) * 100
+                    )
                   : 0}
                 %
               </span>
@@ -342,7 +346,8 @@ const UserAnalyticsDashboard = () => {
               <strong>Peak Hours:</strong> 9:00 AM - 11:00 AM, 2:00 PM - 4:00 PM
             </div>
             <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-              <strong>Most Active Day:</strong> Tuesday (avg 15 transactions/day)
+              <strong>Most Active Day:</strong> Tuesday (avg 15
+              transactions/day)
             </div>
             <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
               <strong>Team Response Time:</strong> Average 2.3 minutes

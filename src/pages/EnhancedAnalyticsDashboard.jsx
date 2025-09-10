@@ -582,7 +582,7 @@ export default function EnhancedAnalyticsDashboard() {
   );
 }
 
-// Reusable Components  
+// Reusable Components
 // eslint-disable-next-line no-unused-vars
 const MetricCard = ({ title, value, icon: Icon, color, trend, trendText }) => {
   const colorClasses = {
@@ -648,5 +648,3 @@ const ChartWidget = ({ title, subtitle, icon: Icon, children }) => {
     </div>
   );
 };
-
-
