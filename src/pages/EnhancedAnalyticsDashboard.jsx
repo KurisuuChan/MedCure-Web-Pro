@@ -399,6 +399,53 @@ export default function EnhancedAnalyticsDashboard() {
           </div>
         )}
 
+        {/* Report Summary Cards */}
+        <div className="mb-8">
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 flex items-center">
+                <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+                Report Overview
+              </h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                  <div className="flex items-center mb-2">
+                    <DollarSign className="h-5 w-5 text-blue-600 mr-2" />
+                    <h4 className="font-medium text-gray-900">Sales Report</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Daily, weekly, and monthly sales summaries with trend
+                    analysis
+                  </p>
+                </div>
+                <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                  <div className="flex items-center mb-2">
+                    <Package className="h-5 w-5 text-green-600 mr-2" />
+                    <h4 className="font-medium text-gray-900">
+                      Inventory Report
+                    </h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Stock levels, low inventory alerts, and reorder
+                    recommendations
+                  </p>
+                </div>
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                  <div className="flex items-center mb-2">
+                    <TrendingUp className="h-5 w-5 text-purple-600 mr-2" />
+                    <h4 className="font-medium text-gray-900">
+                      Product Performance
+                    </h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Best and worst performing products with profit analysis
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Revenue Trends Chart */}
@@ -547,46 +594,58 @@ const MetricCard = ({ title, value, icon: Icon, color, trend, trendText }) => {
     orange: "bg-orange-50 text-orange-600 border-orange-200",
   };
 
-  const isPositiveTrend = trend > 0;
-  const TrendIcon = isPositiveTrend ? ArrowUp : ArrowDown;
-  const trendColor = isPositiveTrend ? "text-green-600" : "text-red-600";
+  const getTrendIcon = () => {
+    return trend >= 0 ? (
+      <ArrowUp className="h-4 w-4 text-green-500" />
+    ) : (
+      <ArrowDown className="h-4 w-4 text-red-500" />
+    );
+  };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          {trend !== undefined && (
-            <div className={`flex items-center mt-2 text-sm ${trendColor}`}>
-              <TrendIcon className="h-4 w-4 mr-1" />
-              <span>
-                {Math.abs(trend)}% {trendText}
-              </span>
-            </div>
-          )}
-        </div>
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center">
+        <div className={`rounded-md p-3 ${colorClasses[color]}`}>
           <Icon className="h-6 w-6" />
         </div>
+        <div className="ml-5 w-0 flex-1">
+          <dl>
+            <dt className="text-sm font-medium text-gray-500 truncate">
+              {title}
+            </dt>
+            <dd className="text-lg font-medium text-gray-900">{value}</dd>
+          </dl>
+        </div>
       </div>
+      {trend !== undefined && (
+        <div className="mt-4 flex items-center text-sm">
+          {getTrendIcon()}
+          <span
+            className={`ml-1 ${trend >= 0 ? "text-green-600" : "text-red-600"}`}
+          >
+            {Math.abs(trend)}% {trendText}
+          </span>
+        </div>
+      )}
     </div>
   );
 };
 
 const ChartWidget = ({ title, subtitle, icon: Icon, children }) => {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Icon className="h-5 w-5 mr-2 text-gray-600" />
-            {title}
-          </h3>
-          {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
+    <div className="bg-white rounded-lg shadow">
+      <div className="px-4 py-5 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
+              <Icon className="h-5 w-5 mr-2 text-gray-600" />
+              {title}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
+          </div>
         </div>
+        {children}
       </div>
-      {children}
     </div>
   );
 };

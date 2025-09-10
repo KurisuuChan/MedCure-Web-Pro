@@ -11,15 +11,12 @@ import {
   Package,
 } from "lucide-react";
 import { formatCurrency, formatNumber } from "../utils/formatting";
-import { UserService } from "../services/domains/auth/userService";
 import { DashboardService } from "../services/domains/analytics/dashboardService";
 import LoginTrackingTest from "../components/admin/LoginTrackingTest";
 
 export default function ManagementPage() {
   const [activeTab, setActiveTab] = useState("categories");
   const [systemStats, setSystemStats] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
     totalProducts: 0,
     lowStockItems: 0,
     todaySales: 0,
@@ -59,15 +56,6 @@ export default function ManagementPage() {
             todaySales: analytics.todaysSales || 0,
           }));
         }
-      }
-
-      const usersResult = await UserService.getUsers();
-      if (usersResult.success && usersResult.data) {
-        setSystemStats((prev) => ({
-          ...prev,
-          totalUsers: usersResult.data.length,
-          activeUsers: usersResult.data.filter((u) => u.active).length,
-        }));
       }
 
       console.log("✅ [Management] System stats loaded successfully");
@@ -118,24 +106,7 @@ export default function ManagementPage() {
 
       {/* System Overview Cards */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {loading ? "..." : formatNumber(systemStats.totalUsers)}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-            <p className="text-xs text-green-600 mt-2">
-              {systemStats.activeUsers} active users
-            </p>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
