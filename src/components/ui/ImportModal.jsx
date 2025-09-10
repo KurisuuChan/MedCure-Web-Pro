@@ -10,7 +10,7 @@ import {
   Plus,
   Info,
 } from "lucide-react";
-import { IntelligentCategoryService } from "../../services/intelligentCategoryService";
+import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
 
 export function ImportModal({ isOpen, onClose, onImport }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -95,17 +95,18 @@ export function ImportModal({ isOpen, onClose, onImport }) {
     // First pass: collect all unique categories
     data.forEach((row, index) => {
       if (row["Category"]) {
-        const normalizedCategory =
-          IntelligentCategoryService.normalizeCategoryName(row["Category"]);
+        const normalizedCategory = UnifiedCategoryService.normalizeCategoryName(
+          row["Category"]
+        );
         categoriesFound.add(normalizedCategory);
       }
     });
 
     // Check which categories are new and will be auto-created
     for (const categoryName of categoriesFound) {
-      const existsCheck = await IntelligentCategoryService.categoryExists(
-        categoryName
-      );
+      const existsCheck = await UnifiedCategoryService.checkCategoriesExist([
+        categoryName,
+      ]);
       if (!existsCheck.exists) {
         newCategoriesList.push({
           original: categoryName,
@@ -187,8 +188,9 @@ export function ImportModal({ isOpen, onClose, onImport }) {
         validationErrors.push(`Row ${index + 2}: ${rowErrors.join(", ")}`);
       } else {
         // Transform data with intelligent category normalization
-        const normalizedCategory =
-          IntelligentCategoryService.normalizeCategoryName(row["Category"]);
+        const normalizedCategory = UnifiedCategoryService.normalizeCategoryName(
+          row["Category"]
+        );
 
         const transformedRow = {
           name: row["Product Name"].trim(),
@@ -402,7 +404,7 @@ export function ImportModal({ isOpen, onClose, onImport }) {
       );
 
       const categoryResult =
-        await IntelligentCategoryService.processBulkCategoryCreation(
+        await UnifiedCategoryService.createCategoriesFromImport(
           uniqueCategories,
           { user_id: null, import_session: Date.now() }
         );
@@ -415,7 +417,7 @@ export function ImportModal({ isOpen, onClose, onImport }) {
 
       // Step 3: Update category statistics after import
       console.log("📊 Updating category statistics...");
-      await IntelligentCategoryService.updateAllCategoryStats();
+      await UnifiedCategoryService.updateAllCategoryStats();
 
       setTimeout(() => {
         setIsProcessing(false);

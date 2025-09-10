@@ -110,8 +110,11 @@ export default function ProductSearch({
               >
                 <option value="All Categories">All Categories</option>
                 {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
+                  <option
+                    key={category.id || category}
+                    value={category.name || category}
+                  >
+                    {category.name || category}
                   </option>
                 ))}
               </select>

@@ -605,8 +605,11 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                     >
                       <option value="">Select category</option>
                       {categories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
+                        <option
+                          key={category.id || category}
+                          value={category.name || category}
+                        >
+                          {category.name || category}
                         </option>
                       ))}
                     </select>

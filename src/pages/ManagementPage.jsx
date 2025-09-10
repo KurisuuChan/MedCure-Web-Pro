@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import { DashboardService } from "../services/domains/analytics/dashboardService";
-import { supabase, isProductionSupabase } from "../config/supabase";
+import { supabase } from "../config/supabase";
+import { UnifiedCategoryService } from "../services/domains/inventory/unifiedCategoryService";
 import LoginTrackingTest from "../components/admin/LoginTrackingTest";
 
 export default function ManagementPage() {
@@ -217,47 +218,30 @@ function CategoryManagement() {
   const loadCategories = async () => {
     try {
       setLoading(true);
-      
-      // Use mock data in development mode
-      if (!isProductionSupabase) {
-        const mockCategories = [
-          {
-            id: "1",
-            name: "Medicines",
-            description: "General medicines and pharmaceuticals",
-            color: "#3B82F6",
-            icon: "Package",
-          },
-          {
-            id: "2", 
-            name: "Vitamins",
-            description: "Vitamins and supplements",
-            color: "#10B981",
-            icon: "Heart",
-          },
-          {
-            id: "3",
-            name: "First Aid",
-            description: "First aid supplies and emergency items",
-            color: "#F59E0B",
-            icon: "Shield",
-          }
-        ];
-        setCategories(mockCategories);
-        return;
+
+      console.log(
+        "🏷️ [ManagementPage] Loading categories via UnifiedCategoryService"
+      );
+
+      // Use the unified category service
+      const result = await UnifiedCategoryService.getAllCategories({
+        activeOnly: true,
+      });
+
+      if (result.success) {
+        setCategories(result.data || []);
+        console.log(
+          `✅ [ManagementPage] Loaded ${result.data.length} categories`
+        );
+      } else {
+        console.error(
+          "❌ [ManagementPage] Error loading categories:",
+          result.error
+        );
+        setCategories([]);
       }
-
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (error) throw error;
-      setCategories(data || []);
     } catch (error) {
-      console.error("Error loading categories:", error);
-      // Fallback to empty array on error
+      console.error("❌ [ManagementPage] Error loading categories:", error);
       setCategories([]);
     } finally {
       setLoading(false);
@@ -266,39 +250,55 @@ function CategoryManagement() {
 
   const handleCreateCategory = async (categoryData) => {
     try {
-      const { data, error } = await supabase
-        .from("categories")
-        .insert([{
-          name: categoryData.name,
-          description: categoryData.description,
-          color: categoryData.color || '#3B82F6',
-          icon: categoryData.icon || 'Package',
-        }])
-        .select()
-        .single();
+      console.log(
+        "➕ [ManagementPage] Creating category via UnifiedCategoryService"
+      );
 
-      if (error) throw error;
-      setCategories([...categories, data]);
-      setShowCreateModal(false);
+      const result = await UnifiedCategoryService.createCategory(categoryData, {
+        userId: "current-user", // Replace with actual user ID
+        source: "management_page",
+      });
+
+      if (result.success) {
+        console.log("✅ [ManagementPage] Category created successfully");
+        setCategories([...categories, result.data]);
+        setShowCreateModal(false);
+      } else {
+        console.error(
+          "❌ [ManagementPage] Error creating category:",
+          result.error
+        );
+        alert(`Failed to create category: ${result.error}`);
+      }
     } catch (error) {
-      console.error("Error creating category:", error);
+      console.error("❌ [ManagementPage] Error creating category:", error);
       alert("Failed to create category");
     }
   };
 
   const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
-    
-    try {
-      const { error } = await supabase
-        .from("categories")
-        .update({ is_active: false })
-        .eq("id", categoryId);
+    if (!window.confirm("Are you sure you want to delete this category?"))
+      return;
 
-      if (error) throw error;
-      setCategories(categories.filter(cat => cat.id !== categoryId));
+    try {
+      console.log(`🗑️ [ManagementPage] Deleting category ${categoryId}`);
+
+      const result = await UnifiedCategoryService.deleteCategory(categoryId, {
+        userId: "current-user", // Replace with actual user ID
+      });
+
+      if (result.success) {
+        console.log("✅ [ManagementPage] Category deleted successfully");
+        setCategories(categories.filter((cat) => cat.id !== categoryId));
+      } else {
+        console.error(
+          "❌ [ManagementPage] Error deleting category:",
+          result.error
+        );
+        alert(`Failed to delete category: ${result.error}`);
+      }
     } catch (error) {
-      console.error("Error deleting category:", error);
+      console.error("❌ [ManagementPage] Error deleting category:", error);
       alert("Failed to delete category");
     }
   };
@@ -315,7 +315,9 @@ function CategoryManagement() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900">Category Management</h3>
+        <h3 className="text-lg font-medium text-gray-900">
+          Category Management
+        </h3>
         <button
           onClick={() => setShowCreateModal(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
@@ -327,11 +329,14 @@ function CategoryManagement() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {categories.map((category) => (
-          <div key={category.id} className="bg-white border border-gray-200 rounded-lg p-4">
+          <div
+            key={category.id}
+            className="bg-white border border-gray-200 rounded-lg p-4"
+          >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
-                <div 
-                  className="w-4 h-4 rounded-full" 
+                <div
+                  className="w-4 h-4 rounded-full"
                   style={{ backgroundColor: category.color }}
                 ></div>
                 <h4 className="font-medium text-gray-900">{category.name}</h4>
@@ -388,16 +393,18 @@ function ArchivedProductsManagement() {
     try {
       const { error } = await supabase
         .from("products")
-        .update({ 
-          is_archived: false, 
+        .update({
+          is_archived: false,
           archived_at: null,
           archived_by: null,
-          archive_reason: null
+          archive_reason: null,
         })
         .eq("id", productId);
 
       if (error) throw error;
-      setArchivedProducts(archivedProducts.filter(product => product.id !== productId));
+      setArchivedProducts(
+        archivedProducts.filter((product) => product.id !== productId)
+      );
     } catch (error) {
       console.error("Error restoring product:", error);
       alert("Failed to restore product");
@@ -417,7 +424,9 @@ function ArchivedProductsManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium text-gray-900">Archived Products</h3>
-        <span className="text-sm text-gray-500">{archivedProducts.length} items</span>
+        <span className="text-sm text-gray-500">
+          {archivedProducts.length} items
+        </span>
       </div>
 
       {archivedProducts.length === 0 ? (
@@ -449,12 +458,18 @@ function ArchivedProductsManagement() {
                 <tr key={product.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      <div className="text-sm text-gray-500">{product.brand}</div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {product.name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {product.brand}
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {product.archived_at ? new Date(product.archived_at).toLocaleDateString() : "N/A"}
+                    {product.archived_at
+                      ? new Date(product.archived_at).toLocaleDateString()
+                      : "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {product.archive_reason || "No reason provided"}
@@ -547,36 +562,50 @@ const CreateCategoryModal = ({ onClose, onSubmit }) => {
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Create Category</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            Create Category
+          </h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Name</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Name
+              </label>
               <input
                 type="text"
                 required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Description</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Description
+              </label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                 rows={3}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Color</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Color
+              </label>
               <input
                 type="color"
                 value={formData.color}
-                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, color: e.target.value })
+                }
                 className="mt-1 block w-full h-10 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               />
             </div>

@@ -4,7 +4,7 @@ export class UserManagementService {
   // User role constants - match database schema
   static ROLES = {
     SUPER_ADMIN: "super_admin",
-    ADMIN: "admin", 
+    ADMIN: "admin",
     MANAGER: "manager",
     PHARMACIST: "pharmacist",
     CASHIER: "cashier",
@@ -47,7 +47,9 @@ export class UserManagementService {
   // Role-Permission mapping - updated for all roles
   static ROLE_PERMISSIONS = {
     [this.ROLES.SUPER_ADMIN]: Object.values(this.PERMISSIONS),
-    [this.ROLES.ADMIN]: Object.values(this.PERMISSIONS).filter(p => p !== this.PERMISSIONS.MANAGE_SETTINGS),
+    [this.ROLES.ADMIN]: Object.values(this.PERMISSIONS).filter(
+      (p) => p !== this.PERMISSIONS.MANAGE_SETTINGS
+    ),
     [this.ROLES.MANAGER]: [
       this.PERMISSIONS.VIEW_USERS,
       this.PERMISSIONS.CREATE_PRODUCTS,
@@ -73,9 +75,7 @@ export class UserManagementService {
       this.PERMISSIONS.VIEW_INVENTORY,
       this.PERMISSIONS.PROCESS_SALES,
     ],
-    [this.ROLES.STAFF]: [
-      this.PERMISSIONS.VIEW_INVENTORY,
-    ],
+    [this.ROLES.STAFF]: [this.PERMISSIONS.VIEW_INVENTORY],
   };
 
   // Get all users with their roles and permissions
@@ -88,7 +88,8 @@ export class UserManagementService {
 
       const { data, error } = await supabase
         .from("users")
-        .select(`
+        .select(
+          `
           id,
           email,
           first_name,
@@ -99,7 +100,8 @@ export class UserManagementService {
           last_login,
           created_at,
           updated_at
-        `)
+        `
+        )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -404,7 +406,7 @@ export class UserManagementService {
       const inactiveUsers = users.filter((u) => !u.is_active).length;
 
       const roleDistribution = {};
-      Object.values(this.ROLES).forEach(role => {
+      Object.values(this.ROLES).forEach((role) => {
         roleDistribution[role] = users.filter((u) => u.role === role).length;
       });
 
@@ -493,7 +495,10 @@ export class UserManagementService {
 
       if (error) throw error;
 
-      return { success: true, message: "Password reset email sent successfully" };
+      return {
+        success: true,
+        message: "Password reset email sent successfully",
+      };
     } catch (error) {
       console.error("Error resetting password:", error);
       throw error;

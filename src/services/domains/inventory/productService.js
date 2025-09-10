@@ -182,21 +182,85 @@ export class ProductService {
   // 🏷️ **CATEGORY OPERATIONS**
   static async getProductCategories() {
     try {
-      logDebug("Fetching distinct product categories");
+      logDebug("Fetching categories from unified category service");
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("category")
-        .not("category", "is", null);
+      // Import the unified category service
+      const { UnifiedCategoryService } = await import(
+        "./unifiedCategoryService.js"
+      );
 
-      if (error) throw error;
+      // Get all active categories
+      const result = await UnifiedCategoryService.getAllCategories({
+        activeOnly: true,
+      });
 
-      // Extract unique categories
-      const categories = [...new Set(data.map((item) => item.category))].sort();
-      logDebug(`Found ${categories.length} unique categories`, categories);
-      return categories;
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      const categories = result.data || [];
+      logDebug(`Found ${categories.length} categories from unified service`);
+
+      // Return categories in the format expected by components
+      return categories.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        color: cat.color,
+        icon: cat.icon,
+        sort_order: cat.sort_order,
+        is_active: cat.is_active,
+      }));
     } catch (error) {
       handleError(error, "Get product categories");
+
+      // Fallback to basic query if unified service fails
+      try {
+        logDebug("Falling back to basic category query");
+
+        const { data, error: fallbackError } = await supabase
+          .from("categories")
+          .select("id, name, description, color, icon, sort_order, is_active")
+          .eq("is_active", true)
+          .order("sort_order");
+
+        if (fallbackError) throw fallbackError;
+
+        return data || [];
+      } catch (fallbackError) {
+        handleError(fallbackError, "Get product categories fallback");
+
+        // Final fallback to mock data
+        return [
+          {
+            id: "mock-1",
+            name: "General Medicine",
+            description: "General medications",
+            color: "#6B7280",
+            icon: "Package",
+            sort_order: 10,
+            is_active: true,
+          },
+          {
+            id: "mock-2",
+            name: "Pain Relief",
+            description: "Pain management",
+            color: "#EF4444",
+            icon: "Zap",
+            sort_order: 20,
+            is_active: true,
+          },
+          {
+            id: "mock-3",
+            name: "Antibiotics",
+            description: "Antibiotic medications",
+            color: "#8B5CF6",
+            icon: "Cross",
+            sort_order: 30,
+            is_active: true,
+          },
+        ];
+      }
     }
   }
 }

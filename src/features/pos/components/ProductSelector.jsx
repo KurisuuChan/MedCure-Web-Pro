@@ -8,7 +8,7 @@ import {
   Tag,
 } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatting";
-import { SmartCategoryService } from "../../../services/domains/inventory/smartCategoryService";
+import { UnifiedCategoryService } from "../../../services/domains/inventory/unifiedCategoryService";
 import VariantSelectionModal from "./VariantSelectionModal";
 
 export default function ProductSelector({
@@ -29,7 +29,7 @@ export default function ProductSelector({
   useEffect(() => {
     const loadIntelligentCategories = async () => {
       try {
-        const result = await SmartCategoryService.getCategoryInsights();
+        const result = await UnifiedCategoryService.getCategoryInsights();
         if (result.success) {
           setIntelligentCategories(result.data.top_value_categories || []);
         }

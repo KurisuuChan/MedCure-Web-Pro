@@ -17,7 +17,7 @@ import { UserManagementService } from "../../../services/domains/auth/userManage
 // Constants moved outside component to avoid re-creation
 const ACTIVITY_TYPES = [
   "USER_CREATED",
-  "USER_UPDATED", 
+  "USER_UPDATED",
   "USER_DEACTIVATED",
   "SESSION_STARTED",
   "SESSION_ENDED",
