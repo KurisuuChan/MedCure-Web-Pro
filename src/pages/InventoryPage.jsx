@@ -34,7 +34,7 @@ import { useInventory } from "../features/inventory/hooks/useInventory";
 import ExportModal from "../components/ui/ExportModal";
 import { EnhancedImportModal } from "../components/ui/EnhancedImportModal";
 import { useAuth } from "../hooks/useAuth"; // Not currently used
-import { ProductService } from "../services";
+import { ProductService } from "../services/domains/inventory/productService";
 
 // Extracted Components
 import InventoryHeader from "../features/inventory/components/InventoryHeader";

@@ -11,7 +11,8 @@ import {
   Package,
 } from "lucide-react";
 import { formatCurrency, formatNumber } from "../utils/formatting";
-import { UserService, DashboardService } from "../services";
+import { UserService } from "../services/domains/auth/userService";
+import { DashboardService } from "../services/domains/analytics/dashboardService";
 import LoginTrackingTest from "../components/admin/LoginTrackingTest";
 
 export default function ManagementPage() {

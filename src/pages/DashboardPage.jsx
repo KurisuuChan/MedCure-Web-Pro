@@ -23,7 +23,7 @@ import {
   Pill,
   UserCheck,
 } from "lucide-react";
-import { DashboardService } from "../services";
+import { DashboardService } from "../services/domains/analytics/dashboardService";
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 
