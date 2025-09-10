@@ -2,7 +2,7 @@
  * Simple Desktop Notification Service with Real-time Updates
  * Focused on essential pharmacy alerts with browser permissions
  */
-import { supabase } from "../../../config/supabase";
+import { supabase, isProductionSupabase } from "../../../config/supabase.js";
 
 export class SimpleNotificationService {
   static NOTIFICATION_TYPES = {
@@ -201,6 +201,12 @@ export class SimpleNotificationService {
 
   // Start real-time monitoring for stock changes
   static async startRealtimeMonitoring() {
+    // Skip real-time monitoring in development mode
+    if (!isProductionSupabase) {
+      console.log("🔕 Real-time monitoring disabled in development mode");
+      return;
+    }
+
     if (this.getPermissionStatus() !== "granted") {
       console.log("Notifications not enabled, skipping real-time monitoring");
       return;

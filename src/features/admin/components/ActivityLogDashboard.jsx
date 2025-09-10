@@ -3,7 +3,6 @@ import {
   Activity,
   Clock,
   User,
-  Filter,
   Search,
   RefreshCw,
   Download,
@@ -12,9 +11,22 @@ import {
   CheckCircle,
   XCircle,
   Info,
-  Calendar,
 } from "lucide-react";
-import UserManagementService from "../../../services/userManagementService";
+import { UserManagementService } from "../../../services/domains/auth/userManagementService";
+
+// Constants moved outside component to avoid re-creation
+const ACTIVITY_TYPES = [
+  "USER_CREATED",
+  "USER_UPDATED", 
+  "USER_DEACTIVATED",
+  "SESSION_STARTED",
+  "SESSION_ENDED",
+  "PASSWORD_RESET_REQUESTED",
+  "PERMISSION_CHANGED",
+  "BULK_USER_UPDATE",
+  "LOGIN_ATTEMPT",
+  "LOGOUT",
+];
 
 const ActivityLogDashboard = () => {
   const [activities, setActivities] = useState([]);
@@ -26,28 +38,6 @@ const ActivityLogDashboard = () => {
   const [dateRange, setDateRange] = useState("all");
   const [selectedUserId, setSelectedUserId] = useState("all");
   const [users, setUsers] = useState([]);
-
-  const activityTypes = [
-    "USER_CREATED",
-    "USER_UPDATED",
-    "USER_DEACTIVATED",
-    "SESSION_STARTED",
-    "SESSION_ENDED",
-    "PASSWORD_RESET_REQUESTED",
-    "PERMISSION_CHANGED",
-    "BULK_USER_UPDATE",
-    "LOGIN_ATTEMPT",
-    "LOGOUT",
-  ];
-
-  useEffect(() => {
-    loadActivities();
-    loadUsers();
-  }, []);
-
-  useEffect(() => {
-    filterActivities();
-  }, [filterActivities]);
 
   const loadActivities = useCallback(async () => {
     try {
@@ -64,14 +54,14 @@ const ActivityLogDashboard = () => {
     }
   }, [generateMockActivities]);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const userData = await UserManagementService.getAllUsers();
       setUsers(userData);
     } catch (error) {
       console.error("Error loading users:", error);
     }
-  };
+  }, []);
 
   const generateMockActivities = useCallback(() => {
     const activities = [];
@@ -85,7 +75,7 @@ const ActivityLogDashboard = () => {
         id: i + 1,
         user_id: `user-${Math.floor(Math.random() * 5) + 1}`,
         activity_type:
-          activityTypes[Math.floor(Math.random() * activityTypes.length)],
+          ACTIVITY_TYPES[Math.floor(Math.random() * ACTIVITY_TYPES.length)],
         description: generateActivityDescription(),
         ip_address: `192.168.1.${Math.floor(Math.random() * 255)}`,
         user_agent:
@@ -175,6 +165,17 @@ const ActivityLogDashboard = () => {
 
     setFilteredActivities(filtered);
   }, [activities, searchTerm, filterType, dateRange, selectedUserId]);
+
+  // Effect to load initial data
+  useEffect(() => {
+    loadActivities();
+    loadUsers();
+  }, [loadActivities, loadUsers]);
+
+  // Effect to filter activities when dependencies change
+  useEffect(() => {
+    filterActivities();
+  }, [filterActivities]);
 
   const getActivityIcon = (type) => {
     const icons = {
@@ -289,7 +290,7 @@ const ActivityLogDashboard = () => {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Activity Types</option>
-            {activityTypes.map((type) => (
+            {ACTIVITY_TYPES.map((type) => (
               <option key={type} value={type}>
                 {type.replace("_", " ")}
               </option>

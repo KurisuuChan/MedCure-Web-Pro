@@ -19,7 +19,7 @@ import {
   UserX,
   Key,
 } from "lucide-react";
-import UserManagementService from "../../../services/userManagementService";
+import { UserManagementService } from "../../../services/domains/auth/userManagementService";
 
 const UserManagementDashboard = () => {
   const [users, setUsers] = useState([]);

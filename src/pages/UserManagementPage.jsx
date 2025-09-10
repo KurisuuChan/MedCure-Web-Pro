@@ -3,15 +3,14 @@ import {
   Users,
   Shield,
   Activity,
-  Settings,
   UserCheck,
   Lock,
   BarChart3,
-  RefreshCw,
 } from "lucide-react";
 import UserManagementDashboard from "../features/admin/components/UserManagementDashboard";
 import RolePermissionManager from "../features/admin/components/RolePermissionManager";
 import ActivityLogDashboard from "../features/admin/components/ActivityLogDashboard";
+import UserAnalyticsDashboard from "../features/admin/components/UserAnalyticsDashboard";
 
 const UserManagementPage = () => {
   const [activeTab, setActiveTab] = useState("users");
