@@ -12,7 +12,7 @@ import {
   Legend,
   Filler,
 } from "chart.js";
-import { Line, Bar, Pie, Doughnut } from "react-chartjs-2";
+import { Line, Bar, Doughnut } from "react-chartjs-2";
 import {
   TrendingUp,
   BarChart3,
@@ -20,16 +20,13 @@ import {
   DollarSign,
   Package,
   ShoppingCart,
-  Users,
-  Calendar,
   RefreshCw,
   Download,
-  Filter,
-  Eye,
   Activity,
   AlertTriangle,
   ArrowUp,
   ArrowDown,
+  FileText,
 } from "lucide-react";
 import { AnalyticsService } from "../services/domains/analytics/analyticsService";
 import { formatCurrency, formatNumber } from "../utils/formatting";
@@ -585,7 +582,8 @@ export default function EnhancedAnalyticsDashboard() {
   );
 }
 
-// Reusable Components
+// Reusable Components  
+// eslint-disable-next-line no-unused-vars
 const MetricCard = ({ title, value, icon: Icon, color, trend, trendText }) => {
   const colorClasses = {
     green: "bg-green-50 text-green-600 border-green-200",
@@ -631,6 +629,7 @@ const MetricCard = ({ title, value, icon: Icon, color, trend, trendText }) => {
   );
 };
 
+// eslint-disable-next-line no-unused-vars
 const ChartWidget = ({ title, subtitle, icon: Icon, children }) => {
   return (
     <div className="bg-white rounded-lg shadow">
@@ -649,3 +648,5 @@ const ChartWidget = ({ title, subtitle, icon: Icon, children }) => {
     </div>
   );
 };
+
+
