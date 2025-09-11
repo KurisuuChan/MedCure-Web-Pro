@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   Info,
 } from "lucide-react";
-import UserManagementService from "../../../services/userManagementService";
+import { UserManagementService } from "../../../services/domains/auth/userManagementService";
 
 const RolePermissionManager = () => {
   const [selectedRole, setSelectedRole] = useState("staff");

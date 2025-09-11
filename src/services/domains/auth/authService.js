@@ -2,7 +2,7 @@
 // Handles authentication operations
 // Professional database-only implementation with Supabase
 
-import { supabase } from "../../../config/supabase";
+import { supabase, isProductionSupabase } from "../../../config/supabase";
 import { logDebug, handleError } from "../../core/serviceUtils";
 import UserService from "./userService";
 
@@ -10,6 +10,11 @@ export class AuthService {
   static async signIn(email, password) {
     try {
       logDebug(`Attempting sign in for email: ${email}`);
+
+      // In development mode, use mock authentication
+      if (!isProductionSupabase) {
+        return this.mockSignIn(email, password);
+      }
 
       // Supabase authentication
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -34,12 +39,71 @@ export class AuthService {
     }
   }
 
+  static async mockSignIn(email, password) {
+    // Mock authentication for development
+    const mockUsers = [
+      {
+        id: "1",
+        email: "admin@medcure.com",
+        password: "admin123",
+        first_name: "Admin",
+        last_name: "User",
+        role: "admin",
+        is_active: true,
+      },
+      {
+        id: "2",
+        email: "manager@medcure.com",
+        password: "manager123",
+        first_name: "Manager",
+        last_name: "User",
+        role: "manager",
+        is_active: true,
+      },
+      {
+        id: "3",
+        email: "staff@medcure.com",
+        password: "staff123",
+        first_name: "Staff",
+        last_name: "User",
+        role: "staff",
+        is_active: true,
+      },
+    ];
+
+    const user = mockUsers.find(
+      (u) => u.email === email && u.password === password
+    );
+
+    if (!user) {
+      throw new Error("Invalid email or password");
+    }
+
+    // Remove password from response
+    const { password: _, ...userProfile } = user;
+
+    return {
+      user: userProfile,
+      session: { access_token: "mock-token", user: userProfile },
+    };
+  }
+
   static async signOut() {
     try {
       logDebug("Attempting sign out");
 
+      // In development mode, just clear localStorage
+      if (!isProductionSupabase) {
+        localStorage.removeItem("medcure-current-user");
+        logDebug("Successfully signed out (mock)");
+        return { success: true };
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+
+      // Also clear localStorage
+      localStorage.removeItem("medcure-current-user");
 
       logDebug("Successfully signed out");
       return { success: true };
@@ -51,6 +115,17 @@ export class AuthService {
   static async getCurrentUser() {
     try {
       logDebug("Fetching current user");
+
+      // In development mode, get user from localStorage
+      if (!isProductionSupabase) {
+        const storedUser = localStorage.getItem("medcure-current-user");
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          logDebug("Successfully fetched current user from localStorage", user);
+          return user;
+        }
+        return null;
+      }
 
       const {
         data: { user },

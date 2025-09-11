@@ -259,6 +259,55 @@ export class ProductService {
       }
     }
   }
+
+  static async searchProducts(query) {
+    try {
+      logDebug(`Searching products with query: ${query}`);
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .or(
+          `name.ilike.%${query}%,brand.ilike.%${query}%,description.ilike.%${query}%`
+        )
+        .order("name");
+
+      if (error) throw error;
+
+      logDebug(`Successfully found ${data?.length || 0} products`);
+      return data || [];
+    } catch (error) {
+      console.error("❌ ProductService.searchProducts() failed:", error);
+      handleError(error, "Search products");
+      return [];
+    }
+  }
+
+  static async getExpiringProducts(days = 30) {
+    try {
+      logDebug(`Fetching products expiring in ${days} days`);
+
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + days);
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .lte("expiry_date", futureDate.toISOString())
+        .gte("expiry_date", new Date().toISOString())
+        .eq("is_active", true)
+        .order("expiry_date");
+
+      if (error) throw error;
+
+      logDebug(`Successfully fetched ${data?.length || 0} expiring products`);
+      return data || [];
+    } catch (error) {
+      console.error("❌ ProductService.getExpiringProducts() failed:", error);
+      handleError(error, "Get expiring products");
+      return [];
+    }
+  }
 }
 
 export default ProductService;

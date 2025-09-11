@@ -10,6 +10,7 @@ import {
   DollarSign,
   Package,
   RefreshCw,
+  Info,
 } from "lucide-react";
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import { DashboardService } from "../services/domains/analytics/dashboardService";
@@ -163,6 +164,47 @@ export default function ManagementPage() {
             <p className="text-xs text-gray-500 mt-2">
               {systemStats.storageUsed}/{systemStats.storageTotal} storage
             </p>
+          </div>
+        </div>
+
+        {/* Admin Access Info Panel */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start space-x-3">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-medium text-blue-900 mb-1">
+                Admin Access Required
+              </h3>
+              <p className="text-sm text-blue-700 mb-3">
+                Management features require admin privileges. For testing, use
+                these credentials:
+              </p>
+              <div className="bg-white rounded p-3 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <strong>Admin:</strong>
+                    <br />
+                    Email: admin@medcure.com
+                    <br />
+                    Password: admin123
+                  </div>
+                  <div>
+                    <strong>Manager:</strong>
+                    <br />
+                    Email: manager@medcure.com
+                    <br />
+                    Password: manager123
+                  </div>
+                  <div>
+                    <strong>Staff:</strong>
+                    <br />
+                    Email: staff@medcure.com
+                    <br />
+                    Password: staff123
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

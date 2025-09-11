@@ -15,15 +15,13 @@ export class DashboardService {
       logDebug("Fetching dashboard data");
 
       // Aggregate real data from multiple sources
-      const [salesDataResponse, productsData, usersDataResponse] =
-        await Promise.all([
-          SalesService.getSales(30), // Last 30 sales
-          ProductService.getProducts(),
-          UserService.getUsers(),
-        ]);
+      const [salesData, productsData, usersDataResponse] = await Promise.all([
+        SalesService.getSales(30), // Last 30 sales - returns data directly
+        ProductService.getProducts(), // Returns data directly
+        UserService.getUsers(), // Returns wrapped response
+      ]);
 
       // Extract actual data from wrapped responses
-      const salesData = salesDataResponse || [];
       const usersData = usersDataResponse.success ? usersDataResponse.data : [];
 
       logDebug("Dashboard data fetched:", {
@@ -51,6 +49,13 @@ export class DashboardService {
         todaySales: totalSales, // For Management page
         recentSales: salesData.slice(0, 5),
         salesTrend: salesData.slice(0, 7).reverse(), // Last 7 days
+
+        // Add analytics object for ManagementPage compatibility
+        analytics: {
+          totalProducts: productsData.length,
+          lowStockProducts: lowStockProducts.length,
+          todaysSales: totalSales,
+        },
 
         // Add the expected structure for DashboardPage
         todayMetrics: {
@@ -203,6 +208,14 @@ export class DashboardService {
           todaySales: 0,
           recentSales: [],
           salesTrend: [],
+
+          // Add analytics object for ManagementPage compatibility
+          analytics: {
+            totalProducts: 0,
+            lowStockProducts: 0,
+            todaysSales: 0,
+          },
+
           getCriticalAlerts: () => ({
             lowStock: [],
             expiring: [],

@@ -106,7 +106,13 @@ export default function ProductSelector({
   };
 
   const isProductAvailable = (product) => {
-    return product.stock_in_pieces > 0;
+    // Calculate real-time available stock considering cart items
+    const cartQuantity = cartItems
+      .filter((item) => item.productId === product.id)
+      .reduce((total, item) => total + item.quantityInPieces, 0);
+
+    const availableStock = Math.max(0, product.stock_in_pieces - cartQuantity);
+    return availableStock > 0;
   };
 
   return (
@@ -239,7 +245,7 @@ export default function ProductSelector({
                           </span>
                         </div>
 
-                        {/* Pricing and Stock Info */}
+                        {/* Pricing and Stock Info with Real-time Updates */}
                         <div className="flex items-center space-x-6">
                           <div className="bg-green-50 px-4 py-2 rounded-xl border border-green-200">
                             <span className="text-green-600 text-sm font-medium">
@@ -253,6 +259,7 @@ export default function ProductSelector({
                             </span>
                           </div>
 
+                          {/* Enhanced Real-Time Stock Display */}
                           <div
                             className={`px-4 py-2 rounded-xl border ${
                               product.stock_in_pieces <=
@@ -262,7 +269,7 @@ export default function ProductSelector({
                             }`}
                           >
                             <span className="text-gray-600 text-sm font-medium">
-                              Stock:{" "}
+                              Available:{" "}
                             </span>
                             <span
                               className={`font-bold text-lg ${
@@ -272,12 +279,42 @@ export default function ProductSelector({
                                   : "text-gray-800"
                               }`}
                             >
-                              {product.stock_in_pieces}
+                              {(() => {
+                                // Calculate real-time available stock
+                                const cartQuantity = cartItems
+                                  .filter(
+                                    (item) => item.productId === product.id
+                                  )
+                                  .reduce(
+                                    (total, item) =>
+                                      total + item.quantityInPieces,
+                                    0
+                                  );
+                                const availableStock = Math.max(
+                                  0,
+                                  product.stock_in_pieces - cartQuantity
+                                );
+                                return availableStock;
+                              })()}
                             </span>
                             <span className="text-gray-600 text-sm font-medium">
                               {" "}
                               pieces
                             </span>
+                            {(() => {
+                              const cartQuantity = cartItems
+                                .filter((item) => item.productId === product.id)
+                                .reduce(
+                                  (total, item) =>
+                                    total + item.quantityInPieces,
+                                  0
+                                );
+                              return cartQuantity > 0 ? (
+                                <div className="text-xs text-blue-600 font-medium mt-1">
+                                  ({cartQuantity} in cart)
+                                </div>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -297,18 +334,86 @@ export default function ProductSelector({
                     </div>
                   </div>
 
-                  {/* Enhanced Low Stock Warning */}
+                  {/* Enhanced Low Stock Warning with Progress Bar */}
                   {isAvailable &&
                     product.stock_in_pieces <= (product.reorder_level || 0) && (
                       <div className="mt-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-400 rounded-lg">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 mb-2">
                           <div className="bg-amber-100 p-1 rounded-full">
                             <AlertTriangle className="h-4 w-4 text-amber-600" />
                           </div>
                           <p className="text-sm font-semibold text-amber-800">
-                            ⚠️ Low Stock Alert: Only {product.stock_in_pieces}{" "}
-                            pieces remaining
+                            ⚠️ Low Stock Alert: Only{" "}
+                            {(() => {
+                              const cartQuantity = cartItems
+                                .filter((item) => item.productId === product.id)
+                                .reduce(
+                                  (total, item) =>
+                                    total + item.quantityInPieces,
+                                  0
+                                );
+                              return Math.max(
+                                0,
+                                product.stock_in_pieces - cartQuantity
+                              );
+                            })()}{" "}
+                            pieces available
                           </p>
+                        </div>
+                        {/* Stock Progress Bar */}
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full transition-all duration-300 ${(() => {
+                              const cartQuantity = cartItems
+                                .filter((item) => item.productId === product.id)
+                                .reduce(
+                                  (total, item) =>
+                                    total + item.quantityInPieces,
+                                  0
+                                );
+                              const availableStock = Math.max(
+                                0,
+                                product.stock_in_pieces - cartQuantity
+                              );
+                              const percentage =
+                                (availableStock /
+                                  (product.reorder_level || 10)) *
+                                100;
+                              return percentage > 50
+                                ? "bg-green-500"
+                                : percentage > 25
+                                ? "bg-yellow-500"
+                                : "bg-red-500";
+                            })()}`}
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  (() => {
+                                    const cartQuantity = cartItems
+                                      .filter(
+                                        (item) => item.productId === product.id
+                                      )
+                                      .reduce(
+                                        (total, item) =>
+                                          total + item.quantityInPieces,
+                                        0
+                                      );
+                                    const availableStock = Math.max(
+                                      0,
+                                      product.stock_in_pieces - cartQuantity
+                                    );
+                                    return (
+                                      (availableStock /
+                                        (product.reorder_level || 10)) *
+                                      100
+                                    );
+                                  })()
+                                )
+                              )}%`,
+                            }}
+                          ></div>
                         </div>
                       </div>
                     )}

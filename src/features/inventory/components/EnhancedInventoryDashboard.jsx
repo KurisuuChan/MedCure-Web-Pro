@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -33,99 +33,11 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-// Mock services and utilities since they are not provided
-const ProductService = {
-  async getProducts() {
-    // In a real app, this would fetch from an API.
-    // Returning a mock list of products for demonstration.
-    return [
-      {
-        id: 1,
-        name: "Paracetamol 500mg",
-        category: "Pain Relief",
-        stock_in_pieces: 150,
-        reorder_level: 50,
-        price_per_piece: 5,
-        cost_price: 3,
-        expiry_date: "2025-12-31",
-        supplier: "Pharma Inc.",
-        updated_at: "2023-10-01",
-      },
-      {
-        id: 2,
-        name: "Amoxicillin 250mg",
-        category: "Antibiotics",
-        stock_in_pieces: 20,
-        reorder_level: 30,
-        price_per_piece: 12,
-        cost_price: 8,
-        expiry_date: "2024-05-15",
-        supplier: "MediCorp",
-        updated_at: "2023-09-15",
-      },
-      {
-        id: 3,
-        name: "Vitamin C 1000mg",
-        category: "Vitamins",
-        stock_in_pieces: 300,
-        reorder_level: 100,
-        price_per_piece: 8,
-        cost_price: 5,
-        expiry_date: "2026-08-01",
-        supplier: "HealthPlus",
-        updated_at: "2023-10-05",
-      },
-      {
-        id: 4,
-        name: "Loratadine 10mg",
-        category: "Respiratory",
-        stock_in_pieces: 5,
-        reorder_level: 20,
-        price_per_piece: 7,
-        cost_price: 4,
-        expiry_date: "2025-06-30",
-        supplier: "Pharma Inc.",
-        updated_at: "2023-08-20",
-      },
-      {
-        id: 5,
-        name: "Omeprazole 20mg",
-        category: "Digestive Health",
-        stock_in_pieces: 80,
-        reorder_level: 40,
-        price_per_piece: 15,
-        cost_price: 10,
-        expiry_date: "2024-01-20",
-        supplier: "MediCorp",
-        updated_at: "2023-09-28",
-      },
-      {
-        id: 6,
-        name: "Aspirin 81mg",
-        category: "Cardiovascular",
-        stock_in_pieces: 0,
-        reorder_level: 60,
-        price_per_piece: 4,
-        cost_price: 2,
-        expiry_date: "2026-02-10",
-        supplier: "HealthPlus",
-        updated_at: "2023-07-11",
-      },
-    ];
-  },
-  async getProductById(id) {
-    const products = await this.getProducts();
-    return products.find((p) => p.id === id);
-  },
-};
+// Import REAL services instead of mock data
+import { ProductService } from "../../../services/domains/inventory/productService";
 
-const formatCurrency = (amount) =>
-  `₱${amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-const formatNumber = (num) => num.toLocaleString("en-US");
-const formatDate = (date) => new Date(date).toLocaleDateString("en-US");
+// Import utility functions
+import { formatCurrency } from "../../../utils/formatting";
 
 const EnhancedInventoryDashboard = () => {
   const [orderSuggestions, setOrderSuggestions] = useState([]);
@@ -134,273 +46,275 @@ const EnhancedInventoryDashboard = () => {
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [selectedTimeframe, setSelectedTimeframe] = useState("30"); // days
   const [isAutoReordering, setIsAutoReordering] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [exportingReport, setExportingReport] = useState(false);
 
   // Professional Order Intelligence Service
-  const OrderIntelligenceService = {
-    // Calculate intelligent order suggestions based on sales velocity and stock levels
-    async generateOrderSuggestions() {
-      try {
-        const products = await ProductService.getProducts();
-        const suggestions = [];
+  const OrderIntelligenceService = useMemo(
+    () => ({
+      // Calculate intelligent order suggestions based on sales velocity and stock levels
+      async generateOrderSuggestions() {
+        try {
+          const products = await ProductService.getProducts();
+          const suggestions = [];
 
-        for (const product of products) {
-          const stockLevel = product.stock_in_pieces || 0;
-          const reorderLevel = product.reorder_level || 10;
-          const avgDailySales = await this.calculateDailySalesVelocity(
-            product.id
-          );
-          const daysUntilStockout = stockLevel / (avgDailySales || 0.1);
-
-          // Calculate suggested order quantity
-          const leadTimeDays = 7; // Assume 7-day lead time
-          const safetyStockDays = 14; // 14-day safety stock
-          const suggestedQuantity = Math.ceil(
-            avgDailySales * (leadTimeDays + safetyStockDays) - stockLevel
-          );
-
-          // Determine urgency level
-          let urgency = "low";
-          let urgencyColor = "green";
-          if (stockLevel <= reorderLevel) {
-            urgency = "critical";
-            urgencyColor = "red";
-          } else if (daysUntilStockout <= 14) {
-            urgency = "high";
-            urgencyColor = "orange";
-          } else if (daysUntilStockout <= 30) {
-            urgency = "medium";
-            urgencyColor = "yellow";
-          }
-
-          // Calculate potential revenue impact
-          const potentialLostSales = Math.max(
-            0,
-            avgDailySales * Math.max(0, 7 - daysUntilStockout)
-          );
-          const revenueAtRisk = potentialLostSales * product.price_per_piece;
-
-          if (suggestedQuantity > 0 || urgency !== "low") {
-            suggestions.push({
-              id: product.id,
-              name: product.name,
-              category: product.category,
-              currentStock: stockLevel,
-              reorderLevel: reorderLevel,
-              suggestedQuantity: Math.max(suggestedQuantity, reorderLevel),
-              urgency,
-              urgencyColor,
-              daysUntilStockout: Math.round(daysUntilStockout),
-              avgDailySales: avgDailySales.toFixed(1),
-              revenueAtRisk,
-              costToOrder:
-                suggestedQuantity *
-                (product.cost_price || product.price_per_piece * 0.7),
-              supplier: product.supplier || "Unknown",
-              lastOrderDate: product.updated_at,
-            });
-          }
-        }
-
-        // Sort by urgency and revenue impact
-        return suggestions.sort((a, b) => {
-          const urgencyOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-          if (urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]) {
-            return urgencyOrder[b.urgency] - urgencyOrder[a.urgency];
-          }
-          return b.revenueAtRisk - a.revenueAtRisk;
-        });
-      } catch (error) {
-        console.error("Error generating order suggestions:", error);
-        return [];
-      }
-    },
-
-    // Calculate daily sales velocity (simplified - in real system would use sales history)
-    async calculateDailySalesVelocity(productId) {
-      try {
-        const product = await ProductService.getProductById(productId);
-        if (!product) return 0;
-
-        const categoryMultipliers = {
-          "Pain Relief": 2.5,
-          Antibiotics: 2.0,
-          Vitamins: 1.5,
-          Respiratory: 3.0,
-          "Digestive Health": 1.8,
-          Cardiovascular: 1.2,
-          "Skin Care": 1.0,
-          "General Medicine": 1.3,
-        };
-
-        const baseVelocity = categoryMultipliers[product.category] || 1.0;
-        const stockInfluence = Math.min(product.stock_in_pieces / 100, 2);
-        const priceInfluence = Math.max(0.5, 100 / product.price_per_piece);
-
-        return (
-          baseVelocity *
-          stockInfluence *
-          priceInfluence *
-          (Math.random() * 0.5 + 0.75)
-        );
-      } catch (error) {
-        return 0.5;
-      }
-    },
-
-    // Analyze profitability and suggest focus areas
-    async analyzeProfitability() {
-      try {
-        const products = await ProductService.getProducts();
-        const insights = [];
-        const categoryProfits = {};
-        let totalProfit = 0;
-
-        products.forEach((product) => {
-          const costPrice = product.cost_price || product.price_per_piece * 0.7;
-          const margin = product.price_per_piece - costPrice;
-          const stockValue = product.stock_in_pieces * margin;
-
-          if (!categoryProfits[product.category]) {
-            categoryProfits[product.category] = {
-              margin: 0,
-              stockValue: 0,
-              productCount: 0,
-            };
-          }
-
-          categoryProfits[product.category].margin += margin;
-          categoryProfits[product.category].stockValue += stockValue;
-          categoryProfits[product.category].productCount += 1;
-          totalProfit += stockValue;
-        });
-
-        Object.keys(categoryProfits).forEach((category) => {
-          const data = categoryProfits[category];
-          data.averageMargin = data.margin / data.productCount;
-          data.profitShare = (data.stockValue / totalProfit) * 100;
-
-          let recommendation = "";
-          if (data.averageMargin > 50) {
-            recommendation = "High-margin: consider expanding inventory.";
-          } else if (data.averageMargin < 20) {
-            recommendation = "Low-margin: review pricing strategy.";
-          } else {
-            recommendation = "Balanced margins: maintain current strategy.";
-          }
-
-          insights.push({
-            category,
-            averageMargin: data.averageMargin,
-            profitShare: data.profitShare,
-            productCount: data.productCount,
-            totalStockValue: data.stockValue,
-            recommendation,
-            priority:
-              data.averageMargin > 40
-                ? "high"
-                : data.averageMargin > 25
-                ? "medium"
-                : "low",
-          });
-        });
-
-        return insights.sort((a, b) => b.profitShare - a.profitShare);
-      } catch (error) {
-        console.error("Error analyzing profitability:", error);
-        return [];
-      }
-    },
-
-    // Generate critical business alerts
-    async generateCriticalAlerts() {
-      try {
-        const products = await ProductService.getProducts();
-        const alerts = [];
-
-        products.forEach((product) => {
-          const stockLevel = product.stock_in_pieces || 0;
-          const reorderLevel = product.reorder_level || 10;
-
-          if (stockLevel === 0) {
-            alerts.push({
-              type: "stock-out",
-              severity: "critical",
-              product: product.name,
-              message: `${product.name} is out of stock`,
-              action: "Order immediately",
-              impact: "Lost sales",
-              icon: XCircle,
-              color: "red",
-            });
-          } else if (stockLevel <= reorderLevel) {
-            alerts.push({
-              type: "low-stock",
-              severity: "high",
-              product: product.name,
-              message: `${product.name} below reorder level (${stockLevel}/${reorderLevel})`,
-              action: "Place order soon",
-              impact: "Potential stock-out",
-              icon: AlertTriangle,
-              color: "orange",
-            });
-          }
-
-          if (product.expiry_date) {
-            const daysUntilExpiry = Math.ceil(
-              (new Date(product.expiry_date) - new Date()) /
-                (1000 * 60 * 60 * 24)
+          for (const product of products) {
+            const stockLevel = product.stock_in_pieces || 0;
+            const reorderLevel = product.reorder_level || 10;
+            const avgDailySales = await this.calculateDailySalesVelocity(
+              product.id
             );
-            if (
-              daysUntilExpiry <= 30 &&
-              daysUntilExpiry > 0 &&
-              stockLevel > 0
-            ) {
-              alerts.push({
-                type: "expiry",
-                severity: daysUntilExpiry <= 7 ? "critical" : "medium",
-                product: product.name,
-                message: `${product.name} expires in ${daysUntilExpiry} days`,
-                action: "Discount or promote",
-                impact: `Potential loss: ${formatCurrency(
-                  stockLevel * product.price_per_piece
-                )}`,
-                icon: Clock,
-                color: daysUntilExpiry <= 7 ? "red" : "yellow",
+            const daysUntilStockout = stockLevel / (avgDailySales || 0.1);
+
+            // Calculate suggested order quantity
+            const leadTimeDays = 7; // Assume 7-day lead time
+            const safetyStockDays = 14; // 14-day safety stock
+            const suggestedQuantity = Math.ceil(
+              avgDailySales * (leadTimeDays + safetyStockDays) - stockLevel
+            );
+
+            // Determine urgency level
+            let urgency = "low";
+            let urgencyColor = "green";
+            if (stockLevel <= reorderLevel) {
+              urgency = "critical";
+              urgencyColor = "red";
+            } else if (daysUntilStockout <= 14) {
+              urgency = "high";
+              urgencyColor = "orange";
+            } else if (daysUntilStockout <= 30) {
+              urgency = "medium";
+              urgencyColor = "yellow";
+            }
+
+            // Calculate potential revenue impact
+            const potentialLostSales = Math.max(
+              0,
+              avgDailySales * Math.max(0, 7 - daysUntilStockout)
+            );
+            const revenueAtRisk = potentialLostSales * product.price_per_piece;
+
+            if (suggestedQuantity > 0 || urgency !== "low") {
+              suggestions.push({
+                id: product.id,
+                name: product.name,
+                category: product.category,
+                currentStock: stockLevel,
+                reorderLevel: reorderLevel,
+                suggestedQuantity: Math.max(suggestedQuantity, reorderLevel),
+                urgency,
+                urgencyColor,
+                daysUntilStockout: Math.round(daysUntilStockout),
+                avgDailySales: avgDailySales.toFixed(1),
+                revenueAtRisk,
+                costToOrder:
+                  suggestedQuantity *
+                  (product.cost_price || product.price_per_piece * 0.7),
+                supplier: product.supplier || "Unknown",
+                lastOrderDate: product.updated_at,
               });
             }
           }
 
-          const estimatedValue = stockLevel * product.price_per_piece;
-          if (estimatedValue > 5000 && stockLevel > 50) {
-            alerts.push({
-              type: "slow-mover",
-              severity: "medium",
-              product: product.name,
-              message: `High-value slow mover: ${formatCurrency(
-                estimatedValue
-              )}`,
-              action: "Review demand",
-              impact: "Capital tied up",
-              icon: TrendingDown,
-              color: "blue",
-            });
-          }
-        });
+          // Sort by urgency and revenue impact
+          return suggestions.sort((a, b) => {
+            const urgencyOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+            if (urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]) {
+              return urgencyOrder[b.urgency] - urgencyOrder[a.urgency];
+            }
+            return b.revenueAtRisk - a.revenueAtRisk;
+          });
+        } catch (error) {
+          console.error("Error generating order suggestions:", error);
+          return [];
+        }
+      },
 
-        return alerts.sort((a, b) => {
-          const severityOrder = { critical: 3, high: 2, medium: 1, low: 0 };
-          return severityOrder[b.severity] - severityOrder[a.severity];
-        });
-      } catch (error) {
-        console.error("Error generating alerts:", error);
-        return [];
-      }
-    },
-  };
+      // Calculate daily sales velocity (simplified - in real system would use sales history)
+      async calculateDailySalesVelocity(productId) {
+        try {
+          const product = await ProductService.getProductById(productId);
+          if (!product) return 0;
+
+          const categoryMultipliers = {
+            "Pain Relief": 2.5,
+            Antibiotics: 2.0,
+            Vitamins: 1.5,
+            Respiratory: 3.0,
+            "Digestive Health": 1.8,
+            Cardiovascular: 1.2,
+            "Skin Care": 1.0,
+            "General Medicine": 1.3,
+          };
+
+          const baseVelocity = categoryMultipliers[product.category] || 1.0;
+          const stockInfluence = Math.min(product.stock_in_pieces / 100, 2);
+          const priceInfluence = Math.max(0.5, 100 / product.price_per_piece);
+
+          return (
+            baseVelocity *
+            stockInfluence *
+            priceInfluence *
+            (Math.random() * 0.5 + 0.75)
+          );
+        } catch {
+          return 0.5;
+        }
+      },
+
+      // Analyze profitability and suggest focus areas
+      async analyzeProfitability() {
+        try {
+          const products = await ProductService.getProducts();
+          const insights = [];
+          const categoryProfits = {};
+          let totalProfit = 0;
+
+          products.forEach((product) => {
+            const costPrice =
+              product.cost_price || product.price_per_piece * 0.7;
+            const margin = product.price_per_piece - costPrice;
+            const stockValue = product.stock_in_pieces * margin;
+
+            if (!categoryProfits[product.category]) {
+              categoryProfits[product.category] = {
+                margin: 0,
+                stockValue: 0,
+                productCount: 0,
+              };
+            }
+
+            categoryProfits[product.category].margin += margin;
+            categoryProfits[product.category].stockValue += stockValue;
+            categoryProfits[product.category].productCount += 1;
+            totalProfit += stockValue;
+          });
+
+          Object.keys(categoryProfits).forEach((category) => {
+            const data = categoryProfits[category];
+            data.averageMargin = data.margin / data.productCount;
+            data.profitShare = (data.stockValue / totalProfit) * 100;
+
+            let recommendation = "";
+            if (data.averageMargin > 50) {
+              recommendation = "High-margin: consider expanding inventory.";
+            } else if (data.averageMargin < 20) {
+              recommendation = "Low-margin: review pricing strategy.";
+            } else {
+              recommendation = "Balanced margins: maintain current strategy.";
+            }
+
+            insights.push({
+              category,
+              averageMargin: data.averageMargin,
+              profitShare: data.profitShare,
+              productCount: data.productCount,
+              totalStockValue: data.stockValue,
+              recommendation,
+              priority:
+                data.averageMargin > 40
+                  ? "high"
+                  : data.averageMargin > 25
+                  ? "medium"
+                  : "low",
+            });
+          });
+
+          return insights.sort((a, b) => b.profitShare - a.profitShare);
+        } catch (error) {
+          console.error("Error analyzing profitability:", error);
+          return [];
+        }
+      },
+
+      // Generate critical business alerts
+      async generateCriticalAlerts() {
+        try {
+          const products = await ProductService.getProducts();
+          const alerts = [];
+
+          products.forEach((product) => {
+            const stockLevel = product.stock_in_pieces || 0;
+            const reorderLevel = product.reorder_level || 10;
+
+            if (stockLevel === 0) {
+              alerts.push({
+                type: "stock-out",
+                severity: "critical",
+                product: product.name,
+                message: `${product.name} is out of stock`,
+                action: "Order immediately",
+                impact: "Lost sales",
+                icon: XCircle,
+                color: "red",
+              });
+            } else if (stockLevel <= reorderLevel) {
+              alerts.push({
+                type: "low-stock",
+                severity: "high",
+                product: product.name,
+                message: `${product.name} below reorder level (${stockLevel}/${reorderLevel})`,
+                action: "Place order soon",
+                impact: "Potential stock-out",
+                icon: AlertTriangle,
+                color: "orange",
+              });
+            }
+
+            if (product.expiry_date) {
+              const daysUntilExpiry = Math.ceil(
+                (new Date(product.expiry_date) - new Date()) /
+                  (1000 * 60 * 60 * 24)
+              );
+              if (
+                daysUntilExpiry <= 30 &&
+                daysUntilExpiry > 0 &&
+                stockLevel > 0
+              ) {
+                alerts.push({
+                  type: "expiry",
+                  severity: daysUntilExpiry <= 7 ? "critical" : "medium",
+                  product: product.name,
+                  message: `${product.name} expires in ${daysUntilExpiry} days`,
+                  action: "Discount or promote",
+                  impact: `Potential loss: ${formatCurrency(
+                    stockLevel * product.price_per_piece
+                  )}`,
+                  icon: Clock,
+                  color: daysUntilExpiry <= 7 ? "red" : "yellow",
+                });
+              }
+            }
+
+            const estimatedValue = stockLevel * product.price_per_piece;
+            if (estimatedValue > 5000 && stockLevel > 50) {
+              alerts.push({
+                type: "slow-mover",
+                severity: "medium",
+                product: product.name,
+                message: `High-value slow mover: ${formatCurrency(
+                  estimatedValue
+                )}`,
+                action: "Review demand",
+                impact: "Capital tied up",
+                icon: TrendingDown,
+                color: "blue",
+              });
+            }
+          });
+
+          return alerts.sort((a, b) => {
+            const severityOrder = { critical: 3, high: 2, medium: 1, low: 0 };
+            return severityOrder[b.severity] - severityOrder[a.severity];
+          });
+        } catch (error) {
+          console.error("Error generating alerts:", error);
+          return [];
+        }
+      },
+    }),
+    []
+  );
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -453,7 +367,7 @@ const EnhancedInventoryDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [OrderIntelligenceService]);
 
   // Quick Actions Functions
   const handleExportReport = async () => {
@@ -537,7 +451,6 @@ const EnhancedInventoryDashboard = () => {
   };
 
   const handleOpenSettings = () => {
-    setShowSettings(true);
     console.log("⚙️ Opening Inventory Intelligence Settings");
 
     // In a real implementation, this would open a settings modal
