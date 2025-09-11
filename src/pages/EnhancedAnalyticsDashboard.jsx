@@ -26,9 +26,14 @@ import {
   AlertTriangle,
   ArrowUp,
   ArrowDown,
-  FileText,
+  Wifi,
+  WifiOff,
+  Clock,
+  Target,
+  Zap,
 } from "lucide-react";
 import { AnalyticsService } from "../services/domains/analytics/analyticsService";
+import { useRealTimeAnalytics } from "../hooks/useRealTimeAnalytics";
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 
@@ -52,6 +57,14 @@ export default function EnhancedAnalyticsDashboard() {
   const [error, setError] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState("30days");
   const [refreshing, setRefreshing] = useState(false);
+
+  // Real-time analytics integration
+  const {
+    data: realTimeData,
+    lastUpdated,
+    connectionStatus,
+    refresh: refreshRealTime,
+  } = useRealTimeAnalytics(30000); // Refresh every 30 seconds
 
   const loadAnalyticsData = useCallback(async () => {
     try {
@@ -99,7 +112,8 @@ export default function EnhancedAnalyticsDashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadAnalyticsData();
+    // Refresh both traditional analytics and real-time data
+    await Promise.all([loadAnalyticsData(), refreshRealTime()]);
   };
 
   const exportDashboard = () => {
@@ -359,39 +373,111 @@ export default function EnhancedAnalyticsDashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Key Metrics Row */}
-        {dashboardData?.salesKPIs && (
+        {(dashboardData?.salesKPIs || realTimeData?.realTimeKPIs) && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Real-time Connection Status Indicator */}
+            {connectionStatus && (
+              <div className="col-span-full mb-4">
+                {(() => {
+                  let statusClass = "bg-yellow-50 border border-yellow-200";
+                  if (connectionStatus === "connected") {
+                    statusClass = "bg-green-50 border border-green-200";
+                  } else if (connectionStatus === "error") {
+                    statusClass = "bg-red-50 border border-red-200";
+                  }
+
+                  return (
+                    <div
+                      className={`flex items-center justify-between p-3 rounded-lg ${statusClass}`}
+                    >
+                      <div className="flex items-center">
+                        {connectionStatus === "connected" ? (
+                          <>
+                            <Wifi className="h-4 w-4 text-green-600 mr-2" />
+                            <span className="text-sm font-medium text-green-800">
+                              Real-time data connected
+                            </span>
+                          </>
+                        ) : connectionStatus === "error" ? (
+                          <>
+                            <WifiOff className="h-4 w-4 text-red-600 mr-2" />
+                            <span className="text-sm font-medium text-red-800">
+                              Connection error
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Activity className="h-4 w-4 text-yellow-600 mr-2" />
+                            <span className="text-sm font-medium text-yellow-800">
+                              Connecting...
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {lastUpdated && (
+                        <div className="flex items-center text-xs text-gray-600">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Last updated:{" "}
+                          {new Date(lastUpdated).toLocaleTimeString()}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             <MetricCard
               title="Today's Revenue"
-              value={formatCurrency(dashboardData.salesKPIs.todayRevenue)}
+              value={formatCurrency(
+                realTimeData?.realTimeKPIs?.revenue?.today ??
+                  dashboardData?.salesKPIs?.todayRevenue ??
+                  0
+              )}
               icon={DollarSign}
               color="green"
-              trend={12.5}
+              trend={realTimeData?.realTimeKPIs?.revenue?.dailyGrowth ?? 12.5}
               trendText="vs yesterday"
+              isRealTime={!!realTimeData?.realTimeKPIs}
             />
             <MetricCard
               title="Monthly Revenue"
-              value={formatCurrency(dashboardData.salesKPIs.monthRevenue)}
+              value={formatCurrency(
+                realTimeData?.realTimeKPIs?.revenue?.thisMonth ??
+                  dashboardData?.salesKPIs?.monthRevenue ??
+                  0
+              )}
               icon={TrendingUp}
               color="blue"
-              trend={8.2}
+              trend={realTimeData?.realTimeKPIs?.revenue?.monthlyGrowth ?? 8.2}
               trendText="vs last month"
+              isRealTime={!!realTimeData?.realTimeKPIs}
             />
             <MetricCard
               title="Total Transactions"
-              value={formatNumber(dashboardData.salesKPIs.todayTransactions)}
+              value={formatNumber(
+                realTimeData?.realTimeKPIs?.transactions?.today ??
+                  dashboardData?.salesKPIs?.todayTransactions ??
+                  0
+              )}
               icon={ShoppingCart}
               color="purple"
               trend={-2.1}
               trendText="vs yesterday"
+              isRealTime={!!realTimeData?.realTimeKPIs}
             />
             <MetricCard
               title="Avg Order Value"
-              value={formatCurrency(dashboardData.salesKPIs.avgOrderValue)}
+              value={formatCurrency(
+                realTimeData?.realTimeKPIs?.transactions?.avgOrderValue ??
+                  dashboardData?.salesKPIs?.avgOrderValue ??
+                  0
+              )}
               icon={BarChart3}
               color="orange"
               trend={5.8}
               trendText="improvement"
+              isRealTime={!!realTimeData?.realTimeKPIs}
             />
           </div>
         )}
@@ -442,6 +528,134 @@ export default function EnhancedAnalyticsDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Real-time Business Insights */}
+        {realTimeData?.salesTrends?.insights &&
+          realTimeData.salesTrends.insights.length > 0 && (
+            <div className="mb-8">
+              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                <div className="px-4 py-5 sm:p-6">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 flex items-center">
+                    <Target className="h-5 w-5 mr-2 text-blue-600" />
+                    Real-time Business Insights
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                      Live
+                    </span>
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                    {realTimeData.salesTrends.insights.map((insight, index) => {
+                      const getInsightStyles = (type) => {
+                        switch (type) {
+                          case "positive":
+                            return {
+                              containerClass: "bg-green-50 border-green-200",
+                              iconComponent: (
+                                <TrendingUp className="h-5 w-5 text-green-600" />
+                              ),
+                              titleClass: "text-green-900",
+                              textClass: "text-green-700",
+                            };
+                          case "warning":
+                            return {
+                              containerClass: "bg-yellow-50 border-yellow-200",
+                              iconComponent: (
+                                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                              ),
+                              titleClass: "text-yellow-900",
+                              textClass: "text-yellow-700",
+                            };
+                          default:
+                            return {
+                              containerClass: "bg-blue-50 border-blue-200",
+                              iconComponent: (
+                                <Activity className="h-5 w-5 text-blue-600" />
+                              ),
+                              titleClass: "text-blue-900",
+                              textClass: "text-blue-700",
+                            };
+                        }
+                      };
+
+                      const styles = getInsightStyles(insight.type);
+
+                      return (
+                        <div
+                          key={`insight-${insight.title}-${index}`}
+                          className={`p-4 rounded-lg border ${styles.containerClass}`}
+                        >
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              {styles.iconComponent}
+                            </div>
+                            <div className="ml-3">
+                              <h4
+                                className={`font-medium ${styles.titleClass}`}
+                              >
+                                {insight.title}
+                              </h4>
+                              <p className={`text-sm mt-1 ${styles.textClass}`}>
+                                {insight.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {/* Real-time Inventory Alerts */}
+        {realTimeData?.inventoryAlerts &&
+          realTimeData.inventoryAlerts.length > 0 && (
+            <div className="mb-8">
+              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                <div className="px-4 py-5 sm:p-6">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4 flex items-center">
+                    <AlertTriangle className="h-5 w-5 mr-2 text-orange-600" />
+                    Live Inventory Alerts
+                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                      {realTimeData.inventoryAlerts.length} alerts
+                    </span>
+                  </h3>
+                  <div className="space-y-3">
+                    {realTimeData.inventoryAlerts
+                      .slice(0, 5)
+                      .map((alert, index) => (
+                        <div
+                          key={`alert-${alert.id || alert.name}-${index}`}
+                          className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <Package className="h-5 w-5 text-orange-600" />
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {alert.name}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Stock: {alert.currentStock} | Minimum:{" "}
+                                {alert.minimumLevel}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                              Low Stock
+                            </span>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(alert.timestamp).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -584,7 +798,15 @@ export default function EnhancedAnalyticsDashboard() {
 
 // Reusable Components
 // eslint-disable-next-line no-unused-vars
-const MetricCard = ({ title, value, icon: Icon, color, trend, trendText }) => {
+const MetricCard = ({
+  title,
+  value,
+  icon: Icon,
+  color,
+  trend,
+  trendText,
+  isRealTime = false,
+}) => {
   const colorClasses = {
     green: "bg-green-50 text-green-600 border-green-200",
     blue: "bg-blue-50 text-blue-600 border-blue-200",
@@ -601,15 +823,30 @@ const MetricCard = ({ title, value, icon: Icon, color, trend, trendText }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div
+      className={`bg-white rounded-lg shadow p-6 relative ${
+        isRealTime ? "ring-2 ring-blue-500 ring-opacity-20" : ""
+      }`}
+    >
+      {/* Real-time indicator */}
+      {isRealTime && (
+        <div className="absolute top-2 right-2 flex items-center">
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-600 font-medium">LIVE</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center">
         <div className={`rounded-md p-3 ${colorClasses[color]}`}>
           <Icon className="h-6 w-6" />
         </div>
         <div className="ml-5 w-0 flex-1">
           <dl>
-            <dt className="text-sm font-medium text-gray-500 truncate">
+            <dt className="text-sm font-medium text-gray-500 truncate flex items-center">
               {title}
+              {isRealTime && <Zap className="h-3 w-3 text-blue-500 ml-1" />}
             </dt>
             <dd className="text-lg font-medium text-gray-900">{value}</dd>
           </dl>
@@ -621,7 +858,7 @@ const MetricCard = ({ title, value, icon: Icon, color, trend, trendText }) => {
           <span
             className={`ml-1 ${trend >= 0 ? "text-green-600" : "text-red-600"}`}
           >
-            {Math.abs(trend)}% {trendText}
+            {Math.abs(trend).toFixed(1)}% {trendText}
           </span>
         </div>
       )}

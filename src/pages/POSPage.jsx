@@ -16,6 +16,7 @@ import ShoppingCartComponent from "../features/pos/components/ShoppingCart";
 import DiscountSelector from "../components/features/pos/DiscountSelector";
 import TransactionEditor from "../components/ui/TransactionEditor";
 import TransactionUndoModal from "../components/ui/TransactionUndoModal";
+import SimpleReceipt from "../components/ui/SimpleReceipt";
 import { usePOS } from "../features/pos/hooks/usePOS";
 import { useAuth } from "../hooks/useAuth";
 import "../components/ui/ScrollableModal.css";
@@ -229,6 +230,15 @@ export default function POSPage() {
   const closeReceipt = () => {
     setShowReceipt(false);
     setLastTransaction(null);
+  };
+
+  const handlePrintReceipt = (transaction) => {
+    console.log(
+      "🖨️ [POSPage] Opening receipt manager for printing:",
+      transaction
+    );
+    setLastTransaction(transaction);
+    setShowReceipt(true);
   };
 
   const handleEditTransaction = (transaction) => {
@@ -779,94 +789,12 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Receipt Modal */}
-      {showReceipt && lastTransaction && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden">
-            {/* Receipt Header - Sticky */}
-            <div className="p-6 border-b border-gray-200 flex-shrink-0">
-              <div className="text-center">
-                <Receipt className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                <h2 className="text-xl font-bold text-gray-900">
-                  Transaction Complete
-                </h2>
-                <p className="text-gray-600">Receipt #{lastTransaction.id}</p>
-              </div>
-            </div>
-
-            {/* Receipt Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto scrollable-modal-content p-6">
-              {/* Receipt Details */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-4 font-mono text-sm">
-                <div className="text-center border-b pb-2 mb-2">
-                  <h3 className="font-bold">MEDCURE PRO</h3>
-                  <p className="text-xs">Pharmacy Management System</p>
-                </div>
-
-                <div className="space-y-1 border-b pb-2 mb-2">
-                  {lastTransaction.items.map((item) => (
-                    <div
-                      key={item.id} // Use stable cart item ID
-                      className="flex justify-between"
-                    >
-                      <span>
-                        {item.name} x{item.quantity}
-                      </span>
-                      <span>{formatCurrency(item.subtotal)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(lastTransaction.subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tax:</span>
-                    <span>{formatCurrency(lastTransaction.tax)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold border-t pt-1">
-                    <span>Total:</span>
-                    <span>{formatCurrency(lastTransaction.total)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Payment ({lastTransaction.payment.method}):</span>
-                    <span>
-                      {formatCurrency(lastTransaction.payment.amount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Change:</span>
-                    <span>
-                      {formatCurrency(lastTransaction.payment.change)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-center border-t pt-2 mt-2 text-xs">
-                  <p>
-                    {lastTransaction.date
-                      ? new Date(lastTransaction.date).toLocaleString()
-                      : new Date().toLocaleString()}
-                  </p>
-                  <p>Thank you for your business!</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Receipt Footer - Sticky */}
-            <div className="p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-              <button
-                onClick={closeReceipt}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                New Transaction
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Simple Receipt */}
+      <SimpleReceipt
+        transaction={lastTransaction}
+        isOpen={showReceipt}
+        onClose={closeReceipt}
+      />
 
       {/* Transaction History Modal */}
       {showTransactionHistory && (
@@ -1074,6 +1002,17 @@ export default function POSPage() {
                                   </p>
                                 </div>
                                 <div className="flex items-center space-x-2">
+                                  {/* Print Receipt Button */}
+                                  <button
+                                    onClick={() =>
+                                      handlePrintReceipt(transaction)
+                                    }
+                                    className="p-2 rounded-lg transition-all text-gray-400 hover:text-green-600 hover:bg-green-50"
+                                    title="Print Receipt"
+                                  >
+                                    <Receipt className="h-4 w-4" />
+                                  </button>
+
                                   {/* Edit Button - Status-aware styling */}
                                   <button
                                     onClick={() =>
