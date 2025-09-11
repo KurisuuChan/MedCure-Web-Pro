@@ -12,7 +12,7 @@ import {
   Calendar,
   Info,
 } from "lucide-react";
-import { SmartCategoryService } from "../../services/domains/inventory/smartCategoryService";
+import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
 import { useAuth } from "../../hooks/useAuth";
 import {
   parseFlexibleDate,
@@ -69,7 +69,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       } else {
         // Smart category detection
         const categoryAnalysis =
-          await SmartCategoryService.detectAndProcessCategories(
+          await UnifiedCategoryService.detectAndProcessCategories(
             validData,
             user?.id || "system"
           );
@@ -197,10 +197,11 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       setIsProcessing(true);
 
       // Create approved categories
-      const createResult = await SmartCategoryService.createApprovedCategories(
-        approvedCategories,
-        user?.id || "system"
-      );
+      const createResult =
+        await UnifiedCategoryService.createApprovedCategories(
+          approvedCategories,
+          user?.id || "system"
+        );
 
       if (!createResult.success) {
         throw new Error(createResult.error);
@@ -225,7 +226,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       setIsProcessing(true);
 
       // Map categories to IDs
-      const mappingResult = await SmartCategoryService.mapCategoriesToIds(
+      const mappingResult = await UnifiedCategoryService.mapCategoriesToIds(
         previewData
       );
       if (!mappingResult.success) {

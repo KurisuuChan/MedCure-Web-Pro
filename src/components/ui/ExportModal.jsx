@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, Download, FileText, Database } from "lucide-react";
-import { SmartCategoryService } from "../../services/domains/inventory/smartCategoryService";
+import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
 
 const ExportModal = ({ isOpen, onClose, products, categories }) => {
   const [isExporting, setIsExporting] = useState(false);
@@ -33,7 +33,7 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
     try {
       if (exportOptions.exportType === "categories") {
         // Export intelligent category insights
-        const result = await SmartCategoryService.getCategoryInsights();
+        const result = await UnifiedCategoryService.getCategoryInsights();
         if (result.success) {
           const categoryData = result.data.top_value_categories.map(
             (category) => ({

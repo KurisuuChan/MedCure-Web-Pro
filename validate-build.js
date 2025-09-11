@@ -2,7 +2,7 @@
 import { DashboardService } from "./src/services/domains/analytics/dashboardService.js";
 import { UserService } from "./src/services/domains/auth/userService.js";
 import { ProductService } from "./src/services/domains/inventory/productService.js";
-import { SmartCategoryService } from "./src/services/domains/inventory/smartCategoryService.js";
+import { UnifiedCategoryService } from "./src/services/domains/inventory/unifiedCategoryService.js";
 
 console.log("🔍 Validating Enterprise Service Architecture...");
 
@@ -11,7 +11,7 @@ const services = [
   { name: "DashboardService", service: DashboardService },
   { name: "UserService", service: UserService },
   { name: "ProductService", service: ProductService },
-  { name: "SmartCategoryService", service: SmartCategoryService },
+  { name: "UnifiedCategoryService", service: UnifiedCategoryService },
 ];
 
 let allValid = true;
@@ -27,7 +27,7 @@ services.forEach(({ name, service }) => {
 
 // Test specific methods
 const methodTests = [
-  { service: "SmartCategoryService", method: "getCategoryInsights" },
+  { service: "UnifiedCategoryService", method: "getCategoryInsights" },
   { service: "UserService", method: "getUserStatistics" },
 ];
 

@@ -1,5 +1,5 @@
-import supabase from "../../config/supabase.js";
-import { notificationService } from "../notificationService.js";
+import { supabase } from "../../../config/supabase.js";
+import { NotificationService } from "../notifications/notificationService.js";
 
 /**
  * Advanced Inventory Management Service
@@ -453,13 +453,9 @@ export class AdvancedInventoryService {
           orders.push(data);
 
           // Create notification
-          await notificationService.createNotification({
-            title: "Purchase Order Created",
-            message: `Order #${data.id} created for ${items.length} items`,
-            type: "info",
-            targetRoles: ["ADMIN", "MANAGER"],
-            metadata: { orderId: data.id, supplierId },
-          });
+          NotificationService.showSystemAlert(
+            `Purchase Order Created: Order #${data.id} created for ${items.length} items`
+          );
         }
       }
 
@@ -533,14 +529,10 @@ export class AdvancedInventoryService {
 
       // Send notifications for critical alerts
       for (const alert of alerts.filter((a) => a.priority === "critical")) {
-        await notificationService.createNotification({
-          title: "Critical: Expired Product",
-          message: alert.message,
-          type: "error",
-          priority: "high",
-          targetRoles: ["ADMIN", "MANAGER", "PHARMACIST"],
-          metadata: alert.metadata,
-        });
+        NotificationService.showSystemAlert(
+          `Critical: Expired Product - ${alert.message}`,
+          true
+        );
       }
 
       return alerts;

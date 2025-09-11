@@ -13,7 +13,7 @@ import {
   PieChart,
   Activity,
 } from "lucide-react";
-import { CategoryValueMonitor } from "../../services/domains/inventory/smartCategoryService";
+import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
 
 export function CategoryValueDashboard() {
   const [analytics, setAnalytics] = useState(null);
@@ -34,8 +34,8 @@ export function CategoryValueDashboard() {
 
       // Load both analytics and dashboard data
       const [analyticsResult, dashboardResult] = await Promise.all([
-        CategoryValueMonitor.getCategoryValueAnalytics(),
-        CategoryValueMonitor.generatePerformanceDashboard(),
+        UnifiedCategoryService.getCategoryValueAnalytics(),
+        UnifiedCategoryService.generatePerformanceDashboard(),
       ]);
 
       if (!analyticsResult.success) {

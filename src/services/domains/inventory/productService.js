@@ -4,6 +4,7 @@
 
 import { supabase } from "../../../config/supabase";
 import { logDebug, handleError } from "../../core/serviceUtils";
+import { UnifiedCategoryService } from "./unifiedCategoryService.js";
 
 export class ProductService {
   static async getProducts() {
@@ -183,11 +184,6 @@ export class ProductService {
   static async getProductCategories() {
     try {
       logDebug("Fetching categories from unified category service");
-
-      // Import the unified category service
-      const { UnifiedCategoryService } = await import(
-        "./unifiedCategoryService.js"
-      );
 
       // Get all active categories
       const result = await UnifiedCategoryService.getAllCategories({
