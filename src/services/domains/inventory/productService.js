@@ -9,28 +9,67 @@ import { UnifiedCategoryService } from "./unifiedCategoryService.js";
 export class ProductService {
   static async getProducts() {
     try {
-      logDebug("Fetching all products from database");
+      console.log("🔍 ProductService.getProducts() called");
+      console.log("📡 Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
+      console.log(
+        "🔑 Has Supabase Key:",
+        !!import.meta.env.VITE_SUPABASE_ANON_KEY
+      );
+      console.log("🧪 Use Mock Data:", import.meta.env.VITE_USE_MOCK_DATA);
+
+      logDebug("Fetching all products from Supabase database");
 
       const { data, error } = await supabase
         .from("products")
         .select("*")
+        .eq("is_active", true) // Only get active products
         .order("name");
 
       if (error) {
-        console.error("❌ ProductService.getProducts() error:", error);
+        console.error("❌ ProductService.getProducts() Supabase error:", error);
+        console.error(
+          "Error details:",
+          error.message,
+          error.details,
+          error.hint
+        );
         throw error;
       }
 
-      logDebug(`Successfully fetched ${data?.length || 0} products`);
+      console.log(
+        `✅ Successfully fetched ${data?.length || 0} products from database`
+      );
+      if (data && data.length > 0) {
+        console.log("📦 Sample product:", data[0]);
+        // Log low stock items
+        const lowStockItems = data.filter((product) => {
+          const stockLevel = product.stock_in_pieces || 0;
+          const reorderLevel = product.reorder_level || 10;
+          return stockLevel <= reorderLevel;
+        });
+        console.log(
+          `🎯 Found ${lowStockItems.length} low stock items in database`
+        );
+        lowStockItems.forEach((product) => {
+          console.log(
+            `• ${product.name}: ${product.stock_in_pieces}/${product.reorder_level}`
+          );
+        });
+      }
+
+      logDebug(
+        `Successfully fetched ${data?.length || 0} products from database`
+      );
       console.log(
         "📦 ProductService.getProducts() result:",
         data?.length || 0,
-        "products"
+        "products from real database"
       );
       return data || [];
     } catch (error) {
       console.error("❌ ProductService.getProducts() failed:", error);
       handleError(error, "Get products");
+      return [];
     }
   }
 
@@ -107,23 +146,67 @@ export class ProductService {
     }
   }
 
-  static async getLowStockProducts(threshold = 10) {
+  /**
+   * Get products with low stock (using individual reorder levels)
+   * @param {boolean} useIndividualLevels - Whether to use product-specific reorder levels
+   * @param {number} fallbackThreshold - Default threshold if product has no reorder level
+   * @returns {Promise<Array>} Low stock products
+   */
+  static async getLowStockProducts(
+    useIndividualLevels = true,
+    fallbackThreshold = 10
+  ) {
     try {
-      logDebug(`Fetching products with stock below ${threshold}`);
+      logDebug(
+        `Fetching low stock products with ${
+          useIndividualLevels
+            ? "individual reorder levels"
+            : `threshold ${fallbackThreshold}`
+        }`
+      );
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .lt("stock_in_pieces", threshold)
-        .eq("is_active", true)
-        .order("stock_in_pieces", { ascending: true });
+      if (useIndividualLevels) {
+        // Get all active products and filter by individual reorder levels
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .eq("is_active", true)
+          .order("stock_in_pieces", { ascending: true });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      logDebug(`Found ${data?.length || 0} low stock products`);
-      return data || [];
+        // Filter using individual reorder levels with fallback
+        const lowStockProducts = (data || []).filter((product) => {
+          const stockLevel = product.stock_in_pieces || 0;
+          const reorderLevel = product.reorder_level || fallbackThreshold;
+          return stockLevel <= reorderLevel;
+        });
+
+        logDebug(
+          `Found ${lowStockProducts.length} low stock products using individual reorder levels`
+        );
+        return lowStockProducts;
+      } else {
+        // Original method - use fixed threshold
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .lt("stock_in_pieces", fallbackThreshold)
+          .eq("is_active", true)
+          .order("stock_in_pieces", { ascending: true });
+
+        if (error) throw error;
+
+        logDebug(
+          `Found ${
+            data?.length || 0
+          } low stock products using fixed threshold ${fallbackThreshold}`
+        );
+        return data || [];
+      }
     } catch (error) {
       handleError(error, "Get low stock products");
+      return [];
     }
   }
 

@@ -29,6 +29,7 @@ import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
 import { getStockBreakdown } from "../utils/unitConversion";
 import ProductSearch from "../features/inventory/components/ProductSearch";
+import { UnifiedCategoryService } from "../services/domains/inventory/unifiedCategoryService";
 import ProductCard from "../features/inventory/components/ProductCard";
 import { useInventory } from "../features/inventory/hooks/useInventory";
 import ExportModal from "../components/ui/ExportModal";
@@ -123,21 +124,64 @@ export default function InventoryPage() {
     try {
       console.log("🏷️ [Inventory] Loading dynamic categories...");
 
-      const categories = await ProductService.getProductCategories();
-      setDynamicCategories(categories);
-      console.log("✅ [Inventory] Loaded categories:", categories);
+      // Use UnifiedCategoryService directly to ensure consistency with Management page
+      const result = await UnifiedCategoryService.getAllCategories({
+        activeOnly: true,
+      });
+
+      if (result.success && result.data) {
+        setDynamicCategories(result.data);
+        console.log(
+          "✅ [Inventory] Loaded categories from UnifiedCategoryService:",
+          result.data
+        );
+      } else {
+        console.error(
+          "❌ [Inventory] UnifiedCategoryService failed:",
+          result.error
+        );
+        // Only use fallback as last resort and log it clearly
+        console.warn(
+          "⚠️ [Inventory] Using hardcoded fallback categories - this should not happen in production!"
+        );
+        setDynamicCategories(
+          productCategories.slice(1).map((name, index) => ({
+            id: `fallback-${index}`,
+            name,
+            description: `Fallback category: ${name}`,
+            is_active: true,
+          }))
+        );
+      }
     } catch (error) {
       console.error("❌ [Inventory] Error loading categories:", error);
-      // Fallback to hardcoded categories
-      setDynamicCategories(productCategories.slice(1));
+      // Only use fallback as last resort and log it clearly
+      console.warn(
+        "⚠️ [Inventory] Using hardcoded fallback categories due to error - this should not happen in production!"
+      );
+      setDynamicCategories(
+        productCategories.slice(1).map((name, index) => ({
+          id: `fallback-${index}`,
+          name,
+          description: `Fallback category: ${name}`,
+          is_active: true,
+        }))
+      );
     }
   };
 
   // Get categories to use (dynamic or fallback)
   const getCategoriesToUse = () => {
-    return dynamicCategories.length > 0
-      ? dynamicCategories
-      : productCategories.slice(1);
+    if (dynamicCategories.length > 0) {
+      return dynamicCategories;
+    }
+    // Fallback with consistent object format
+    return productCategories.slice(1).map((name, index) => ({
+      id: `fallback-${index}`,
+      name,
+      description: `Fallback category: ${name}`,
+      is_active: true,
+    }));
   };
 
   // Pagination

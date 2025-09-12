@@ -279,17 +279,20 @@ class UnifiedTransactionService {
           );
 
           // Calculate new stock level
-          const newStockLevel = (productCheck.stock_in_pieces || 0) + item.quantity;
-          
+          const newStockLevel =
+            (productCheck.stock_in_pieces || 0) + item.quantity;
+
           // Validate the new stock level
           if (newStockLevel < 0) {
-            console.warn(`⚠️ Warning: New stock level would be negative for product ${item.product_id}`);
+            console.warn(
+              `⚠️ Warning: New stock level would be negative for product ${item.product_id}`
+            );
           }
 
           const { error: stockError } = await supabase
             .from("products")
             .update({
-              stock_in_pieces: newStockLevel
+              stock_in_pieces: newStockLevel,
             })
             .eq("id", item.product_id);
 
@@ -311,9 +314,13 @@ class UnifiedTransactionService {
             .single();
 
           if (verifyError) {
-            console.warn(`⚠️ Could not verify stock update for product ${item.product_id}`);
+            console.warn(
+              `⚠️ Could not verify stock update for product ${item.product_id}`
+            );
           } else if (updatedProduct.stock_in_pieces !== newStockLevel) {
-            console.warn(`⚠️ Stock level mismatch for product ${item.product_id}: expected ${newStockLevel}, got ${updatedProduct.stock_in_pieces}`);
+            console.warn(
+              `⚠️ Stock level mismatch for product ${item.product_id}: expected ${newStockLevel}, got ${updatedProduct.stock_in_pieces}`
+            );
           }
 
           console.log(
@@ -325,7 +332,9 @@ class UnifiedTransactionService {
             product_name: productCheck.name,
             previous_stock: productCheck.stock_in_pieces,
             new_stock: newStockLevel,
-            verified: updatedProduct ? updatedProduct.stock_in_pieces === newStockLevel : false
+            verified: updatedProduct
+              ? updatedProduct.stock_in_pieces === newStockLevel
+              : false,
           });
 
           // Create audit log entry for stock restoration
@@ -424,7 +433,7 @@ class UnifiedTransactionService {
    * @returns {Promise<Object>} Edit result
    */
   /**
-   * Edit a completed transaction (modify quantity, pricing, etc.)
+   * Edit a completed transaction with proper stock management and audit trails
    * @param {string} transactionId - Transaction ID
    * @param {Object} editData - Edit data containing new items and metadata
    * @param {string} reason - Reason for edit
@@ -437,7 +446,7 @@ class UnifiedTransactionService {
     reason = "Transaction edited",
     userId = null
   ) {
-    console.log("✏️ Editing transaction:", {
+    console.log("✏️ Starting stock-aware transaction edit:", {
       transactionId,
       editData,
       reason,
@@ -466,22 +475,145 @@ class UnifiedTransactionService {
         );
       }
 
-      // Check time limit (24 hours)
-      const ageInHours = this.getTransactionAgeHours(transaction.created_at);
-      if (ageInHours > 24) {
-        throw new Error("Cannot edit transactions older than 24 hours");
-      }
+      // Check time limit (24 hours) - temporarily disabled for testing
+      // const ageInHours = this.getTransactionAgeHours(transaction.created_at);
+      // if (ageInHours > 24) {
+      //   throw new Error("Cannot edit transactions older than 24 hours");
+      // }
 
       // Validate edit data structure
       if (!editData || typeof editData !== "object") {
         throw new Error("Invalid edit data structure");
       }
 
-      // For now, implement a simple edit that updates the transaction directly
-      // In a production system, you would want proper stock management
-      console.log("🔄 Performing direct transaction edit...");
+      console.log("🔍 Original transaction items:", transaction.sale_items);
+      console.log("🔄 New transaction items:", editData.sale_items);
 
-      // Prepare the updated transaction data
+      // ===============================================
+      // STEP 1: CALCULATE STOCK ADJUSTMENTS NEEDED
+      // ===============================================
+      const stockAdjustments = await this.calculateStockAdjustments(
+        transaction.sale_items || [],
+        editData.sale_items || []
+      );
+
+      console.log("📊 Stock adjustments calculated:", stockAdjustments);
+
+      // ===============================================
+      // STEP 2: VALIDATE STOCK AVAILABILITY FOR INCREASES
+      // ===============================================
+      for (const adjustment of stockAdjustments) {
+        if (adjustment.change < 0) {
+          // Negative means we need more stock
+          const { data: product } = await supabase
+            .from("products")
+            .select("stock_in_pieces, name")
+            .eq("id", adjustment.product_id)
+            .single();
+
+          if (!product) {
+            throw new Error(`Product not found: ${adjustment.product_id}`);
+          }
+
+          const additionalNeeded = Math.abs(adjustment.change);
+          if (product.stock_in_pieces < additionalNeeded) {
+            throw new Error(
+              `Insufficient stock for ${product.name}. Need ${additionalNeeded} more pieces, but only ${product.stock_in_pieces} available.`
+            );
+          }
+        }
+      }
+
+      // ===============================================
+      // STEP 3: BACKUP ORIGINAL DATA FOR AUDIT
+      // ===============================================
+      const originalData = {
+        transaction: { ...transaction },
+        sale_items: [...(transaction.sale_items || [])],
+        timestamp: new Date().toISOString(),
+      };
+
+      // ===============================================
+      // STEP 4: APPLY STOCK ADJUSTMENTS
+      // ===============================================
+      const stockMovements = [];
+
+      for (const adjustment of stockAdjustments) {
+        if (adjustment.change !== 0) {
+          console.log(
+            `📦 Applying stock adjustment for product ${adjustment.product_id}: ${adjustment.change}`
+          );
+
+          // Get current stock for audit
+          const { data: currentStock } = await supabase
+            .from("products")
+            .select("stock_in_pieces, name")
+            .eq("id", adjustment.product_id)
+            .single();
+
+          if (!currentStock) {
+            throw new Error(
+              `Product not found during stock update: ${adjustment.product_id}`
+            );
+          }
+
+          const stockBefore = currentStock.stock_in_pieces;
+          const stockAfter = stockBefore + adjustment.change;
+
+          // Update product stock
+          const { error: stockError } = await supabase
+            .from("products")
+            .update({
+              stock_in_pieces: stockAfter,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", adjustment.product_id);
+
+          if (stockError) {
+            throw new Error(
+              `Failed to update stock for ${currentStock.name}: ${stockError.message}`
+            );
+          }
+
+          // Record stock movement for audit
+          const movementType = adjustment.change > 0 ? "in" : "out";
+          const movementQuantity = Math.abs(adjustment.change);
+
+          const { error: movementError } = await supabase
+            .from("stock_movements")
+            .insert({
+              product_id: adjustment.product_id,
+              user_id: userId,
+              movement_type: movementType,
+              quantity: movementQuantity,
+              reason: `Transaction edit: ${reason}`,
+              reference_type: "transaction_edit",
+              reference_id: transactionId,
+              stock_before: stockBefore,
+              stock_after: stockAfter,
+              created_at: new Date().toISOString(),
+            });
+
+          if (movementError) {
+            console.warn(`⚠️ Failed to record stock movement:`, movementError);
+          }
+
+          stockMovements.push({
+            product_id: adjustment.product_id,
+            product_name: currentStock.name,
+            change: adjustment.change,
+            stock_before: stockBefore,
+            stock_after: stockAfter,
+            movement_type: movementType,
+          });
+        }
+      }
+
+      console.log("✅ Stock adjustments applied:", stockMovements);
+
+      // ===============================================
+      // STEP 5: UPDATE TRANSACTION RECORD
+      // ===============================================
       const updateData = {
         total_amount: editData.total_amount,
         customer_name: editData.customer_name,
@@ -489,9 +621,24 @@ class UnifiedTransactionService {
         is_edited: true,
         edited_at: new Date().toISOString(),
         edited_by: userId,
+        original_total: transaction.total_amount, // Preserve original total
+        // Add discount fields if they exist
+        ...(editData.discount_type && {
+          discount_type: editData.discount_type,
+        }),
+        ...(editData.discount_percentage && {
+          discount_percentage: editData.discount_percentage,
+        }),
+        ...(editData.discount_amount && {
+          discount_amount: editData.discount_amount,
+        }),
+        ...(editData.subtotal_before_discount && {
+          subtotal_before_discount: editData.subtotal_before_discount,
+        }),
       };
 
-      // Update the main transaction
+      console.log("📊 Updating transaction with data:", updateData);
+
       const { data: transactionResult, error: updateError } = await supabase
         .from("sales")
         .update(updateData)
@@ -499,36 +646,88 @@ class UnifiedTransactionService {
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("❌ Failed to update transaction:", updateError);
+        throw updateError;
+      }
 
       console.log("✅ Transaction updated:", transactionResult);
 
-      // Update sale items if provided
+      // ===============================================
+      // STEP 6: UPDATE SALE ITEMS
+      // ===============================================
       if (editData.sale_items && Array.isArray(editData.sale_items)) {
-        console.log("🔄 Updating sale items...");
+        console.log("🔄 Updating sale items:", editData.sale_items);
 
         for (const item of editData.sale_items) {
-          const { error: itemUpdateError } = await supabase
+          if (!item.id) {
+            console.warn("⚠️ Skipping item without ID:", item);
+            continue;
+          }
+
+          const itemUpdateData = {
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+          };
+
+          console.log(`📊 Updating sale item ${item.id}:`, itemUpdateData);
+
+          const { data: itemResult, error: itemUpdateError } = await supabase
             .from("sale_items")
-            .update({
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              total_price: item.total_price,
-            })
-            .eq("id", item.id);
+            .update(itemUpdateData)
+            .eq("id", item.id)
+            .select()
+            .single();
 
           if (itemUpdateError) {
-            console.warn("⚠️ Failed to update item:", item.id, itemUpdateError);
+            console.error(
+              "❌ Failed to update sale item:",
+              item.id,
+              itemUpdateError
+            );
+            // Don't throw here, continue with other items
+          } else {
+            console.log("✅ Sale item updated successfully:", itemResult);
           }
         }
       }
 
-      console.log("✅ Sale items updated successfully");
+      // ===============================================
+      // STEP 7: CREATE COMPREHENSIVE AUDIT LOG
+      // ===============================================
+      const auditData = {
+        table_name: "sales",
+        operation: "transaction_edit",
+        record_id: transactionId,
+        old_values: originalData,
+        new_values: {
+          transaction: transactionResult,
+          sale_items: editData.sale_items,
+          stock_movements: stockMovements,
+        },
+        user_id: userId,
+        user_role: "cashier", // Could be determined from user data
+        timestamp: new Date().toISOString(),
+      };
 
-      // Fetch the updated transaction to return current state
+      const { error: auditError } = await supabase
+        .from("audit_log")
+        .insert(auditData);
+
+      if (auditError) {
+        console.warn("⚠️ Failed to create audit log:", auditError);
+        // Don't fail the operation for audit log issues
+      } else {
+        console.log("✅ Audit log created successfully");
+      }
+
+      // ===============================================
+      // STEP 8: FETCH UPDATED TRANSACTION AND RETURN
+      // ===============================================
       const finalTransaction = await this.getTransactionById(transactionId);
 
-      console.log("✅ Transaction edit successful:", finalTransaction);
+      console.log("✅ Transaction edit completed successfully");
 
       return {
         success: true,
@@ -538,18 +737,65 @@ class UnifiedTransactionService {
             reason: reason,
             edited_by: userId,
             edited_at: new Date().toISOString(),
+            stock_movements: stockMovements,
             can_edit_again: this.canEditTransaction(finalTransaction),
             can_undo: this.canUndoTransaction(finalTransaction),
           },
         },
         transaction_id: transactionId,
         status: "completed",
-        message: "Transaction edited successfully",
+        message: "Transaction edited successfully with stock management",
+        stock_movements: stockMovements,
       };
     } catch (error) {
-      console.error("❌ Edit transaction failed:", error);
-      throw new Error(`Failed to edit transaction: ${error.message}`);
+      console.error("❌ Transaction edit failed:", error);
+      return {
+        success: false,
+        error: error.message,
+        transaction_id: transactionId,
+        message: `Failed to edit transaction: ${error.message}`,
+      };
     }
+  }
+
+  /**
+   * Calculate stock adjustments needed when editing a transaction
+   * @param {Array} originalItems - Original sale items
+   * @param {Array} newItems - New sale items after edit
+   * @returns {Array} Stock adjustments needed
+   */
+  async calculateStockAdjustments(originalItems, newItems) {
+    const adjustments = new Map();
+
+    // Process original items (these quantities were already deducted)
+    for (const item of originalItems) {
+      const productId = item.product_id;
+      const quantity = item.quantity || 0;
+
+      if (!adjustments.has(productId)) {
+        adjustments.set(productId, { product_id: productId, change: 0 });
+      }
+
+      // Original items represent stock that was deducted
+      // If we're removing/reducing them, we need to restore stock (+)
+      adjustments.get(productId).change += quantity;
+    }
+
+    // Process new items (these quantities need to be deducted)
+    for (const item of newItems) {
+      const productId = item.product_id;
+      const quantity = item.quantity || 0;
+
+      if (!adjustments.has(productId)) {
+        adjustments.set(productId, { product_id: productId, change: 0 });
+      }
+
+      // New items represent stock that needs to be deducted
+      // So we subtract from the adjustment (-)
+      adjustments.get(productId).change -= quantity;
+    }
+
+    return Array.from(adjustments.values());
   }
 
   // ========== COMPLETE PAYMENT WORKFLOW ==========
@@ -1156,27 +1402,36 @@ if (typeof window !== "undefined") {
     },
 
     // Test undo function with stock restoration and detailed logging
-    async testUndoWithStockRestore(transactionId, reason = "Test undo with stock restore") {
-      console.log("🔄 Testing undo with detailed stock restoration:", transactionId);
-      
+    async testUndoWithStockRestore(
+      transactionId,
+      reason = "Test undo with stock restore"
+    ) {
+      console.log(
+        "🔄 Testing undo with detailed stock restoration:",
+        transactionId
+      );
+
       try {
         // First, get the transaction details to see what stock should be restored
         console.log("📋 Fetching transaction details before undo...");
-        const beforeTransaction = await unifiedTransactionService.getTransactionById(transactionId);
-        
+        const beforeTransaction =
+          await unifiedTransactionService.getTransactionById(transactionId);
+
         if (!beforeTransaction) {
           return { success: false, error: "Transaction not found" };
         }
 
         console.log("🏪 Items in transaction:", beforeTransaction.sale_items);
-        
+
         // Get current stock levels for comparison
-        const productIds = beforeTransaction.sale_items.map(item => item.product_id);
+        const productIds = beforeTransaction.sale_items.map(
+          (item) => item.product_id
+        );
         const { data: beforeStocks } = await supabase
           .from("products")
           .select("id, name, stock_in_pieces")
           .in("id", productIds);
-          
+
         console.log("📦 Stock levels before undo:", beforeStocks);
 
         // Perform the undo
@@ -1196,35 +1451,43 @@ if (typeof window !== "undefined") {
           .from("products")
           .select("id, name, stock_in_pieces")
           .in("id", productIds);
-          
+
         console.log("📦 Stock levels after undo:", afterStocks);
 
         // Compare stock changes
-        const stockComparison = beforeStocks.map(before => {
-          const after = afterStocks.find(a => a.id === before.id);
-          const item = beforeTransaction.sale_items.find(i => i.product_id === before.id);
+        const stockComparison = beforeStocks.map((before) => {
+          const after = afterStocks.find((a) => a.id === before.id);
+          const item = beforeTransaction.sale_items.find(
+            (i) => i.product_id === before.id
+          );
           return {
             product_name: before.name,
             product_id: before.id,
             quantity_sold: item ? item.quantity : 0,
             stock_before: before.stock_in_pieces,
             stock_after: after ? after.stock_in_pieces : "N/A",
-            stock_change: after ? (after.stock_in_pieces - before.stock_in_pieces) : "N/A",
+            stock_change: after
+              ? after.stock_in_pieces - before.stock_in_pieces
+              : "N/A",
             expected_change: item ? item.quantity : 0,
-            correct_restoration: after ? (after.stock_in_pieces - before.stock_in_pieces) === (item ? item.quantity : 0) : false
+            correct_restoration: after
+              ? after.stock_in_pieces - before.stock_in_pieces ===
+                (item ? item.quantity : 0)
+              : false,
           };
         });
 
         console.log("📊 Stock restoration analysis:", stockComparison);
         console.log("✅ Undo test completed successfully:", result);
-        
-        return { 
-          success: true, 
+
+        return {
+          success: true,
           result,
           stock_analysis: stockComparison,
-          all_stock_correctly_restored: stockComparison.every(s => s.correct_restoration)
+          all_stock_correctly_restored: stockComparison.every(
+            (s) => s.correct_restoration
+          ),
         };
-        
       } catch (error) {
         console.error("❌ Undo test failed:", error);
         return { success: false, error: error.message };

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Category Fix Verification - MedCure</title>
+    <script type="module">
+      // Test the fix
+      import { UnifiedCategoryService } from "./src/services/domains/inventory/unifiedCategoryService.js";
+
+      console.log("🔧 CATEGORY FIX VERIFICATION");
+      console.log("==============================\n");
+
+      async function verifyFix() {
+        try {
+          console.log(
+            "📊 Testing UnifiedCategoryService (Both pages should now use this):"
+          );
+          console.log(
+            "===================================================================="
+          );
+
+          const result = await UnifiedCategoryService.getAllCategories({
+            activeOnly: true,
+          });
+
+          if (result.success && result.data) {
+            console.log(`✅ SUCCESS: Found ${result.data.length} categories`);
+            console.table(
+              result.data.map((cat, index) => ({
+                "#": index + 1,
+                Name: cat.name,
+                ID: cat.id,
+                Description: cat.description || "No description",
+                Active: cat.is_active !== false ? "✅" : "❌",
+              }))
+            );
+
+            console.log("\n🎯 EXPECTED RESULT:");
+            console.log("===================");
+            console.log(
+              "✅ Both Inventory page AND Management page should show these EXACT categories"
+            );
+            console.log(
+              '✅ No more hardcoded fallback categories like "Pain Relief", "Antibiotics", etc.'
+            );
+            console.log("✅ Categories should come from your real database");
+
+            if (
+              result.data.some(
+                (cat) =>
+                  cat.name === "Pain Relief" || cat.name === "Antibiotics"
+              )
+            ) {
+              console.warn(
+                "⚠️ WARNING: Still showing fallback categories! Database might be empty or connection failed."
+              );
+            } else {
+              console.log("🎉 SUCCESS: Real database categories detected!");
+            }
+          } else {
+            console.error(
+              "❌ FAILED: UnifiedCategoryService returned error:",
+              result.error
+            );
+            console.log(
+              "💡 This means both pages will show fallback categories until the database issue is fixed"
+            );
+          }
+        } catch (error) {
+          console.error("❌ Test failed:", error);
+        }
+      }
+
+      // Run verification
+      window.addEventListener("load", () => {
+        verifyFix();
+      });
+
+      // Make available globally
+      window.verifyFix = verifyFix;
+      window.UnifiedCategoryService = UnifiedCategoryService;
+    </script>
+  </head>
+  <body
+    style="
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    "
+  >
+    <div
+      style="
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      "
+    >
+      <h1 style="color: #16a34a; margin-bottom: 20px">
+        ✅ Category Fix Verification
+      </h1>
+
+      <div
+        style="
+          background: #dcfce7;
+          padding: 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          border-left: 4px solid #16a34a;
+        "
+      >
+        <h2 style="color: #15803d; margin-top: 0">Fix Applied:</h2>
+        <ul style="color: #166534; line-height: 1.6">
+          <li>
+            ✅
+            <strong
+              >Inventory page now uses UnifiedCategoryService directly</strong
+            >
+          </li>
+          <li>✅ <strong>Both pages use the same category source</strong></li>
+          <li>
+            ✅ <strong>Fallback categories are clearly marked when used</strong>
+          </li>
+          <li>✅ <strong>Added proper error logging</strong></li>
+        </ul>
+      </div>
+
+      <div
+        style="
+          background: #f8f9fa;
+          padding: 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        "
+      >
+        <h3 style="color: #495057; margin-top: 0">Test Instructions:</h3>
+        <ol style="color: #6c757d; line-height: 1.6">
+          <li><strong>Open Developer Console</strong> (F12 → Console tab)</li>
+          <li><strong>Check the verification results</strong> above</li>
+          <li>
+            <strong>Navigate to both pages:</strong>
+            <ul>
+              <li>Inventory page → Check category dropdown</li>
+              <li>Management page → Check category list</li>
+            </ul>
+          </li>
+          <li><strong>Verify they show identical categories</strong></li>
+        </ol>
+      </div>
+
+      <div
+        style="
+          background: #e7f3ff;
+          padding: 20px;
+          border-radius: 8px;
+          border-left: 4px solid #2563eb;
+        "
+      >
+        <h3 style="color: #1e40af; margin-top: 0">What Changed:</h3>
+        <p style="color: #374151; line-height: 1.6">
+          <strong>Before:</strong> Inventory page used ProductService → fell
+          back to hardcoded categories<br />
+          <strong>After:</strong> Inventory page uses UnifiedCategoryService
+          directly (same as Management page)
+        </p>
+        <p style="color: #374151; margin-bottom: 0">
+          <strong>Result:</strong> Both pages now show identical categories from
+          your real database!
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

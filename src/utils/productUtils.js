@@ -10,6 +10,39 @@ export function getStockStatus(product) {
   return "in_stock";
 }
 
+/**
+ * Check if a product is considered low stock
+ * This is the standardized method used across the application
+ * @param {Object} product - Product object
+ * @param {number} fallbackThreshold - Default threshold if product has no reorder level
+ * @returns {boolean} Whether the product is low stock
+ */
+export function isLowStock(product, fallbackThreshold = 10) {
+  const stockLevel = product.stock_in_pieces || 0;
+  const reorderLevel = product.reorder_level || fallbackThreshold;
+  return stockLevel <= reorderLevel;
+}
+
+/**
+ * Get low stock products from a list
+ * @param {Array} products - Array of products
+ * @param {number} fallbackThreshold - Default threshold if product has no reorder level
+ * @returns {Array} Filtered low stock products
+ */
+export function filterLowStockProducts(products, fallbackThreshold = 10) {
+  return products.filter((product) => isLowStock(product, fallbackThreshold));
+}
+
+/**
+ * Count low stock products
+ * @param {Array} products - Array of products
+ * @param {number} fallbackThreshold - Default threshold if product has no reorder level
+ * @returns {number} Count of low stock products
+ */
+export function countLowStockProducts(products, fallbackThreshold = 10) {
+  return filterLowStockProducts(products, fallbackThreshold).length;
+}
+
 export function getExpiryStatus(product) {
   if (!product.expiry_date) return "good";
 

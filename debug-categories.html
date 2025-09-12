@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Category Debug - MedCure</title>
+    <script type="module">
+      // Import the services
+      import { ProductService } from "./src/services/domains/inventory/productService.js";
+      import { UnifiedCategoryService } from "./src/services/domains/inventory/unifiedCategoryService.js";
+
+      console.log("🔍 CATEGORY DEBUGGING STARTED");
+      console.log("================================\n");
+
+      async function debugCategories() {
+        try {
+          console.log(
+            "📊 INVENTORY PAGE CATEGORIES (ProductService.getProductCategories):"
+          );
+          console.log(
+            "==================================================================="
+          );
+
+          const inventoryCategories =
+            await ProductService.getProductCategories();
+          console.log(
+            `✅ Found ${inventoryCategories?.length || 0} categories`
+          );
+
+          if (inventoryCategories && inventoryCategories.length > 0) {
+            console.table(
+              inventoryCategories.map((cat, index) => ({
+                "#": index + 1,
+                Name: cat.name,
+                ID: cat.id,
+                Description: cat.description || "No description",
+                Created: cat.created_at
+                  ? new Date(cat.created_at).toLocaleDateString()
+                  : "Unknown",
+              }))
+            );
+          } else {
+            console.log("❌ No categories found via ProductService");
+          }
+
+          console.log(
+            "\n📊 MANAGEMENT PAGE CATEGORIES (UnifiedCategoryService.getAllCategories):"
+          );
+          console.log(
+            "========================================================================="
+          );
+
+          const managementResult =
+            await UnifiedCategoryService.getAllCategories({ activeOnly: true });
+
+          if (managementResult.success) {
+            const managementCategories = managementResult.data || [];
+            console.log(`✅ Found ${managementCategories.length} categories`);
+
+            if (managementCategories.length > 0) {
+              console.table(
+                managementCategories.map((cat, index) => ({
+                  "#": index + 1,
+                  Name: cat.name,
+                  ID: cat.id,
+                  Description: cat.description || "No description",
+                  Created: cat.created_at
+                    ? new Date(cat.created_at).toLocaleDateString()
+                    : "Unknown",
+                }))
+              );
+            } else {
+              console.log("❌ No categories found via UnifiedCategoryService");
+            }
+
+            // DETAILED COMPARISON
+            console.log("\n🔍 DETAILED COMPARISON:");
+            console.log("========================");
+
+            const inventoryNames = (inventoryCategories || [])
+              .map((c) => c.name)
+              .sort();
+            const managementNames = managementCategories
+              .map((c) => c.name)
+              .sort();
+
+            console.log(`Inventory categories: [${inventoryNames.join(", ")}]`);
+            console.log(
+              `Management categories: [${managementNames.join(", ")}]`
+            );
+
+            if (
+              JSON.stringify(inventoryNames) === JSON.stringify(managementNames)
+            ) {
+              console.log("✅ CATEGORIES ARE IDENTICAL!");
+              console.log(
+                "💡 Issue might be in UI rendering, filtering, or state management"
+              );
+            } else {
+              console.log("❌ CATEGORIES ARE DIFFERENT!");
+
+              const onlyInInventory = inventoryNames.filter(
+                (name) => !managementNames.includes(name)
+              );
+              const onlyInManagement = managementNames.filter(
+                (name) => !inventoryNames.includes(name)
+              );
+
+              if (onlyInInventory.length > 0) {
+                console.log(
+                  `📦 Only in Inventory: ${onlyInInventory.join(", ")}`
+                );
+              }
+
+              if (onlyInManagement.length > 0) {
+                console.log(
+                  `⚙️ Only in Management: ${onlyInManagement.join(", ")}`
+                );
+              }
+            }
+          } else {
+            console.error(
+              "❌ UnifiedCategoryService failed:",
+              managementResult.error
+            );
+          }
+
+          // Test direct database query
+          console.log("\n🗄️ DIRECT DATABASE TEST:");
+          console.log("==========================");
+
+          try {
+            const directResult = await UnifiedCategoryService.getAllCategories({
+              activeOnly: false,
+            });
+            if (directResult.success) {
+              console.log(
+                `📊 Total categories in database: ${
+                  directResult.data?.length || 0
+                }`
+              );
+              console.log("🔍 All categories (including inactive):");
+              directResult.data?.forEach((cat, i) => {
+                console.log(
+                  `${i + 1}. ${cat.name} (Active: ${cat.is_active !== false})`
+                );
+              });
+            }
+          } catch (dbError) {
+            console.error("❌ Direct database query failed:", dbError);
+          }
+        } catch (error) {
+          console.error("❌ Category debugging failed:", error);
+          console.error("Stack trace:", error.stack);
+        }
+      }
+
+      // Run the debug when page loads
+      window.addEventListener("load", () => {
+        debugCategories();
+      });
+
+      // Make function available globally for manual testing
+      window.debugCategories = debugCategories;
+      window.ProductService = ProductService;
+      window.UnifiedCategoryService = UnifiedCategoryService;
+
+      console.log("🔧 Debug tools available:");
+      console.log("- window.debugCategories() - Run full category comparison");
+      console.log("- window.ProductService - Access ProductService directly");
+      console.log(
+        "- window.UnifiedCategoryService - Access UnifiedCategoryService directly"
+      );
+    </script>
+  </head>
+  <body
+    style="
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    "
+  >
+    <div
+      style="
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      "
+    >
+      <h1 style="color: #2563eb; margin-bottom: 20px">
+        🔍 MedCure Category Debug Tool
+      </h1>
+
+      <div
+        style="
+          background: #f8f9fa;
+          padding: 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        "
+      >
+        <h2 style="color: #495057; margin-top: 0">Debug Instructions:</h2>
+        <ol style="color: #6c757d; line-height: 1.6">
+          <li><strong>Open Developer Console</strong> (F12 → Console tab)</li>
+          <li>
+            <strong>Check the output</strong> - The debug will run automatically
+          </li>
+          <li>
+            <strong>Look for differences</strong> between Inventory and
+            Management categories
+          </li>
+          <li>
+            <strong>Manual testing:</strong> Run
+            <code>debugCategories()</code> in console
+          </li>
+        </ol>
+      </div>
+
+      <div
+        style="
+          background: #e7f3ff;
+          padding: 20px;
+          border-radius: 8px;
+          border-left: 4px solid #2563eb;
+        "
+      >
+        <h3 style="color: #1e40af; margin-top: 0">Expected Behavior:</h3>
+        <p style="color: #374151; margin-bottom: 0">
+          Both Inventory page and Management page should show
+          <strong>identical categories</strong>
+          since they both use the UnifiedCategoryService. If they differ, we've
+          found the root cause!
+        </p>
+      </div>
+
+      <div
+        style="
+          margin-top: 20px;
+          padding: 15px;
+          background: #fff3cd;
+          border-radius: 8px;
+          border: 1px solid #ffc107;
+        "
+      >
+        <p style="margin: 0; color: #856404">
+          <strong>Note:</strong> All debug output will appear in the browser
+          console. This page serves as a controlled environment to test category
+          services.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

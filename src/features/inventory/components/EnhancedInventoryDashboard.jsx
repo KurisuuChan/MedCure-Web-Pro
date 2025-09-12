@@ -38,6 +38,10 @@ import { ProductService } from "../../../services/domains/inventory/productServi
 
 // Import utility functions
 import { formatCurrency } from "../../../utils/formatting";
+import {
+  isLowStock,
+  filterLowStockProducts,
+} from "../../../utils/productUtils";
 
 const EnhancedInventoryDashboard = () => {
   const [orderSuggestions, setOrderSuggestions] = useState([]);
@@ -48,6 +52,39 @@ const EnhancedInventoryDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isAutoReordering, setIsAutoReordering] = useState(false);
   const [exportingReport, setExportingReport] = useState(false);
+
+  // Helper function to calculate daily sales velocity
+  const calculateDailySalesVelocity = async (productId) => {
+    try {
+      const product = await ProductService.getProductById(productId);
+      if (!product) return 0;
+
+      const categoryMultipliers = {
+        "Pain Relief": 2.5,
+        Antibiotics: 2.0,
+        Vitamins: 1.5,
+        Respiratory: 3.0,
+        "Digestive Health": 1.8,
+        Cardiovascular: 1.2,
+        "Skin Care": 1.0,
+        "General Medicine": 1.3,
+      };
+
+      const baseVelocity = categoryMultipliers[product.category] || 1.0;
+      const stockInfluence = Math.min(product.stock_in_pieces / 100, 2);
+      const priceInfluence = Math.max(0.5, 100 / product.price_per_piece);
+
+      return (
+        baseVelocity *
+        stockInfluence *
+        priceInfluence *
+        (Math.random() * 0.5 + 0.75)
+      );
+    } catch (error) {
+      console.error("Error calculating daily sales velocity:", error);
+      return 0.5; // Fallback value
+    }
+  };
 
   // Professional Order Intelligence Service
   const OrderIntelligenceService = useMemo(
@@ -61,9 +98,7 @@ const EnhancedInventoryDashboard = () => {
           for (const product of products) {
             const stockLevel = product.stock_in_pieces || 0;
             const reorderLevel = product.reorder_level || 10;
-            const avgDailySales = await this.calculateDailySalesVelocity(
-              product.id
-            );
+            const avgDailySales = await calculateDailySalesVelocity(product.id);
             const daysUntilStockout = stockLevel / (avgDailySales || 0.1);
 
             // Calculate suggested order quantity
@@ -73,10 +108,10 @@ const EnhancedInventoryDashboard = () => {
               avgDailySales * (leadTimeDays + safetyStockDays) - stockLevel
             );
 
-            // Determine urgency level
+            // Determine urgency level using standardized function
             let urgency = "low";
             let urgencyColor = "green";
-            if (stockLevel <= reorderLevel) {
+            if (isLowStock(product)) {
               urgency = "critical";
               urgencyColor = "red";
             } else if (daysUntilStockout <= 14) {
@@ -127,38 +162,6 @@ const EnhancedInventoryDashboard = () => {
         } catch (error) {
           console.error("Error generating order suggestions:", error);
           return [];
-        }
-      },
-
-      // Calculate daily sales velocity (simplified - in real system would use sales history)
-      async calculateDailySalesVelocity(productId) {
-        try {
-          const product = await ProductService.getProductById(productId);
-          if (!product) return 0;
-
-          const categoryMultipliers = {
-            "Pain Relief": 2.5,
-            Antibiotics: 2.0,
-            Vitamins: 1.5,
-            Respiratory: 3.0,
-            "Digestive Health": 1.8,
-            Cardiovascular: 1.2,
-            "Skin Care": 1.0,
-            "General Medicine": 1.3,
-          };
-
-          const baseVelocity = categoryMultipliers[product.category] || 1.0;
-          const stockInfluence = Math.min(product.stock_in_pieces / 100, 2);
-          const priceInfluence = Math.max(0.5, 100 / product.price_per_piece);
-
-          return (
-            baseVelocity *
-            stockInfluence *
-            priceInfluence *
-            (Math.random() * 0.5 + 0.75)
-          );
-        } catch {
-          return 0.5;
         }
       },
 
@@ -248,7 +251,7 @@ const EnhancedInventoryDashboard = () => {
                 icon: XCircle,
                 color: "red",
               });
-            } else if (stockLevel <= reorderLevel) {
+            } else if (isLowStock(product)) {
               alerts.push({
                 type: "low-stock",
                 severity: "high",
@@ -329,9 +332,7 @@ const EnhancedInventoryDashboard = () => {
         (sum, p) => sum + p.stock_in_pieces * p.price_per_piece,
         0
       );
-      const lowStockItems = products.filter(
-        (p) => p.stock_in_pieces > 0 && p.stock_in_pieces <= p.reorder_level
-      ).length;
+      const lowStockItems = filterLowStockProducts(products).length;
       const outOfStockItems = products.filter(
         (p) => p.stock_in_pieces === 0
       ).length;

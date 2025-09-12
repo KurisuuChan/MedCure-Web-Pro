@@ -8,6 +8,11 @@ import { logDebug, handleError } from "../../core/serviceUtils";
 import ProductService from "../inventory/productService";
 import UserService from "../auth/userService";
 import SalesService from "../sales/salesService";
+// Import standardized low stock utilities
+import {
+  filterLowStockProducts,
+  countLowStockProducts,
+} from "../../../utils/productUtils";
 
 export class DashboardService {
   static async getDashboardData() {
@@ -34,15 +39,17 @@ export class DashboardService {
       const totalSales = salesData
         .filter((sale) => sale.status === "completed") // ✅ Only count completed transactions
         .reduce((sum, sale) => sum + sale.total_amount, 0);
-      const lowStockProducts = productsData.filter(
-        (p) => p.stock_in_pieces <= (p.reorder_level || 10)
-      );
+
+      // ✅ FIXED: Use standardized low stock calculation
+      const lowStockProducts = filterLowStockProducts(productsData);
+      const lowStockCount = countLowStockProducts(productsData);
+
       const activeUsers = usersData.filter((u) => u.is_active !== false);
 
       const dashboardData = {
         totalSales,
         totalProducts: productsData.length,
-        lowStockCount: lowStockProducts.length,
+        lowStockCount: lowStockProducts.length, // ✅ Use consistent calculation
         lowStockItems: lowStockProducts.length, // For Management page compatibility
         totalUsers: usersData.length, // For Management page
         activeUsers: activeUsers.length,
@@ -53,7 +60,7 @@ export class DashboardService {
         // Add analytics object for ManagementPage compatibility
         analytics: {
           totalProducts: productsData.length,
-          lowStockProducts: lowStockProducts.length,
+          lowStockProducts: lowStockProducts.length, // ✅ Use consistent calculation
           todaysSales: totalSales,
         },
 

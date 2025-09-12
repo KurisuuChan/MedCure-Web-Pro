@@ -158,7 +158,40 @@ const EnhancedTransactionHistory = () => {
   };
 
   const handleEditTransaction = (transaction) => {
-    setEditingTransaction(transaction);
+    console.log("🔧 Edit button clicked for transaction:", transaction);
+
+    // Validate transaction can be edited
+    if (!transaction) {
+      showNotification("❌ No transaction data available", "error");
+      return;
+    }
+
+    // Check if transaction is within edit time window (24 hours)
+    const transactionDate = new Date(transaction.created_at);
+    const now = new Date();
+    const hoursDiff = (now - transactionDate) / (1000 * 60 * 60);
+
+    if (hoursDiff > 24) {
+      showNotification(
+        "❌ Cannot edit transactions older than 24 hours",
+        "error"
+      );
+      return;
+    }
+
+    if (transaction.status !== "completed") {
+      showNotification("❌ Only completed transactions can be edited", "error");
+      return;
+    }
+
+    // Prepare transaction data for editing
+    const editableTransaction = {
+      ...transaction,
+      sale_items: transaction.sale_items || [],
+    };
+
+    console.log("✅ Opening edit modal for transaction:", editableTransaction);
+    setEditingTransaction(editableTransaction);
   };
 
   const handlePrintReceipt = (transaction) => {
@@ -260,7 +293,13 @@ const EnhancedTransactionHistory = () => {
 
           {canEdit && (
             <button
-              onClick={() => handleEditTransaction(transaction)}
+              onClick={() => {
+                console.log(
+                  "🔧 Edit button clicked for transaction:",
+                  transaction
+                );
+                handleEditTransaction(transaction);
+              }}
               className="group px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center space-x-2"
               title="Edit Transaction"
             >
@@ -1025,6 +1064,30 @@ const EditTransactionModal = ({
   const [editReason, setEditReason] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Initialize items with proper structure
+  useEffect(() => {
+    if (transaction.sale_items) {
+      const processedItems = transaction.sale_items.map((item) => ({
+        ...item,
+        // Ensure all required fields exist
+        id: item.id,
+        product_id: item.product_id,
+        quantity: item.quantity || 1,
+        unit_price: item.unit_price || 0,
+        total_price: item.total_price || item.quantity * item.unit_price,
+        unit_type: item.unit_type || "piece",
+        // Handle product name from nested product object or fallback
+        product_name:
+          item.products?.name ||
+          item.product_name ||
+          `Product ${item.product_id}`,
+      }));
+
+      console.log("🔧 Processed items for editing:", processedItems);
+      setItems(processedItems);
+    }
+  }, [transaction]);
+
   const updateItemQuantity = (itemId, newQuantity) => {
     setItems((prev) =>
       prev.map((item) =>
@@ -1033,7 +1096,8 @@ const EditTransactionModal = ({
               ...item,
               quantity: Math.max(1, parseInt(newQuantity) || 1),
               total_price:
-                Math.max(1, parseInt(newQuantity) || 1) * item.unit_price,
+                Math.max(1, parseInt(newQuantity) || 1) *
+                (item.unit_price || 0),
             }
           : item
       )
@@ -1041,12 +1105,73 @@ const EditTransactionModal = ({
   };
 
   const removeItem = (itemId) => {
+    if (items.length <= 1) {
+      showNotification(
+        "⚠️ Cannot remove the last item from transaction",
+        "warning"
+      );
+      return;
+    }
     setItems((prev) => prev.filter((item) => item.id !== itemId));
   };
 
   const calculateNewTotal = () => {
     return items.reduce((total, item) => total + (item.total_price || 0), 0);
   };
+
+  const calculateStockChanges = () => {
+    const originalItems = transaction.sale_items || [];
+    const stockChanges = [];
+
+    // Create a map of product changes
+    const changeMap = new Map();
+
+    // Process original items (these were deducted)
+    originalItems.forEach((item) => {
+      const productId = item.product_id;
+      const quantity = item.quantity || 0;
+      changeMap.set(productId, {
+        product_id: productId,
+        product_name:
+          item.products?.name || item.product_name || `Product ${productId}`,
+        original_quantity: quantity,
+        new_quantity: 0,
+        change: 0,
+      });
+    });
+
+    // Process new items
+    items.forEach((item) => {
+      const productId = item.product_id;
+      const quantity = item.quantity || 0;
+
+      if (changeMap.has(productId)) {
+        changeMap.get(productId).new_quantity = quantity;
+      } else {
+        changeMap.set(productId, {
+          product_id: productId,
+          product_name: item.product_name || `Product ${productId}`,
+          original_quantity: 0,
+          new_quantity: quantity,
+          change: 0,
+        });
+      }
+    });
+
+    // Calculate changes
+    changeMap.forEach((change) => {
+      change.change = change.new_quantity - change.original_quantity;
+    });
+
+    return Array.from(changeMap.values()).filter(
+      (change) => change.change !== 0
+    );
+  };
+
+  const stockChanges = calculateStockChanges();
+  const newTotal = calculateNewTotal();
+  const originalTotal = transaction.total_amount || 0;
+  const totalDifference = newTotal - originalTotal;
 
   const handleSaveEdit = async () => {
     if (!editReason.trim()) {
@@ -1072,21 +1197,33 @@ const EditTransactionModal = ({
       // Validate item data before sending
       const validatedItems = items.map((item) => ({
         ...item,
+        id: item.id, // Ensure we keep the original item ID for updates
         quantity: Math.max(1, parseInt(item.quantity) || 1),
         unit_price: parseFloat(item.unit_price) || 0,
         total_price: parseFloat(item.total_price) || 0,
+        product_id: item.product_id || item.id,
+        unit_type: item.unit_type || "piece",
       }));
+
+      const newTotal = calculateNewTotal();
 
       const editData = {
         sale_items: validatedItems,
         customer_name: customerName.trim() || null,
-        total_amount: calculateNewTotal(),
+        total_amount: newTotal,
+        subtotal_before_discount: newTotal, // For now, assume no complex discounts
+        discount_type: transaction.discount_type || "none",
+        discount_percentage: transaction.discount_percentage || 0,
+        discount_amount: transaction.discount_amount || 0,
         edit_reason: editReason.trim(),
         edited_by: currentUser?.id || "admin-user",
         edited_at: new Date().toISOString(),
       };
 
       console.log("🔄 Submitting edit data:", editData);
+      console.log("🔄 Transaction ID:", transaction.id);
+      console.log("🔄 Edit reason:", editReason.trim());
+      console.log("🔄 Current user:", currentUser?.id || "admin-user");
 
       const result = await transactionService.editTransaction(
         transaction.id,
@@ -1095,21 +1232,40 @@ const EditTransactionModal = ({
         currentUser?.id || "admin-user"
       );
 
-      if (result.success) {
-        showNotification("✅ Transaction updated successfully!", "success");
+      console.log("📊 Edit result:", result);
+
+      if (result && result.success !== false) {
+        // Show detailed success message with stock information
+        const stockMovements = result.stock_movements || [];
+        let successMessage = "✅ Transaction updated successfully!";
+
+        if (stockMovements.length > 0) {
+          const stockSummary = stockMovements
+            .map(
+              (movement) =>
+                `${movement.product_name}: ${movement.change > 0 ? "+" : ""}${
+                  movement.change
+                } stock`
+            )
+            .join(", ");
+          successMessage += ` Stock changes: ${stockSummary}`;
+        }
+
+        showNotification(successMessage, "success");
         onSave(); // Reload transactions
         onClose(); // Close modal
       } else {
+        const errorMessage =
+          result?.message || result?.error || "Unknown error";
         showNotification(
-          "❌ Failed to update transaction: " +
-            (result.message || "Unknown error"),
+          "❌ Failed to update transaction: " + errorMessage,
           "error"
         );
       }
     } catch (error) {
       console.error("❌ Edit transaction error:", error);
       showNotification(
-        "❌ Error updating transaction: " + error.message,
+        "❌ Error updating transaction: " + (error.message || error),
         "error"
       );
     } finally {
@@ -1237,11 +1393,13 @@ const EditTransactionModal = ({
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900 text-sm">
-                          {item.products?.name || `Product ${item.product_id}`}
+                          {item.product_name ||
+                            item.products?.name ||
+                            `Product ${item.product_id}`}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
                           ₱{(item.unit_price || 0).toFixed(2)} per{" "}
-                          {item.unit_type}
+                          {item.unit_type || "piece"}
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
@@ -1294,12 +1452,96 @@ const EditTransactionModal = ({
               </div>
             </div>
 
-            {/* New Total Section */}
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-100">
+            {/* Stock Impact Analysis Section */}
+            {stockChanges.length > 0 && (
+              <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-100">
+                <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+                  <svg
+                    className="h-5 w-5 mr-2 text-blue-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l-1-3m1 3l-1-3m-16.5 0h16.5"
+                    />
+                  </svg>
+                  Stock Impact Analysis
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                    {stockChanges.length} product
+                    {stockChanges.length !== 1 ? "s" : ""} affected
+                  </span>
+                </h4>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {stockChanges.map((change, index) => (
+                    <div
+                      key={index}
+                      className="bg-white rounded-lg p-3 border border-blue-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <span className="font-medium text-gray-900 text-sm">
+                            {change.product_name}
+                          </span>
+                          <div className="text-xs text-gray-600 mt-1">
+                            {change.original_quantity} → {change.new_quantity}{" "}
+                            pieces
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div
+                            className={`font-semibold text-sm ${
+                              change.change > 0
+                                ? "text-red-600"
+                                : "text-green-600"
+                            }`}
+                          >
+                            {change.change > 0 ? "-" : "+"}
+                            {Math.abs(change.change)} stock
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {change.change > 0 ? "Deduct" : "Restore"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 p-2 bg-blue-100 rounded-lg">
+                  <p className="text-xs text-blue-800">
+                    <span className="font-semibold">
+                      Stock changes will be applied automatically.
+                    </span>{" "}
+                    Increases will deduct additional stock, decreases will
+                    restore stock to inventory.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Updated Total Section */}
+            <div
+              className={`rounded-xl p-4 border-2 ${
+                totalDifference === 0
+                  ? "bg-gray-50 border-gray-100"
+                  : totalDifference > 0
+                  ? "bg-green-50 border-green-100"
+                  : "bg-orange-50 border-orange-100"
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <h4 className="text-base font-semibold text-gray-900 flex items-center">
                   <svg
-                    className="h-5 w-5 mr-2 text-green-600"
+                    className={`h-5 w-5 mr-2 ${
+                      totalDifference === 0
+                        ? "text-gray-600"
+                        : totalDifference > 0
+                        ? "text-green-600"
+                        : "text-orange-600"
+                    }`}
                     fill="none"
                     viewBox="0 0 24 24"
                     strokeWidth={1.5}
@@ -1311,15 +1553,38 @@ const EditTransactionModal = ({
                       d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Updated Total
+                  Transaction Total
                 </h4>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-green-600">
-                    ₱{calculateNewTotal().toFixed(2)}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">
+                      ₱{originalTotal.toFixed(2)}
+                    </span>
+                    <span className="text-gray-400">→</span>
+                    <span
+                      className={`text-lg font-bold ${
+                        totalDifference === 0
+                          ? "text-gray-900"
+                          : totalDifference > 0
+                          ? "text-green-600"
+                          : "text-orange-600"
+                      }`}
+                    >
+                      ₱{newTotal.toFixed(2)}
+                    </span>
                   </div>
-                  <p className="text-xs text-green-700">
-                    New transaction amount
-                  </p>
+                  {totalDifference !== 0 && (
+                    <div
+                      className={`text-sm font-medium ${
+                        totalDifference > 0
+                          ? "text-green-600"
+                          : "text-orange-600"
+                      }`}
+                    >
+                      {totalDifference > 0 ? "+" : ""}₱
+                      {totalDifference.toFixed(2)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
