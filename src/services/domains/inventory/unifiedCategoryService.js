@@ -1327,7 +1327,6 @@ export class UnifiedCategoryService {
 
       for (const item of importData) {
         let categoryId = null;
-        let matchType = "none";
         
         if (item.category) {
           const originalCategory = item.category.toLowerCase().trim();
@@ -1336,13 +1335,11 @@ export class UnifiedCategoryService {
           // Strategy 1: Exact match
           if (categoryMap.has(originalCategory)) {
             categoryId = categoryMap.get(originalCategory);
-            matchType = "exact";
             mappingStats.exactMatches++;
           }
           // Strategy 2: Normalized match
           else if (normalizedMap.has(normalizedCategory)) {
             categoryId = normalizedMap.get(normalizedCategory);
-            matchType = "normalized";
             mappingStats.normalizedMatches++;
           }
           // Strategy 3: Fuzzy match (for existing categories)
@@ -1355,7 +1352,6 @@ export class UnifiedCategoryService {
             
             if (similarCategory) {
               categoryId = similarCategory.id;
-              matchType = "fuzzy";
               console.log(`🔄 [UnifiedCategory] Fuzzy matched "${item.category}" → "${similarCategory.name}"`);
             } else {
               // Mark for potential auto-creation
@@ -1369,7 +1365,7 @@ export class UnifiedCategoryService {
           ...item,
           category_id: categoryId,
           category: item.category, // Keep original for reference
-          mapping_type: matchType
+          // mapping_type removed - doesn't exist in database schema
         });
       }
 
