@@ -282,7 +282,7 @@ export default function InventoryPage() {
           <ProductSearch
             onSearch={handleSearch}
             onFilter={handleFilter}
-            categories={getCategoriesToUse().slice(1)} // Remove "All Categories"
+            categories={getCategoriesToUse()} // Show all categories - "All Categories" is handled in ProductSearch component
             brands={productBrands.slice(1)} // Remove "All Brands"
           />
 

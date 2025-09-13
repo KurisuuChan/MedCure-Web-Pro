@@ -98,20 +98,45 @@ export class UnifiedCategoryService {
   }
 
   /**
-   * Get category by name (case-insensitive)
+   * Get category by name (case-insensitive with enhanced fuzzy matching)
    */
   static async getCategoryByName(name) {
     try {
-      const { data, error } = await supabase
+      const normalizedName = this.normalizeCategoryName(name);
+      
+      // First: Exact match search (case-insensitive)
+      const { data: exactMatch, error: exactError } = await supabase
         .from("categories")
         .select("*")
-        .ilike("name", name.trim())
+        .ilike("name", normalizedName.trim())
         .eq("is_active", true)
         .maybeSingle();
 
-      if (error) throw error;
+      if (exactError) throw exactError;
+      if (exactMatch) {
+        return { success: true, data: exactMatch, matchType: "exact" };
+      }
 
-      return { success: true, data };
+      // Second: Fuzzy match search for similar categories
+      const { data: allCategories, error: allError } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("is_active", true);
+
+      if (allError) throw allError;
+
+      // Find similar categories using Levenshtein distance
+      const similarCategory = this.findSimilarCategory(normalizedName, allCategories);
+      if (similarCategory) {
+        return { 
+          success: true, 
+          data: similarCategory, 
+          matchType: "similar",
+          suggestion: `Similar category "${similarCategory.name}" found for "${normalizedName}"`
+        };
+      }
+
+      return { success: true, data: null, matchType: "none" };
     } catch (error) {
       console.error(
         "❌ [UnifiedCategory] Error fetching category by name:",
@@ -122,7 +147,7 @@ export class UnifiedCategoryService {
   }
 
   /**
-   * Create new category
+   * Create new category with enhanced duplicate detection
    * Used by: Management Page, Auto-import system
    */
   static async createCategory(categoryData, context = {}) {
@@ -135,23 +160,43 @@ export class UnifiedCategoryService {
       // Normalize and validate data
       const normalizedData = await this.normalizeCategoryData(categoryData);
 
-      // Check for duplicates
+      // Enhanced duplicate checking with similarity detection
       const existingCheck = await this.getCategoryByName(normalizedData.name);
+      
       if (existingCheck.success && existingCheck.data) {
+        const matchType = existingCheck.matchType || "exact";
+        
         console.log(
-          `ℹ️ [UnifiedCategory] Category "${normalizedData.name}" already exists`
+          `ℹ️ [UnifiedCategory] Category "${normalizedData.name}" ${matchType} match found: "${existingCheck.data.name}"`
         );
-        return {
-          success: true,
-          data: existingCheck.data,
-          action: "existing",
-        };
+        
+        // For exact matches, return existing category
+        if (matchType === "exact") {
+          return {
+            success: true,
+            data: existingCheck.data,
+            action: "existing",
+            message: `Category "${existingCheck.data.name}" already exists`
+          };
+        }
+        
+        // For similar matches, suggest merging or creating with different name
+        if (matchType === "similar" && context.autoMerge !== true) {
+          return {
+            success: false,
+            action: "similar_found",
+            suggestion: existingCheck.suggestion,
+            existingCategory: existingCheck.data,
+            proposedCategory: normalizedData,
+            message: `Similar category "${existingCheck.data.name}" found. Consider using existing or creating with a different name.`
+          };
+        }
       }
 
       // Get next sort order
       const nextSortOrder = await this.getNextSortOrder();
 
-      // Prepare category data
+      // Prepare category data with enhanced metadata
       const newCategory = {
         ...normalizedData,
         sort_order: nextSortOrder,
@@ -160,6 +205,9 @@ export class UnifiedCategoryService {
         metadata: {
           created_by: context.userId || "system",
           creation_source: context.source || "manual",
+          creation_context: context.description || "Standard category creation",
+          similarity_checked: true,
+          original_name: categoryData.name,
           ...normalizedData.metadata,
         },
       };
@@ -172,20 +220,31 @@ export class UnifiedCategoryService {
 
       if (error) throw error;
 
-      // Log creation for audit
-      await this.logCategoryActivity("category_created", data.id, context);
+      // Log creation for audit trail
+      await this.logCategoryActivity("category_created", data.id, {
+        ...context,
+        original_name: categoryData.name,
+        normalized_name: normalizedData.name
+      });
 
       console.log(
         `✅ [UnifiedCategory] Category "${data.name}" created successfully`
       );
+      
       return {
         success: true,
         data,
         action: "created",
+        message: `Category "${data.name}" created successfully`
       };
     } catch (error) {
       console.error("❌ [UnifiedCategory] Error creating category:", error);
-      return { success: false, error: error.message, action: "failed" };
+      return { 
+        success: false, 
+        error: error.message, 
+        action: "failed",
+        message: `Failed to create category: ${error.message}`
+      };
     }
   }
 
@@ -341,45 +400,91 @@ export class UnifiedCategoryService {
   }
 
   /**
-   * Create category if it doesn't exist, or return existing one
+   * Create category if it doesn't exist, or return existing one with enhanced logic
    */
   static async createOrGetCategory(categoryName, context = {}) {
     try {
       // Normalize the category name
       const normalizedName = this.normalizeCategoryName(categoryName);
 
-      // Check if category exists
+      // Enhanced category lookup with similarity detection
       const existingResult = await this.getCategoryByName(normalizedName);
+      
       if (existingResult.success && existingResult.data) {
-        return {
-          success: true,
-          data: existingResult.data,
-          action: "existing",
-        };
+        const matchType = existingResult.matchType || "exact";
+        
+        // For exact matches, return immediately
+        if (matchType === "exact") {
+          return {
+            success: true,
+            data: existingResult.data,
+            action: "existing",
+            message: `Using existing category: ${existingResult.data.name}`
+          };
+        }
+        
+        // For similar matches during import, auto-use the similar category
+        if (matchType === "similar" && context.source === "import") {
+          console.log(`🔄 [UnifiedCategory] Auto-using similar category "${existingResult.data.name}" for "${normalizedName}"`);
+          
+          // Log the mapping for audit purposes
+          await this.logCategoryActivity("category_auto_mapped", existingResult.data.id, {
+            ...context,
+            original_name: categoryName,
+            normalized_name: normalizedName,
+            mapped_to: existingResult.data.name,
+            similarity_match: true
+          });
+          
+          return {
+            success: true,
+            data: existingResult.data,
+            action: "mapped",
+            message: `Mapped "${categoryName}" to existing category "${existingResult.data.name}"`
+          };
+        }
       }
 
       // Create new category with intelligent defaults
       const categoryData = {
         name: normalizedName,
-        description: `Auto-created during ${
-          context.source || "import"
-        } for ${normalizedName} products`,
+        description: `Auto-created during ${context.source || "import"} for ${normalizedName} products`,
         color: this.getColorForCategory(normalizedName),
         icon: this.getIconForCategory(normalizedName),
         metadata: {
           auto_created: true,
           original_name: categoryName,
+          creation_trigger: context.source || "system",
+          batch_id: context.batchId || null,
           ...context,
         },
       };
 
-      return await this.createCategory(categoryData, context);
+      const result = await this.createCategory(categoryData, {
+        ...context,
+        autoMerge: true // Allow auto-merging during bulk operations
+      });
+      
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data,
+          action: "created",
+          message: `Created new category: ${result.data.name}`
+        };
+      } else {
+        throw new Error(result.error || result.message);
+      }
     } catch (error) {
       console.error(
         "❌ [UnifiedCategory] Error in createOrGetCategory:",
         error
       );
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message,
+        message: `Failed to create or get category for "${categoryName}"`
+      };
     }
   }
 
@@ -522,45 +627,80 @@ export class UnifiedCategoryService {
   }
 
   /**
-   * Normalize category name with intelligent mapping
+   * Normalize category name with intelligent mapping and enhanced validation
    */
   static normalizeCategoryName(name) {
     if (!name || typeof name !== "string") {
       return "General Medicine";
     }
 
-    // Category mapping for intelligent normalization
+    // Enhanced category mapping for intelligent normalization
     const mappings = {
       "pain relief": "Pain Relief",
-      analgesics: "Pain Relief",
+      "pain reliever": "Pain Relief",
+      "analgesics": "Pain Relief",
       "anti-inflammatory": "Pain Relief",
-      antibiotics: "Antibiotics",
-      antibiotic: "Antibiotics",
-      cardiovascular: "Cardiovascular",
-      heart: "Cardiovascular",
-      digestive: "Digestive Health",
-      stomach: "Digestive Health",
-      respiratory: "Respiratory",
-      cough: "Respiratory",
-      vitamins: "Vitamins & Supplements",
-      vitamin: "Vitamins & Supplements",
-      supplements: "Vitamins & Supplements",
-      diabetes: "Diabetes Care",
-      diabetic: "Diabetes Care",
-      skin: "Dermatology",
-      dermatology: "Dermatology",
-      eye: "Eye Care",
-      ophthalmology: "Eye Care",
+      "ibuprofen": "Pain Relief",
+      "paracetamol": "Pain Relief",
+      "aspirin": "Pain Relief",
+      
+      "antibiotics": "Antibiotics",
+      "antibiotic": "Antibiotics",
+      "antimicrobial": "Antibiotics",
+      "penicillin": "Antibiotics",
+      "amoxicillin": "Antibiotics",
+      
+      "cardiovascular": "Cardiovascular",
+      "cardio": "Cardiovascular",
+      "heart": "Cardiovascular",
+      "blood pressure": "Cardiovascular",
+      "hypertension": "Cardiovascular",
+      
+      "digestive": "Digestive Health",
+      "digestive health": "Digestive Health",
+      "stomach": "Digestive Health",
+      "gastrointestinal": "Digestive Health",
+      "antacid": "Digestive Health",
+      
+      "respiratory": "Respiratory",
+      "breathing": "Respiratory",
+      "cough": "Respiratory",
+      "cold": "Respiratory",
+      "flu": "Respiratory",
+      "asthma": "Respiratory",
+      
+      "vitamins": "Vitamins & Supplements",
+      "vitamin": "Vitamins & Supplements",
+      "supplements": "Vitamins & Supplements",
+      "multivitamin": "Vitamins & Supplements",
+      "minerals": "Vitamins & Supplements",
+      
+      "diabetes": "Diabetes Care",
+      "diabetic": "Diabetes Care",
+      "blood sugar": "Diabetes Care",
+      "insulin": "Diabetes Care",
+      
+      "skin": "Dermatology",
+      "dermatology": "Dermatology",
+      "topical": "Dermatology",
+      "cream": "Dermatology",
+      "ointment": "Dermatology",
+      
+      "eye": "Eye Care",
+      "eyes": "Eye Care",
+      "ophthalmology": "Eye Care",
+      "vision": "Eye Care",
+      "drops": "Eye Care",
     };
 
     const normalized = name.toLowerCase().trim();
 
-    // Check direct mappings
+    // Check direct mappings first
     if (mappings[normalized]) {
       return mappings[normalized];
     }
 
-    // Check partial matches
+    // Check partial matches with fuzzy logic
     for (const [key, value] of Object.entries(mappings)) {
       if (normalized.includes(key) || key.includes(normalized)) {
         return value;
@@ -572,6 +712,60 @@ export class UnifiedCategoryService {
       .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ");
+  }
+
+  /**
+   * Find similar category using Levenshtein distance algorithm
+   */
+  static findSimilarCategory(targetName, categories, threshold = 0.7) {
+    let bestMatch = null;
+    let bestSimilarity = 0;
+
+    for (const category of categories) {
+      const similarity = this.calculateStringSimilarity(
+        targetName.toLowerCase(),
+        category.name.toLowerCase()
+      );
+      
+      if (similarity > threshold && similarity > bestSimilarity) {
+        bestMatch = category;
+        bestSimilarity = similarity;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Calculate string similarity using Levenshtein distance
+   */
+  static calculateStringSimilarity(str1, str2) {
+    if (str1 === str2) return 1.0;
+    if (str1.length === 0) return str2.length === 0 ? 1.0 : 0.0;
+    if (str2.length === 0) return 0.0;
+
+    const matrix = Array(str2.length + 1).fill().map(() => Array(str1.length + 1).fill(0));
+
+    for (let i = 0; i <= str1.length; i++) {
+      matrix[0][i] = i;
+    }
+    for (let j = 0; j <= str2.length; j++) {
+      matrix[j][0] = j;
+    }
+
+    for (let j = 1; j <= str2.length; j++) {
+      for (let i = 1; i <= str1.length; i++) {
+        const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+        matrix[j][i] = Math.min(
+          matrix[j - 1][i] + 1,     // deletion
+          matrix[j][i - 1] + 1,     // insertion
+          matrix[j - 1][i - 1] + cost // substitution
+        );
+      }
+    }
+
+    const maxLength = Math.max(str1.length, str2.length);
+    return (maxLength - matrix[str2.length][str1.length]) / maxLength;
   }
 
   /**
@@ -833,46 +1027,118 @@ export class UnifiedCategoryService {
   }
 
   /**
-   * Create categories from import data
+   * Create categories from import data with enhanced deduplication
    */
   static async createCategoriesFromImport(categoryNames, metadata = {}) {
     try {
-      const createPromises = categoryNames.map(async (name) => {
-        const normalizedName = this.normalizeCategoryName(name);
+      console.log("📦 [UnifiedCategory] Creating categories from import with deduplication...");
+      
+      // Remove duplicates and normalize names
+      const uniqueNames = [...new Set(categoryNames.map(name => this.normalizeCategoryName(name)))];
+      
+      // Fetch existing categories to avoid duplicates
+      const existingResult = await this.getAllCategories();
+      const existingNames = new Set();
+      
+      if (existingResult.success) {
+        existingResult.data.forEach(cat => {
+          existingNames.add(cat.name.toLowerCase());
+        });
+      }
 
-        // Check if it already exists
-        const existing = await this.getCategoryByName(normalizedName);
-        if (existing) {
-          return { name: normalizedName, status: "exists", id: existing.id };
+      const results = [];
+      const batchId = `import-${Date.now()}`;
+      
+      // Process each category with enhanced logic
+      for (const name of uniqueNames) {
+        const normalizedName = this.normalizeCategoryName(name);
+        
+        // Skip if already exists (case-insensitive check)
+        if (existingNames.has(normalizedName.toLowerCase())) {
+          results.push({ 
+            name: normalizedName, 
+            status: "exists", 
+            message: `Category "${normalizedName}" already exists`
+          });
+          continue;
         }
 
-        // Create new category
-        const created = await this.createCategory({
-          name: normalizedName,
-          description: `Auto-created during import: ${
-            metadata.import_session || "Unknown"
-          }`,
-          color: this.getRandomColor(),
-          icon: "Package",
-        });
+        try {
+          // Create new category with batch tracking
+          const created = await this.createCategory({
+            name: normalizedName,
+            description: `Auto-created during batch import: ${metadata.import_session || "Unknown"}`,
+            color: this.getColorForCategory(normalizedName),
+            icon: this.getIconForCategory(normalizedName),
+            metadata: {
+              ...metadata,
+              batch_id: batchId,
+              auto_created: true,
+              creation_source: "bulk_import"
+            }
+          }, {
+            source: "bulk_import",
+            batchId,
+            autoMerge: true
+          });
 
-        return { name: normalizedName, status: "created", id: created.id };
-      });
+          if (created.success) {
+            results.push({ 
+              name: normalizedName, 
+              status: "created", 
+              id: created.data.id,
+              message: `Created category "${normalizedName}"`
+            });
+            // Add to existing names to prevent duplicates in same batch
+            existingNames.add(normalizedName.toLowerCase());
+          } else {
+            results.push({ 
+              name: normalizedName, 
+              status: "failed", 
+              error: created.error,
+              message: `Failed to create "${normalizedName}": ${created.error}`
+            });
+          }
+        } catch (error) {
+          results.push({ 
+            name: normalizedName, 
+            status: "error", 
+            error: error.message,
+            message: `Error creating "${normalizedName}": ${error.message}`
+          });
+        }
+      }
 
-      const results = await Promise.all(createPromises);
+      const summary = {
+        total: uniqueNames.length,
+        created: results.filter((r) => r.status === "created").length,
+        existing: results.filter((r) => r.status === "exists").length,
+        failed: results.filter((r) => r.status === "failed" || r.status === "error").length,
+        batchId,
+        results,
+      };
+
+      console.log("✅ [UnifiedCategory] Batch creation summary:", summary);
 
       return {
         success: true,
-        summary: {
-          total: categoryNames.length,
-          created: results.filter((r) => r.status === "created").length,
-          existing: results.filter((r) => r.status === "exists").length,
-          results,
-        },
+        data: results,
+        summary,
       };
     } catch (error) {
-      console.error("Error creating categories from import:", error);
-      throw error;
+      console.error("❌ [UnifiedCategory] Error creating categories from import:", error);
+      return {
+        success: false,
+        error: error.message,
+        data: [],
+        summary: {
+          total: categoryNames.length,
+          created: 0,
+          existing: 0,
+          failed: categoryNames.length,
+          results: []
+        }
+      };
     }
   }
 
@@ -1025,30 +1291,100 @@ export class UnifiedCategoryService {
    * Map import data to use category IDs instead of names
    * Migrated from SmartCategoryService
    */
+  /**
+   * Map categories to IDs with enhanced fuzzy matching and auto-creation
+   */
   static async mapCategoriesToIds(importData) {
     try {
-      console.log("🔗 [UnifiedCategory] Mapping categories to IDs...");
+      console.log("🔗 [UnifiedCategory] Mapping categories to IDs with enhanced logic...");
 
       const categoriesResult = await this.getAllCategories();
       if (!categoriesResult.success) {
         throw new Error("Failed to fetch categories");
       }
 
+      // Create enhanced category mapping with multiple lookup strategies
       const categoryMap = new Map();
+      const normalizedMap = new Map();
+      
+      // Build lookup maps for exact and normalized matches
       categoriesResult.data.forEach((cat) => {
-        categoryMap.set(cat.name.toLowerCase(), cat.id);
+        // Exact name lookup (case-insensitive)
+        categoryMap.set(cat.name.toLowerCase().trim(), cat.id);
+        // Normalized name lookup
+        const normalized = this.normalizeCategoryName(cat.name);
+        normalizedMap.set(normalized.toLowerCase().trim(), cat.id);
       });
 
-      const mappedData = importData.map((item) => ({
-        ...item,
-        category_id: categoryMap.get(item.category?.toLowerCase()) || null,
-        // Keep original category name as fallback
-        category: item.category,
-      }));
+      const mappedData = [];
+      const unmappedCategories = new Set();
+      const mappingStats = {
+        exactMatches: 0,
+        normalizedMatches: 0,
+        unmapped: 0,
+        total: importData.length
+      };
+
+      for (const item of importData) {
+        let categoryId = null;
+        let matchType = "none";
+        
+        if (item.category) {
+          const originalCategory = item.category.toLowerCase().trim();
+          const normalizedCategory = this.normalizeCategoryName(item.category).toLowerCase().trim();
+          
+          // Strategy 1: Exact match
+          if (categoryMap.has(originalCategory)) {
+            categoryId = categoryMap.get(originalCategory);
+            matchType = "exact";
+            mappingStats.exactMatches++;
+          }
+          // Strategy 2: Normalized match
+          else if (normalizedMap.has(normalizedCategory)) {
+            categoryId = normalizedMap.get(normalizedCategory);
+            matchType = "normalized";
+            mappingStats.normalizedMatches++;
+          }
+          // Strategy 3: Fuzzy match (for existing categories)
+          else {
+            const similarCategory = this.findSimilarCategory(
+              normalizedCategory, 
+              categoriesResult.data, 
+              0.8 // Higher threshold for auto-mapping
+            );
+            
+            if (similarCategory) {
+              categoryId = similarCategory.id;
+              matchType = "fuzzy";
+              console.log(`🔄 [UnifiedCategory] Fuzzy matched "${item.category}" → "${similarCategory.name}"`);
+            } else {
+              // Mark for potential auto-creation
+              unmappedCategories.add(item.category);
+              mappingStats.unmapped++;
+            }
+          }
+        }
+
+        mappedData.push({
+          ...item,
+          category_id: categoryId,
+          category: item.category, // Keep original for reference
+          mapping_type: matchType
+        });
+      }
+
+      // Log mapping statistics
+      console.log("📊 [UnifiedCategory] Mapping Statistics:", mappingStats);
+      
+      if (unmappedCategories.size > 0) {
+        console.log("⚠️ [UnifiedCategory] Unmapped categories:", Array.from(unmappedCategories));
+      }
 
       return {
         success: true,
         data: mappedData,
+        stats: mappingStats,
+        unmappedCategories: Array.from(unmappedCategories)
       };
     } catch (error) {
       console.error("❌ [UnifiedCategory] Error mapping categories:", error);
@@ -1056,6 +1392,7 @@ export class UnifiedCategoryService {
         success: false,
         error: error.message,
         data: importData,
+        stats: { exactMatches: 0, normalizedMatches: 0, unmapped: importData.length, total: importData.length }
       };
     }
   }

@@ -293,24 +293,73 @@ function CategoryManagement() {
   const handleCreateCategory = async (categoryData) => {
     try {
       console.log(
-        "➕ [ManagementPage] Creating category via UnifiedCategoryService"
+        "➕ [ManagementPage] Creating category via enhanced UnifiedCategoryService"
       );
 
       const result = await UnifiedCategoryService.createCategory(categoryData, {
         userId: "current-user", // Replace with actual user ID
         source: "management_page",
+        description: "Manual category creation from Management UI"
       });
 
       if (result.success) {
-        console.log("✅ [ManagementPage] Category created successfully");
-        setCategories([...categories, result.data]);
-        setShowCreateModal(false);
+        // Handle different response types
+        if (result.action === "existing") {
+          console.log("ℹ️ [ManagementPage] Category already exists:", result.message);
+          alert(`Info: ${result.message}`);
+          setCategories([...categories]); // Refresh to show existing category
+        } else if (result.action === "similar_found") {
+          // Handle similar category found
+          const useExisting = window.confirm(
+            `${result.message}\n\nDo you want to use the existing category "${result.existingCategory.name}" instead?`
+          );
+          
+          if (useExisting) {
+            console.log("✅ [ManagementPage] User chose to use existing similar category");
+            setCategories([...categories]); // Refresh categories
+          } else {
+            // Ask for a different name
+            const newName = window.prompt(
+              `Please enter a different name for the category:`,
+              result.proposedCategory.name + " (New)"
+            );
+            
+            if (newName && newName.trim()) {
+              // Retry with new name
+              const retryResult = await UnifiedCategoryService.createCategory({
+                ...categoryData,
+                name: newName.trim()
+              }, {
+                userId: "current-user",
+                source: "management_page",
+                description: "Manual category creation with renamed category"
+              });
+              
+              if (retryResult.success) {
+                console.log("✅ [ManagementPage] Category created with new name");
+                setCategories([...categories, retryResult.data]);
+                setShowCreateModal(false);
+              } else {
+                alert(`Failed to create category: ${retryResult.message}`);
+              }
+            }
+          }
+        } else if (result.action === "created") {
+          console.log("✅ [ManagementPage] Category created successfully:", result.message);
+          setCategories([...categories, result.data]);
+          setShowCreateModal(false);
+          
+          // Show success message
+          if (result.data) {
+            alert(`Success: Category "${result.data.name}" created successfully!`);
+          }
+        }
       } else {
         console.error(
           "❌ [ManagementPage] Error creating category:",
           result.error
         );
-        alert(`Failed to create category: ${result.error}`);
+        alert(`Failed to create category: ${result.message || result.error}`);
       }
     } catch (error) {
       console.error("❌ [ManagementPage] Error creating category:", error);

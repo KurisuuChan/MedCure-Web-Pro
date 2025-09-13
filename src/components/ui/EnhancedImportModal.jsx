@@ -196,7 +196,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
     try {
       setIsProcessing(true);
 
-      // Create approved categories
+      // Create approved categories with enhanced logic
       const createResult =
         await UnifiedCategoryService.createApprovedCategories(
           approvedCategories,
@@ -207,13 +207,32 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
         throw new Error(createResult.error);
       }
 
+      // Enhanced success feedback with detailed statistics
+      const successCount = createResult.data?.length || 0;
+      const skippedCount = approvedCategories.length - successCount;
+      
+      let message = `Successfully processed ${approvedCategories.length} categories`;
+      if (successCount > 0) {
+        message += `\n• Created: ${successCount} new categories`;
+      }
+      if (skippedCount > 0) {
+        message += `\n• Skipped: ${skippedCount} (already existed)`;
+      }
+
       addToast({
         type: "success",
-        message: `Created ${createResult.data.length} new categories`,
+        message,
+      });
+
+      console.log("✅ [EnhancedImportModal] Categories processed successfully:", {
+        approved: approvedCategories.length,
+        created: successCount,
+        skipped: skippedCount
       });
 
       setStep("preview");
     } catch (error) {
+      console.error("❌ [EnhancedImportModal] Category creation failed:", error);
       setErrors([`Failed to create categories: ${error.message}`]);
     } finally {
       setIsProcessing(false);
@@ -225,15 +244,32 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       setStep("importing");
       setIsProcessing(true);
 
-      // Map categories to IDs
+      // Enhanced category mapping with detailed feedback
       const mappingResult = await UnifiedCategoryService.mapCategoriesToIds(
         previewData
       );
+      
       if (!mappingResult.success) {
         throw new Error(mappingResult.error);
       }
 
+      // Log mapping statistics for transparency
+      if (mappingResult.stats) {
+        console.log("📊 [EnhancedImportModal] Category Mapping Stats:", mappingResult.stats);
+        
+        // Show mapping feedback to user
+        const { unmapped, total } = mappingResult.stats;
+        if (unmapped > 0) {
+          console.warn(`⚠️ [EnhancedImportModal] ${unmapped} of ${total} products have unmapped categories`);
+        }
+      }
+
+      // Execute the import
       await onImport(mappingResult.data);
+
+      // Enhanced success feedback
+      const importedCount = mappingResult.data?.length || previewData.length;
+      console.log(`✅ [EnhancedImportModal] Successfully imported ${importedCount} products`);
 
       setTimeout(() => {
         setIsProcessing(false);
@@ -241,6 +277,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
         resetModal();
       }, 1000);
     } catch (error) {
+      console.error("❌ [EnhancedImportModal] Import failed:", error);
       setErrors([`Import failed: ${error.message}`]);
       setIsProcessing(false);
       setStep("preview");
