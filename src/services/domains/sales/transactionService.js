@@ -698,7 +698,7 @@ class UnifiedTransactionService {
       // ===============================================
       const auditData = {
         table_name: "sales",
-        operation: "transaction_edit",
+        operation: "edit", // Shortened to fit potential schema constraint
         record_id: transactionId,
         old_values: originalData,
         new_values: {
