@@ -266,6 +266,13 @@ export default function DashboardPage() {
                   href="/management"
                   color="gray"
                 />
+                <MemoizedCleanActionCard
+                  icon={Users}
+                  title="Customer Information"
+                  description="View customer database"
+                  href="/customers"
+                  color="orange"
+                />
               </div>
             </div>
           </aside>

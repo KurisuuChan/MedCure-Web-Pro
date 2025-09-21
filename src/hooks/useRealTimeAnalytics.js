@@ -92,12 +92,11 @@ export const useRealTimeAnalytics = (refreshInterval = 30000) => {
           .select("*", { count: "exact", head: true })
           .eq("is_active", true),
 
-        // Low stock items
+        // Low stock items - get all products and filter in JavaScript since Supabase doesn't support column comparisons directly
         supabase
           .from("products")
           .select("name, stock_quantity, minimum_stock_level")
-          .eq("is_active", true)
-          .lt("stock_quantity", supabase.rpc("minimum_stock_level")),
+          .eq("is_active", true),
 
         // Hourly revenue for today
         supabase
@@ -174,8 +173,12 @@ export const useRealTimeAnalytics = (refreshInterval = 30000) => {
         },
         inventory: {
           activeProducts: activeProducts.count || 0,
-          lowStockCount: lowStockItems.data?.length || 0,
-          lowStockItems: lowStockItems.data || [],
+          lowStockCount: lowStockItems.data?.filter(item => 
+            item.stock_quantity <= item.minimum_stock_level
+          ).length || 0,
+          lowStockItems: lowStockItems.data?.filter(item => 
+            item.stock_quantity <= item.minimum_stock_level
+          ) || [],
         },
         performance: {
           conversionRate: 0, // Would calculate from traffic data

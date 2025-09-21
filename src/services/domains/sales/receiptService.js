@@ -40,13 +40,16 @@ class ReceiptService {
       customer: {
         name: transaction.customer_name || null,
         phone: transaction.customer_phone || null,
+        email: transaction.customer_email || null,
+        address: transaction.customer_address || null,
+        type: this.formatCustomerType(transaction.customer_type),
         pwdSeniorId: transaction.pwd_senior_id || null,
       },
 
       // Transaction Items
       items: this.formatReceiptItems(transaction),
 
-      // Financial Summary
+      // Financial Summary with Enhanced VAT Calculation
       financial: {
         subtotal:
           transaction.subtotal_before_discount ||
@@ -54,6 +57,7 @@ class ReceiptService {
         discountType: transaction.discount_type || "none",
         discountPercentage: transaction.discount_percentage || 0,
         discountAmount: transaction.discount_amount || 0,
+        vatDetails: this.calculateVATDetails(transaction),
         total: transaction.total_amount,
         paymentMethod: transaction.payment_method || "cash",
         amountPaid: transaction.amount_paid || transaction.total_amount,
@@ -471,6 +475,47 @@ class ReceiptService {
     }
 
     return { valid: true, errors: [] };
+  }
+
+  /**
+   * Format customer type for display
+   * @param {string} customerType - Raw customer type
+   * @returns {string} Formatted customer type
+   */
+  formatCustomerType(customerType) {
+    const typeMap = {
+      'guest': 'Walk-in Customer',
+      'new': 'New Customer',
+      'old': 'Returning Customer',
+      null: 'Walk-in Customer'
+    };
+    
+    return typeMap[customerType] || 'Walk-in Customer';
+  }
+
+  /**
+   * Calculate comprehensive VAT details
+   * @param {Object} transaction - Transaction data
+   * @returns {Object} VAT breakdown
+   */
+  calculateVATDetails(transaction) {
+    const VAT_RATE = 0.12; // 12% VAT in Philippines
+    const subtotal = transaction.subtotal_before_discount || this.calculateSubtotal(transaction);
+    const discountAmount = transaction.discount_amount || 0;
+    
+    // Calculate amounts
+    const taxableAmount = subtotal - discountAmount;
+    const vatAmount = taxableAmount * (VAT_RATE / (1 + VAT_RATE)); // VAT inclusive calculation
+    const netAmount = taxableAmount - vatAmount;
+    
+    return {
+      vatRate: VAT_RATE * 100, // Convert to percentage
+      taxableAmount: taxableAmount,
+      vatAmount: vatAmount,
+      netAmount: netAmount,
+      vatExempt: 0, // Can be enhanced for PWD/Senior discounts
+      isVatInclusive: true
+    };
   }
 }
 

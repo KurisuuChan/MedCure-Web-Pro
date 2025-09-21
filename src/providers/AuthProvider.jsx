@@ -56,6 +56,10 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     try {
       await authService.signOut();
+      
+      // No need to manually clear notification data - 
+      // sessionStorage is automatically cleared on logout/browser close
+      
       setSession(null);
       setUser(null);
       setRole(null);

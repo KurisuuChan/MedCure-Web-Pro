@@ -201,14 +201,15 @@ export class SimpleNotificationService {
 
   // Start real-time monitoring for stock changes
   static async startRealtimeMonitoring() {
-    // Skip real-time monitoring in development mode
-    if (!isProductionSupabase) {
-      console.log("🔕 Real-time monitoring disabled in development mode");
+    if (this.getPermissionStatus() !== "granted") {
+      console.log("Notifications not enabled, skipping real-time monitoring");
       return;
     }
 
-    if (this.getPermissionStatus() !== "granted") {
-      console.log("Notifications not enabled, skipping real-time monitoring");
+    // For development mode, provide alternative monitoring
+    if (!isProductionSupabase) {
+      console.log("🔕 Real-time monitoring disabled in development mode");
+      console.log("💡 Tip: Use 'Check Low Stock' button in debugger to manually trigger notifications");
       return;
     }
 
@@ -322,6 +323,45 @@ export class SimpleNotificationService {
 
     // Start real-time monitoring after daily checks
     await this.startRealtimeMonitoring();
+  }
+
+  // Force check for notifications (useful for development/testing)
+  static async forceCheckNotifications() {
+    console.log("🔍 Force checking for notifications...");
+    
+    if (this.getPermissionStatus() !== "granted") {
+      console.warn("Notifications not enabled, please grant permissions first");
+      return { error: "Permissions not granted" };
+    }
+
+    try {
+      // Clear spam protection temporarily for testing
+      const originalNotified = new Set(this.notifiedProducts);
+      this.notifiedProducts.clear();
+
+      const lowStockCount = await this.checkAndNotifyLowStock();
+      const expiringCount = await this.checkAndNotifyExpiring();
+
+      // Show summary
+      if (lowStockCount > 0 || expiringCount > 0) {
+        this.showSystemAlert(
+          `Manual Check: Found ${lowStockCount} low stock items, ${expiringCount} expiring products`
+        );
+      } else {
+        this.showSystemAlert("Manual Check: No critical issues found");
+      }
+
+      // Restore original spam protection after 5 seconds
+      setTimeout(() => {
+        originalNotified.forEach(key => this.notifiedProducts.add(key));
+      }, 5000);
+
+      return { lowStockCount, expiringCount };
+    } catch (error) {
+      console.error("Error in force check:", error);
+      this.showSystemAlert("Failed to check notifications", true);
+      return { error: error.message };
+    }
   }
 
   // Initialize the notification system

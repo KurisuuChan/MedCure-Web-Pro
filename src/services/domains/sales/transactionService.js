@@ -133,6 +133,11 @@ class UnifiedTransactionService {
             saleData.customer?.name || saleData.customer_name || null,
           customer_phone:
             saleData.customer?.phone || saleData.customer_phone || null,
+          customer_email:
+            saleData.customer?.email || saleData.customer_email || null,
+          customer_address:
+            saleData.customer?.address || saleData.customer_address || null,
+          customer_type: saleData.customer_type || 'guest',
           notes: saleData.notes || null,
           discount_type: saleData.discount_type || "none",
           discount_percentage: saleData.discount_percentage || 0,
@@ -1235,12 +1240,12 @@ class UnifiedTransactionService {
             current_stock: item.products?.stock_in_pieces || 0,
           })),
           // Enhanced transaction metadata
-          cashier_name: transaction.users
-            ? `${transaction.users.first_name || ""} ${
-                transaction.users.last_name || ""
+          cashier_name: transaction.cashier
+            ? `${transaction.cashier.first_name || ""} ${
+                transaction.cashier.last_name || ""
               }`.trim()
             : "Unknown Cashier",
-          cashier_email: transaction.users?.email || "",
+          cashier_email: transaction.cashier?.email || "",
           total_items: totalItems,
           can_edit: canEdit,
           can_undo: canUndo,
