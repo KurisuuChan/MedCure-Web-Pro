@@ -559,13 +559,33 @@ const EnhancedTransactionHistory = () => {
                                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                                   Customer
                                 </span>
-                                <p
-                                  className={`${
-                                    compactView ? "text-xs" : "text-sm"
-                                  } font-medium text-gray-900 mt-1`}
-                                >
-                                  {transaction.customer_name || "Walk-in"}
-                                </p>
+                                <div className="mt-1 space-y-1">
+                                  <p
+                                    className={`${
+                                      compactView ? "text-xs" : "text-sm"
+                                    } font-medium text-gray-900`}
+                                  >
+                                    {transaction.customer_name || "Walk-in Customer"}
+                                  </p>
+                                  {/* Customer Type Badge */}
+                                  <div className="flex items-center space-x-1">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      transaction.customer_type === 'new' 
+                                        ? 'bg-green-100 text-green-700' 
+                                        : transaction.customer_type === 'old'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                      {transaction.customer_type === 'new' ? 'New' : 
+                                       transaction.customer_type === 'old' ? 'Returning' : 'Guest'}
+                                    </span>
+                                    {transaction.customer_phone && (
+                                      <span className="text-xs text-gray-500">
+                                        📞 {transaction.customer_phone}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                               <div
                                 className={`bg-gray-50 rounded-xl ${
@@ -1192,9 +1212,7 @@ const EditTransactionModal = ({
 
     setSaving(true);
     showNotification("Processing transaction edit...", "info");
-
     try {
-      // Validate item data before sending
       const validatedItems = items.map((item) => ({
         ...item,
         id: item.id, // Ensure we keep the original item ID for updates
@@ -1202,7 +1220,7 @@ const EditTransactionModal = ({
         unit_price: parseFloat(item.unit_price) || 0,
         total_price: parseFloat(item.total_price) || 0,
         product_id: item.product_id || item.id,
-        unit_type: item.unit_type || "piece",
+        unit_type: item.unit_type || "piece"
       }));
 
       const newTotal = calculateNewTotal();
@@ -1663,7 +1681,6 @@ const EditTransactionModal = ({
       </div>
     </div>
   );
-};
 
 // PropTypes for EditTransactionModal
 EditTransactionModal.propTypes = {
@@ -1683,5 +1700,7 @@ EditTransactionModal.propTypes = {
   }),
   showNotification: PropTypes.func.isRequired,
 };
+
+}
 
 export default EnhancedTransactionHistory;

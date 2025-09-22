@@ -2,8 +2,10 @@ import { useState, useCallback, useEffect } from "react";
 import { usePOSStore } from "../../../stores/posStore";
 import { inventoryService } from "../../../services/domains/inventory/inventoryService";
 import transactionService from "../../../services/domains/sales/transactionService";
+import { useAuth } from "../../../hooks/useAuth";
 
 export function usePOS() {
+  const { user } = useAuth();
   const {
     cartItems,
     addToCart,
@@ -170,7 +172,13 @@ export function usePOS() {
           total: finalTotalAfterDiscount, // ✅ FIXED: Use actual sale total after discount
           paymentMethod: paymentData.method,
           customer: paymentData.customer || null,
-          cashierId: paymentData.cashierId || null,
+          cashierId: user?.id || null,
+          // Customer information
+          customer_name: paymentData.customer_name || 'Walk-in Customer',
+          customer_phone: paymentData.customer_phone || '',
+          customer_email: paymentData.customer_email || '',
+          customer_address: paymentData.customer_address || '',
+          customer_type: paymentData.customer_type || 'guest',
           // Add discount fields
           discount_type: paymentData.discount_type || "none",
           discount_percentage: paymentData.discount_percentage || 0,

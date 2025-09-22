@@ -1,34 +1,48 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { Bell, Search, User, LogOut, Menu } from "lucide-react";
 import { SimpleNotificationService } from "../../services/domains/notifications/simpleNotificationService";
+import NotificationDropdown from "./NotificationDropdown";
 
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();
   const [showSearch, setShowSearch] = useState(false);
-  const [notificationStatus, setNotificationStatus] = useState("default");
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [permissionStatus, setPermissionStatus] = useState('default');
+  
+  // Debug wrapper for setUnreadCount
+  const handleCountChange = (count) => {
+    console.log(`🔢 [Header] Notification count updated: ${count}`);
+    setUnreadCount(count);
+  };
 
+  // Notification management
   useEffect(() => {
-    setNotificationStatus(SimpleNotificationService.getPermissionStatus());
-  }, []);
-
-  const handleNotificationClick = async () => {
-    if (notificationStatus === "default") {
+    const initializeNotifications = async () => {
       try {
+        // Request permission on component mount
         const permission = await SimpleNotificationService.requestPermission();
-        setNotificationStatus(permission);
-
-        if (permission === "granted") {
-          // Initialize the enhanced notification system
-          await SimpleNotificationService.initialize();
+        setPermissionStatus(permission);
+        
+        // Run daily health check (if function exists)
+        if (typeof SimpleNotificationService.runDailyHealthCheck === 'function') {
+          await SimpleNotificationService.runDailyHealthCheck();
         }
       } catch (error) {
-        console.error("Error requesting notification permission:", error);
+        console.error('Failed to initialize notifications:', error);
       }
-    } else if (notificationStatus === "granted") {
-      // Run daily checks when clicking the bell
-      await SimpleNotificationService.runDailyChecks();
-    }
+    };
+
+    initializeNotifications();
+  }, []);
+
+  // NotificationDropdown now handles count updates via onNotificationCountChange
+
+  const handleNotificationClick = () => {
+    console.log(`🔔 [Header] Notification button clicked, current count: ${unreadCount}`);
+    setShowNotifications(!showNotifications);
   };
 
   const handleSignOut = async () => {
@@ -79,29 +93,38 @@ export function Header({ onToggleSidebar }) {
               <Search className="h-5 w-5" />
             </button>
 
-            {/* Smart Notifications */}
-            <button
-              onClick={handleNotificationClick}
-              className={`relative p-2 rounded-md transition-all duration-200 ${
-                notificationStatus === "granted"
-                  ? "text-green-600 hover:bg-green-50"
-                  : notificationStatus === "denied"
-                  ? "text-red-600 hover:bg-red-50"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-              title={
-                notificationStatus === "granted"
-                  ? "Notifications enabled - Click to run checks"
-                  : notificationStatus === "denied"
-                  ? "Notifications blocked - Check browser settings"
-                  : "Click to enable notifications"
-              }
-            >
-              <Bell className="h-5 w-5" />
-              {notificationStatus === "granted" && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></div>
-              )}
-            </button>
+            {/* Notifications */}
+            <div className="relative">
+              <button
+                onClick={handleNotificationClick}
+                className="relative p-2 rounded-md text-red-600 hover:bg-red-50 transition-all duration-200"
+                title="View notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              
+              <NotificationDropdown 
+                isOpen={showNotifications}
+                onClose={() => setShowNotifications(false)}
+                onNotificationCountChange={handleCountChange}
+              />
+            </div>
+
+            {/* Debug Link (Development Only) */}
+            {import.meta.env.DEV && (
+              <Link
+                to="/debug/notifications"
+                className="px-3 py-1 text-xs bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 transition-colors"
+                title="Debug Notifications"
+              >
+                Debug
+              </Link>
+            )}
 
             {/* User menu */}
             <div className="relative">

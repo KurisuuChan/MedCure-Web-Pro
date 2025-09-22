@@ -386,12 +386,28 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
           {/* Customer Information */}
           {(receiptData.customer.name ||
             receiptData.customer.phone ||
+            receiptData.customer.type ||
             receiptData.customer.pwdSeniorId) && (
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
-              <h4 className="font-medium text-gray-900 mb-2">
+              <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                <User className="h-4 w-4 mr-2" />
                 Customer Information
               </h4>
-              <div className="text-sm space-y-1">
+              <div className="text-sm space-y-2">
+                {/* Customer Type Badge */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-600">Type:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    receiptData.customer.type === 'New Customer' 
+                      ? 'bg-green-100 text-green-800' 
+                      : receiptData.customer.type === 'Returning Customer'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {receiptData.customer.type}
+                  </span>
+                </div>
+                
                 {receiptData.customer.name && (
                   <p>
                     <span className="text-gray-600">Name:</span>{" "}
@@ -405,6 +421,22 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     <span className="text-gray-600">Phone:</span>{" "}
                     <span className="font-medium">
                       {receiptData.customer.phone}
+                    </span>
+                  </p>
+                )}
+                {receiptData.customer.email && (
+                  <p>
+                    <span className="text-gray-600">Email:</span>{" "}
+                    <span className="font-medium">
+                      {receiptData.customer.email}
+                    </span>
+                  </p>
+                )}
+                {receiptData.customer.address && (
+                  <p>
+                    <span className="text-gray-600">Address:</span>{" "}
+                    <span className="font-medium">
+                      {receiptData.customer.address}
                     </span>
                   </p>
                 )}
@@ -491,6 +523,53 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                 </span>
                 <span className="font-medium text-red-600">
                   -{formatCurrency(receiptData.financial.discountAmount)}
+                </span>
+              </div>
+            )}
+
+            {/* Enhanced VAT Breakdown */}
+            {receiptData.financial.vatDetails && showDetails && (
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
+                <h6 className="font-medium text-gray-900">VAT Breakdown:</h6>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Taxable Amount:</span>
+                    <span className="font-medium">
+                      {formatCurrency(receiptData.financial.vatDetails.taxableAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">VAT ({receiptData.financial.vatDetails.vatRate}%):</span>
+                    <span className="font-medium">
+                      {formatCurrency(receiptData.financial.vatDetails.vatAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Net Amount:</span>
+                    <span className="font-medium">
+                      {formatCurrency(receiptData.financial.vatDetails.netAmount)}
+                    </span>
+                  </div>
+                  {receiptData.financial.vatDetails.vatExempt > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">VAT Exempt:</span>
+                      <span className="font-medium">
+                        {formatCurrency(receiptData.financial.vatDetails.vatExempt)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Quick VAT Summary */}
+            {receiptData.financial.vatDetails && !showDetails && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">
+                  VAT ({receiptData.financial.vatDetails.vatRate}%):
+                </span>
+                <span className="font-medium text-gray-700">
+                  {formatCurrency(receiptData.financial.vatDetails.vatAmount)}
                 </span>
               </div>
             )}

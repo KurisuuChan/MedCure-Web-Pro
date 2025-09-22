@@ -10,6 +10,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./providers/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
 import { SimpleNotificationService } from "./services/domains/notifications/simpleNotificationService";
+import { CustomerService } from "./services/CustomerService";
 import { GlobalSpinner } from "./components/common/GlobalSpinner";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
 import {
@@ -32,6 +33,13 @@ const UnauthorizedPage = React.lazy(() => import("./pages/UnauthorizedPage"));
 const UserManagementPage = React.lazy(() =>
   import("./pages/UserManagementPage")
 );
+const TransactionHistoryPage = React.lazy(() => 
+  import("./pages/TransactionHistoryPage")
+);
+const CustomerInformationPage = React.lazy(() => 
+  import("./pages/CustomerInformationPage")
+);
+const NotificationDebugger = React.lazy(() => import("./debug/NotificationDebugger"));
 
 // Create a client
 const queryClient = new QueryClient({
@@ -49,6 +57,24 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { isLoadingAuth, user } = useAuth();
+
+  // Initialize customer persistence on app load
+  useEffect(() => {
+    const initializeCustomerPersistence = async () => {
+      try {
+        const persistenceStatus = await CustomerService.ensurePersistence();
+        if (persistenceStatus) {
+          console.log('✅ Customer data persistence initialized successfully');
+        } else {
+          console.warn('⚠️ Customer data persistence may not be working properly');
+        }
+      } catch (error) {
+        console.error('❌ Failed to initialize customer persistence:', error);
+      }
+    };
+
+    initializeCustomerPersistence();
+  }, []);
 
   // Initialize notifications when user logs in
   useEffect(() => {
@@ -121,6 +147,28 @@ function AppContent() {
       />
 
       <Route
+        path="/transaction-history"
+        element={
+          <PageErrorBoundary title="Transaction History Error">
+            <ProtectedRoute>
+              <TransactionHistoryPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/customers"
+        element={
+          <PageErrorBoundary title="Customer Information Error">
+            <ProtectedRoute>
+              <CustomerInformationPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
         path="/management"
         element={
           <PageErrorBoundary title="Management Error">
@@ -183,6 +231,18 @@ function AppContent() {
           <PageErrorBoundary title="Settings Error">
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      {/* Debug Routes (Development) */}
+      <Route
+        path="/debug/notifications"
+        element={
+          <PageErrorBoundary title="Notification Debug Error">
+            <ProtectedRoute>
+              <NotificationDebugger />
             </ProtectedRoute>
           </PageErrorBoundary>
         }

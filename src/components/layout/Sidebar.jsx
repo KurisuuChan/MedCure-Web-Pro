@@ -19,21 +19,21 @@ const navigationItems = [
     href: "/dashboard",
     icon: LayoutDashboard,
     roles: ["admin", "manager", "cashier", "staff", "viewer"],
-    category: "core",
+    category: "main",
   },
   {
     name: "Point of Sale",
     href: "/pos",
     icon: ShoppingCart,
     roles: ["admin", "manager", "cashier"],
-    category: "operations",
+    category: "main",
   },
   {
     name: "Drug Inventory",
     href: "/inventory",
     icon: Package,
     roles: ["admin", "manager", "staff"],
-    category: "operations",
+    category: "main",
   },
   {
     name: "Pharmacy Analytics",
@@ -120,55 +120,52 @@ export function Sidebar({ isOpen, onClose }) {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 lg:px-6 lg:py-6">
-            {/* Pharmacy Operations */}
+
+            {/* Main Functions */}
             <div className="mb-6">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                Pharmacy Operations
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">
+                Main
               </h3>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {filteredNavigation
-                  .filter((item) =>
-                    ["core", "operations"].includes(item.category)
-                  )
+                  .filter((item) => item.category === "main")
                   .map((item) => {
                     const isActive = location.pathname === item.href;
                     const Icon = item.icon;
-
                     return (
                       <Link
                         key={item.name}
                         to={item.href}
                         onClick={onClose}
                         className={`
-                          flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                          flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
                           ${
                             isActive
-                              ? "bg-blue-600 text-white shadow-lg transform scale-105"
-                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                              ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25"
+                              : "text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900"
                           }
                         `}
                       >
-                        <Icon
-                          className={`h-5 w-5 ${
-                            isActive ? "text-white" : "text-gray-500"
-                          }`}
-                        />
+                        <Icon className={`h-5 w-5 transition-colors ${isActive ? "text-white" : "text-gray-500 group-hover:text-blue-600"}`} />
                         <span className="font-medium">{item.name}</span>
+                        {isActive && (
+                          <div className="ml-auto w-2 h-2 bg-white rounded-full opacity-75"></div>
+                        )}
                       </Link>
                     );
                   })}
               </div>
             </div>
 
-            {/* Business Intelligence */}
+            {/* Analytics & Reports */}
             {filteredNavigation.some(
               (item) => item.category === "insights"
             ) && (
               <div className="mb-6">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                  Insights
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">
+                  Analytics & Reports
                 </h3>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {filteredNavigation
                     .filter((item) => item.category === "insights")
                     .map((item) => {
@@ -181,20 +178,23 @@ export function Sidebar({ isOpen, onClose }) {
                           to={item.href}
                           onClick={onClose}
                           className={`
-                            flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                            flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
                             ${
                               isActive
-                                ? "bg-blue-600 text-white shadow-lg transform scale-105"
-                                : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                ? "bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg shadow-green-500/25"
+                                : "text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900"
                             }
                           `}
                         >
                           <Icon
-                            className={`h-5 w-5 ${
-                              isActive ? "text-white" : "text-gray-500"
+                            className={`h-5 w-5 transition-colors ${
+                              isActive ? "text-white" : "text-gray-500 group-hover:text-green-600"
                             }`}
                           />
                           <span className="font-medium">{item.name}</span>
+                          {isActive && (
+                            <div className="ml-auto w-2 h-2 bg-white rounded-full opacity-75"></div>
+                          )}
                         </Link>
                       );
                     })}
@@ -205,10 +205,10 @@ export function Sidebar({ isOpen, onClose }) {
             {/* Administration */}
             {filteredNavigation.some((item) => item.category === "admin") && (
               <div className="mb-6">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">
                   Administration
                 </h3>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {filteredNavigation
                     .filter((item) => item.category === "admin")
                     .map((item) => {
@@ -221,20 +221,23 @@ export function Sidebar({ isOpen, onClose }) {
                           to={item.href}
                           onClick={onClose}
                           className={`
-                            flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                            flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
                             ${
                               isActive
-                                ? "bg-blue-600 text-white shadow-lg transform scale-105"
-                                : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/25"
+                                : "text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900"
                             }
                           `}
                         >
                           <Icon
-                            className={`h-5 w-5 ${
-                              isActive ? "text-white" : "text-gray-500"
+                            className={`h-5 w-5 transition-colors ${
+                              isActive ? "text-white" : "text-gray-500 group-hover:text-purple-600"
                             }`}
                           />
                           <span className="font-medium">{item.name}</span>
+                          {isActive && (
+                            <div className="ml-auto w-2 h-2 bg-white rounded-full opacity-75"></div>
+                          )}
                         </Link>
                       );
                     })}
@@ -247,26 +250,29 @@ export function Sidebar({ isOpen, onClose }) {
               <div className="border-t border-gray-200 pt-6">
                 <Link
                   to="/settings"
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900 transition-all duration-200 group"
                 >
-                  <Settings className="h-5 w-5 text-gray-500" />
+                  <Settings className="h-5 w-5 text-gray-500 group-hover:text-gray-700 transition-colors" />
                   <span className="font-medium">Settings</span>
                 </Link>
               </div>
 
               {/* User info */}
-              <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+              <div className="mt-6 p-4 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-xl border border-blue-100 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white">
                     <span className="text-sm font-bold text-white">
-                      {user?.email?.[0]?.toUpperCase() || "U"}
+                      {user?.first_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">
-                      {user?.email || "User"}
+                      {user?.first_name 
+                        ? `${user.first_name} ${user.last_name || ''}`.trim()
+                        : user?.email || "User"
+                      }
                     </p>
-                    <p className="text-xs text-gray-500 capitalize font-medium">
+                    <p className="text-xs text-blue-600 capitalize font-medium bg-blue-100 px-2 py-0.5 rounded-full inline-block">
                       {role || "cashier"}
                     </p>
                   </div>
