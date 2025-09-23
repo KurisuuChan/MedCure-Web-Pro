@@ -27,6 +27,34 @@ import { DashboardService } from "../services/domains/analytics/dashboardService
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import SalesChart from "../components/charts/SalesChart";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from "chart.js";
+import { Line, Bar, Doughnut } from "react-chartjs-2";
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedCleanMetricCard = React.memo(CleanMetricCard);
@@ -254,10 +282,10 @@ export default function DashboardPage() {
                   color="green"
                 />
                 <MemoizedCleanActionCard
-                  icon={BarChart3}
-                  title="View Analytics"
-                  description="Performance insights"
-                  href="/analytics"
+                  icon={Package}
+                  title="Batch Management"
+                  description="Track product batches"
+                  href="/batch-management"
                   color="purple"
                 />
                 <MemoizedCleanActionCard
@@ -343,6 +371,212 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Enhanced Analytics Section */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Sales Trend Chart */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Sales Trend</h3>
+                <p className="text-sm text-gray-600">Daily sales over the last 7 days</p>
+              </div>
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+            <div className="h-64">
+              <Line
+                data={{
+                  labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                  datasets: [
+                    {
+                      label: 'Sales (₱)',
+                      data: [12000, 15000, 13500, 18000, 16500, 22000, 19000],
+                      borderColor: 'rgb(59, 130, 246)',
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      fill: true,
+                      tension: 0.4,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      display: false,
+                    },
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        callback: function(value) {
+                          return '₱' + value.toLocaleString();
+                        },
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Inventory Value Chart */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Inventory Analysis</h3>
+                <p className="text-sm text-gray-600">Stock value by category</p>
+              </div>
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Package className="h-5 w-5 text-green-600" />
+              </div>
+            </div>
+            <div className="h-64">
+              <Doughnut
+                data={{
+                  labels: ['Medicines', 'Vitamins', 'Medical Supplies', 'Personal Care', 'Others'],
+                  datasets: [
+                    {
+                      data: [45, 25, 15, 10, 5],
+                      backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(139, 92, 246, 0.8)',
+                        'rgba(107, 114, 128, 0.8)',
+                      ],
+                      borderWidth: 2,
+                      borderColor: '#ffffff',
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                      labels: {
+                        padding: 20,
+                        usePointStyle: true,
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Top Products and Expiry Alerts */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Top Selling Products */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Top Products</h3>
+                <p className="text-sm text-gray-600">Best selling items this month</p>
+              </div>
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <BarChart3 className="h-5 w-5 text-purple-600" />
+              </div>
+            </div>
+            <div className="space-y-4">
+              {[
+                { name: 'Paracetamol 500mg', sales: 145, value: 7250 },
+                { name: 'Amoxicillin 250mg', sales: 128, value: 12800 },
+                { name: 'Vitamin C 500mg', sales: 98, value: 4900 },
+                { name: 'Ibuprofen 400mg', sales: 87, value: 6090 },
+                { name: 'Multivitamins', sales: 76, value: 3800 },
+              ].map((product, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full text-xs font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{product.name}</p>
+                      <p className="text-xs text-gray-500">{product.sales} units sold</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-900">{formatCurrency(product.value)}</p>
+                    <div className="w-16 h-1 bg-gray-200 rounded-full mt-1">
+                      <div 
+                        className="h-1 bg-purple-500 rounded-full" 
+                        style={{ width: `${(product.sales / 145) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Expiry Alerts */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Expiry Alerts</h3>
+                <p className="text-sm text-gray-600">Products expiring soon</p>
+              </div>
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-orange-600" />
+              </div>
+            </div>
+            <div className="space-y-4">
+              {[
+                { name: 'Cough Syrup 120ml', expiry: '2024-12-15', days: 3, status: 'critical' },
+                { name: 'Antibiotic Cream', expiry: '2024-12-20', days: 8, status: 'warning' },
+                { name: 'Pain Relief Gel', expiry: '2024-12-28', days: 16, status: 'notice' },
+                { name: 'Eye Drops 10ml', expiry: '2025-01-05', days: 24, status: 'notice' },
+              ].map((product, index) => {
+                const statusColors = {
+                  critical: 'bg-red-100 text-red-800 border-red-200',
+                  warning: 'bg-orange-100 text-orange-800 border-orange-200',
+                  notice: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                };
+                
+                return (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-1.5 rounded-full ${
+                        product.status === 'critical' ? 'bg-red-100' :
+                        product.status === 'warning' ? 'bg-orange-100' : 'bg-yellow-100'
+                      }`}>
+                        <AlertTriangle className={`h-3 w-3 ${
+                          product.status === 'critical' ? 'text-red-600' :
+                          product.status === 'warning' ? 'text-orange-600' : 'text-yellow-600'
+                        }`} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{product.name}</p>
+                        <p className="text-xs text-gray-500">Expires: {product.expiry}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColors[product.status]}`}>
+                        {product.days} days
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <a 
+                href="/batch-management"
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium flex items-center space-x-1"
+              >
+                <span>View all batches</span>
+                <ChevronRight className="h-3 w-3" />
+              </a>
             </div>
           </div>
         </section>

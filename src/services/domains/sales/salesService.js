@@ -1,11 +1,12 @@
 // 💰 **SALES SERVICE**
 // Handles all sales transaction operations
-// Professional database-only implementation with Supabase
+// Original simple implementation (pre-FEFO)
 
 import { supabase } from "../../../config/supabase";
 import { logDebug, handleError } from "../../core/serviceUtils";
 
 export class SalesService {
+
   static async processSale(saleData) {
     try {
       logDebug("Processing sale transaction with discount support", saleData);
@@ -273,6 +274,8 @@ export class SalesService {
       handleError(error, "Edit transaction");
     }
   }
+
+  // Original simple methods that your POS system expects
 }
 
 export default SalesService;

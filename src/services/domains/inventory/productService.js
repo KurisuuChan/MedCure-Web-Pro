@@ -391,6 +391,193 @@ export class ProductService {
       return [];
     }
   }
+
+  // ============================================
+  // BATCH TRACKING SYSTEM METHODS
+  // ============================================
+
+  /**
+   * Add a new product batch with quantity and expiry date
+   * @param {Object} batchData - The batch information
+   * @param {string} batchData.productId - UUID of the product
+   * @param {number} batchData.quantity - Quantity to add
+   * @param {string} batchData.batchNumber - Optional batch number
+   * @param {string} batchData.expiryDate - Optional expiry date (YYYY-MM-DD)
+   * @param {number} batchData.costPerUnit - Optional cost per unit (defaults to 0)
+   * @returns {Promise<Object>} Result of the batch addition
+   */
+  static async addProductBatch(batchData) {
+    try {
+      logDebug('Adding new product batch:', batchData);
+
+      const { productId, quantity, batchNumber, expiryDate } = batchData;
+
+      // Validate required fields
+      if (!productId || !quantity || quantity <= 0) {
+        throw new Error('Product ID and positive quantity are required');
+      }
+
+      const { data, error } = await supabase.rpc('add_product_batch', {
+        p_product_id: productId,
+        p_quantity: parseInt(quantity),
+        p_expiry_date: expiryDate || null
+      });
+
+      if (error) {
+        console.error('❌ ProductService.addProductBatch() Supabase error:', error);
+        throw error;
+      }
+
+      console.log('✅ Successfully added product batch:', data);
+      logDebug('Batch addition result:', data);
+      
+      return data;
+    } catch (error) {
+      console.error('❌ ProductService.addProductBatch() failed:', error);
+      handleError(error, 'Add product batch');
+      throw error;
+    }
+  }
+
+  /**
+   * Get all batches for a specific product
+   * @param {string} productId - UUID of the product
+   * @returns {Promise<Array>} List of batches for the product
+   */
+  static async getBatchesForProduct(productId) {
+    try {
+      logDebug('Fetching batches for product:', productId);
+
+      if (!productId) {
+        throw new Error('Product ID is required');
+      }
+
+      const { data, error } = await supabase.rpc('get_batches_for_product', {
+        p_product_id: productId
+      });
+
+      if (error) {
+        console.error('❌ ProductService.getBatchesForProduct() Supabase error:', error);
+        throw error;
+      }
+
+      console.log(`✅ Successfully fetched ${data?.length || 0} batches for product ${productId}`);
+      logDebug('Product batches:', data);
+      
+      return data || [];
+    } catch (error) {
+      console.error('❌ ProductService.getBatchesForProduct() failed:', error);
+      handleError(error, 'Get product batches');
+      return [];
+    }
+  }
+
+  /**
+   * Get all batches across all products (for Batch Management page)
+   * @returns {Promise<Array>} List of all batches with product information
+   */
+  static async getAllBatches() {
+    try {
+      logDebug('Fetching all product batches');
+
+      const { data, error } = await supabase.rpc('get_all_batches');
+
+      if (error) {
+        console.error('❌ ProductService.getAllBatches() Supabase error:', error);
+        throw error;
+      }
+
+      console.log(`✅ Successfully fetched ${data?.length || 0} total batches`);
+      logDebug('All batches:', data);
+      
+      return data || [];
+    } catch (error) {
+      console.error('❌ ProductService.getAllBatches() failed:', error);
+      handleError(error, 'Get all batches');
+      return [];
+    }
+  }
+
+  /**
+   * Update batch quantity (for manual adjustments)
+   * @param {number} batchId - ID of the batch to update
+   * @param {number} newQuantity - New quantity for the batch
+   * @param {string} reason - Reason for the adjustment
+   * @returns {Promise<Object>} Result of the batch update
+   */
+  static async updateBatchQuantity(batchId, newQuantity, reason = 'Manual adjustment') {
+    try {
+      logDebug('Updating batch quantity:', { batchId, newQuantity, reason });
+
+      if (!batchId || newQuantity < 0) {
+        throw new Error('Valid batch ID and non-negative quantity are required');
+      }
+
+      const { data, error } = await supabase.rpc('update_batch_quantity', {
+        p_batch_id: batchId,
+        p_new_quantity: parseInt(newQuantity),
+        p_reason: reason
+      });
+
+      if (error) {
+        console.error('❌ ProductService.updateBatchQuantity() Supabase error:', error);
+        throw error;
+      }
+
+      console.log('✅ Successfully updated batch quantity:', data);
+      logDebug('Batch update result:', data);
+      
+      return data;
+    } catch (error) {
+      console.error('❌ ProductService.updateBatchQuantity() failed:', error);
+      handleError(error, 'Update batch quantity');
+      throw error;
+    }
+  }
+
+  /**
+   * Get inventory logs for audit trail
+   * @param {string} productId - Optional product ID to filter logs
+   * @param {number} limit - Number of logs to fetch (default 100)
+   * @returns {Promise<Array>} List of inventory log entries
+   */
+  static async getInventoryLogs(productId = null, limit = 100) {
+    try {
+      logDebug('Fetching inventory logs:', { productId, limit });
+
+      let query = supabase
+        .from('inventory_logs')
+        .select(`
+          *,
+          products:product_id (
+            name,
+            category
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (productId) {
+        query = query.eq('product_id', productId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('❌ ProductService.getInventoryLogs() Supabase error:', error);
+        throw error;
+      }
+
+      console.log(`✅ Successfully fetched ${data?.length || 0} inventory logs`);
+      logDebug('Inventory logs:', data);
+      
+      return data || [];
+    } catch (error) {
+      console.error('❌ ProductService.getInventoryLogs() failed:', error);
+      handleError(error, 'Get inventory logs');
+      return [];
+    }
+  }
 }
 
 export default ProductService;

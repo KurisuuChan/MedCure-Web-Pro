@@ -191,7 +191,7 @@ class UnifiedTransactionService {
         success: true,
         data: data,
         transaction_id: data.id,
-        status: "pending",
+        status: "completed",
       };
     } catch (error) {
       console.error("❌ Create transaction failed:", error);
@@ -1008,40 +1008,32 @@ class UnifiedTransactionService {
   // ========== COMPLETE PAYMENT WORKFLOW ==========
 
   /**
-   * Complete payment workflow (create + complete in one call)
+   * Complete payment workflow (original simple version)
    * @param {Object} saleData - Sale data
    * @returns {Promise<Object>} Complete workflow result
    */
   async processCompletePayment(saleData) {
-    console.log("🎯 Processing complete payment workflow:", saleData);
+    console.log("🎯 Processing complete payment (original simple method):", saleData);
 
     try {
-      // Step 1: Create pending transaction
-      const createResult = await this.createTransaction(saleData);
+      // Simple direct transaction creation - database handles completion and stock deduction
+      const result = await this.createTransaction(saleData);
 
-      if (!createResult.success) {
-        throw new Error("Failed to create pending transaction");
+      if (!result.success) {
+        throw new Error("Failed to complete payment");
       }
 
-      // Step 2: Complete the transaction
-      const completeResult = await this.completeTransaction(
-        createResult.transaction_id
-      );
+      console.log("✅ Payment completed successfully - transaction created as completed:", result);
 
-      if (!completeResult.success) {
-        throw new Error("Failed to complete transaction");
-      }
-
-      console.log("✅ Complete payment workflow successful");
       return {
         success: true,
-        transaction_id: createResult.transaction_id,
-        create_result: createResult.data,
-        complete_result: completeResult.data,
-        status: "completed",
+        transaction_id: result.transaction_id,
+        create_result: result.data,
+        status: result.status // Will be "completed" from database
       };
+
     } catch (error) {
-      console.error("❌ Complete payment workflow failed:", error);
+      console.error("❌ Payment failed:", error);
       throw new Error(`Complete payment failed: ${error.message}`);
     }
   }

@@ -9,8 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./providers/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
-import notificationSystem from "./services/NotificationSystem";
-import { NotificationMigration } from "./services/NotificationMigration";
+import { SimpleNotificationService } from "./services/domains/notifications/simpleNotificationService";
 import { CustomerService } from "./services/CustomerService";
 import { GlobalSpinner } from "./components/common/GlobalSpinner";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
@@ -26,6 +25,9 @@ const DashboardPage = React.lazy(() => import("./pages/DashboardPage"));
 const POSPage = React.lazy(() => import("./pages/POSPage"));
 const InventoryPage = React.lazy(() => import("./pages/InventoryPage"));
 const ManagementPage = React.lazy(() => import("./pages/ManagementPage"));
+const EnhancedAnalyticsDashboard = React.lazy(() =>
+  import("./pages/EnhancedAnalyticsDashboard")
+);
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const UnauthorizedPage = React.lazy(() => import("./pages/UnauthorizedPage"));
 const UserManagementPage = React.lazy(() =>
@@ -37,9 +39,7 @@ const TransactionHistoryPage = React.lazy(() =>
 const CustomerInformationPage = React.lazy(() => 
   import("./pages/CustomerInformationPage")
 );
-const BatchManagementPage = React.lazy(() =>
-  import("./pages/BatchManagementPage")
-);
+const NotificationDebugger = React.lazy(() => import("./debug/NotificationDebugger"));
 
 // Create a client
 const queryClient = new QueryClient({
@@ -78,40 +78,20 @@ function AppContent() {
 
   // Initialize notifications when user logs in
   useEffect(() => {
-    const initializeNotifications = async () => {
-      if (user) {
-        try {
-          // Migrate from legacy system
-          await NotificationMigration.migrateFromLegacy();
-          
-          // Initialize new notification system
-          await notificationSystem.initialize();
-          
-          // Create legacy wrapper for backward compatibility
-          NotificationMigration.createLegacyWrapper();
-          
-          // Make notification system available for debugging
-          if (import.meta.env.DEV) {
-            window.notificationSystem = notificationSystem;
-          }
-          
-          console.log('✅ Notification system initialized');
-        } catch (error) {
-          console.error('❌ Failed to initialize notifications:', error);
-        }
-      } else {
-        // Clean up when user logs out
-        notificationSystem.destroy();
-      }
-    };
+    if (user && SimpleNotificationService.getPermissionStatus() === "granted") {
+      // Wait a bit for the app to fully load, then run daily checks
+      const timer = setTimeout(() => {
+        SimpleNotificationService.runDailyChecks();
+      }, 3000); // 3 seconds delay
 
-    initializeNotifications();
+      return () => clearTimeout(timer);
+    }
   }, [user]);
 
   // Cleanup notifications when app unmounts
   useEffect(() => {
     return () => {
-      // Legacy cleanup is now handled by the migration system
+      SimpleNotificationService.cleanup();
     };
   }, []);
 
@@ -189,22 +169,33 @@ function AppContent() {
       />
 
       <Route
-        path="/batch-management"
+        path="/management"
         element={
-          <PageErrorBoundary title="Batch Management Error">
-            <ProtectedRoute requiredRole={["admin", "manager", "staff"]}>
-              <BatchManagementPage />
+          <PageErrorBoundary title="Management Error">
+            <ProtectedRoute requiredRole="admin">
+              <ManagementPage />
             </ProtectedRoute>
           </PageErrorBoundary>
         }
       />
 
       <Route
-        path="/management"
+        path="/analytics"
         element={
-          <PageErrorBoundary title="Management Error">
-            <ProtectedRoute requiredRole="admin">
-              <ManagementPage />
+          <PageErrorBoundary title="Analytics Error">
+            <ProtectedRoute requiredRole={["admin", "manager"]}>
+              <EnhancedAnalyticsDashboard />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/enhanced-analytics"
+        element={
+          <PageErrorBoundary title="Enhanced Analytics Error">
+            <ProtectedRoute requiredRole={["admin", "manager"]}>
+              <EnhancedAnalyticsDashboard />
             </ProtectedRoute>
           </PageErrorBoundary>
         }
@@ -240,6 +231,18 @@ function AppContent() {
           <PageErrorBoundary title="Settings Error">
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      {/* Debug Routes (Development) */}
+      <Route
+        path="/debug/notifications"
+        element={
+          <PageErrorBoundary title="Notification Debug Error">
+            <ProtectedRoute>
+              <NotificationDebugger />
             </ProtectedRoute>
           </PageErrorBoundary>
         }

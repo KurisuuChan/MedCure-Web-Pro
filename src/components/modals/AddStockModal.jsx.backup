@@ -1,0 +1,249 @@
+import React, { useState } from 'react';
+import { X, Package, Calendar, Hash, AlertCircle } from 'lucide-react';
+import { ProductService } from '../../../services/domains/inventory/productService';
+
+const AddStockModal = ({ isOpen, onClose, product, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    quantity: '',
+    batchNumber: '',
+    expiryDate: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Reset form when modal opens/closes
+  React.useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        quantity: '',
+        batchNumber: '',
+        expiryDate: ''
+      });
+      setError('');
+    }
+  }, [isOpen]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear error when user starts typing
+    if (error) setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.quantity || parseInt(formData.quantity) <= 0) {
+      setError('Please enter a valid quantity greater than 0');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const batchData = {
+        productId: product.id,
+        quantity: parseInt(formData.quantity),
+        batchNumber: formData.batchNumber.trim() || null,
+        expiryDate: formData.expiryDate || null
+      };
+
+      const result = await ProductService.addProductBatch(batchData);
+      
+      if (result && result.success) {
+        // Call success callback to refresh data
+        if (onSuccess) {
+          onSuccess(result);
+        }
+        
+        // Close modal
+        onClose();
+        
+        // Show success message (you might want to use a toast system here)
+        console.log('✅ Stock added successfully:', result);
+      } else {
+        setError(result?.message || 'Failed to add stock');
+      }
+    } catch (err) {
+      console.error('❌ Error adding stock:', err);
+      // Check if it's a batch function not available error
+      if (err.message && err.message.includes('function')) {
+        setError('Batch tracking functions not available. Please run the SQL setup in Supabase first.');
+      } else {
+        setError(err.message || 'Failed to add stock. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString();
+  };
+
+  // Calculate days until expiry
+  const getDaysUntilExpiry = () => {
+    if (!formData.expiryDate) return null;
+    const today = new Date();
+    const expiry = new Date(formData.expiryDate);
+    const diffTime = expiry - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const daysUntilExpiry = getDaysUntilExpiry();
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-100 p-2 rounded-lg">
+              <Package className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Add Stock</h3>
+              <p className="text-sm text-gray-600">{product?.name}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Current Stock Info */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Current Stock:</span>
+              <span className="font-semibold text-gray-900">
+                {product?.stock_in_pieces || 0} pieces
+              </span>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start space-x-2">
+              <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <span className="text-sm text-red-700">{error}</span>
+            </div>
+          )}
+
+          {/* Quantity Input */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Quantity to Add *
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                name="quantity"
+                value={formData.quantity}
+                onChange={handleInputChange}
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="Enter quantity"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Batch Number Input */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Batch Number (Optional)
+            </label>
+            <div className="relative">
+              <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                name="batchNumber"
+                value={formData.batchNumber}
+                onChange={handleInputChange}
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="e.g., BN-2024-001"
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              Supplier's batch number for tracking purposes
+            </p>
+          </div>
+
+          {/* Expiry Date Input */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Expiry Date (Optional)
+            </label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="date"
+                name="expiryDate"
+                value={formData.expiryDate}
+                onChange={handleInputChange}
+                min={new Date().toISOString().split('T')[0]} // Prevent past dates
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              />
+            </div>
+            {daysUntilExpiry !== null && (
+              <p className={`text-xs ${
+                daysUntilExpiry < 30 
+                  ? 'text-orange-600' 
+                  : daysUntilExpiry < 90 
+                    ? 'text-yellow-600' 
+                    : 'text-green-600'
+              }`}>
+                {daysUntilExpiry > 0 
+                  ? `Expires in ${daysUntilExpiry} days` 
+                  : daysUntilExpiry === 0 
+                    ? 'Expires today' 
+                    : `Expired ${Math.abs(daysUntilExpiry)} days ago`
+                }
+              </p>
+            )}
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !formData.quantity}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  <span>Adding...</span>
+                </div>
+              ) : (
+                'Add Stock'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default AddStockModal;

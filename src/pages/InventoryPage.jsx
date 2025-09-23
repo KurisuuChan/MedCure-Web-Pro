@@ -36,6 +36,7 @@ import ExportModal from "../components/ui/ExportModal";
 import { EnhancedImportModal } from "../components/ui/EnhancedImportModal";
 import { useAuth } from "../hooks/useAuth"; // Not currently used
 import { ProductService } from "../services/domains/inventory/productService";
+import AddStockModal from "../components/modals/AddStockModal";
 
 // Extracted Components
 import InventoryHeader from "../features/inventory/components/InventoryHeader";
@@ -596,8 +597,8 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                 <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
                 <p className="text-sm text-gray-600">
                   {product
-                    ? "Update product information"
-                    : "Enter product details"}
+                    ? "Update product metadata (stock managed via batches)"
+                    : "Create new product with initial batch"}
                 </p>
               </div>
             </div>
@@ -803,24 +804,45 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                   Stock Management
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Stock (Pieces) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={formData.stock_in_pieces}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          stock_in_pieces: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="Enter stock quantity"
-                    />
-                  </div>
+                  {/* Stock input only shown when adding new products */}
+                  {!product && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Initial Stock (Pieces) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        value={formData.stock_in_pieces}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            stock_in_pieces: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        placeholder="Enter initial stock quantity"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        For existing products, use Batch Management to add stock
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Show current stock when editing (read-only) */}
+                  {product && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Current Stock (Calculated)
+                      </label>
+                      <div className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-600">
+                        {product.stock_in_pieces?.toLocaleString() || 0} pieces
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">
+                        💡 Stock is calculated from batches. Use Batch Management to modify.
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <label className="flex items-center justify-between text-sm font-semibold text-gray-700 mb-2">
@@ -933,22 +955,43 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Expiry Date
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.expiry_date}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          expiry_date: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                    />
-                  </div>
+                  {/* Expiry date only shown when adding new products */}
+                  {!product && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Initial Batch Expiry Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.expiry_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            expiry_date: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        For the initial batch. Additional batches can have different expiry dates.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Show expiry info when editing (informational) */}
+                  {product && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Expiry Information
+                      </label>
+                      <div className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-600">
+                        {product.expiry_date ? formatDate(product.expiry_date) : 'Varies by batch'}
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">
+                        💡 Each batch can have different expiry dates. Check Batch Management for details.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </form>
@@ -983,9 +1026,56 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
 
 // Product Details Modal Component
 function ProductDetailsModal({ product, onClose, onEdit }) {
+  const [batches, setBatches] = useState([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
+  
   const stockStatus = getStockStatus(product);
   const expiryStatus = getExpiryStatus(product);
   const stockBreakdown = getStockBreakdown(product.stock_in_pieces, product);
+
+  // Load batches when modal opens
+  useEffect(() => {
+    if (product?.id) {
+      loadBatches();
+    }
+  }, [product?.id]);
+
+  const loadBatches = async () => {
+    try {
+      setLoadingBatches(true);
+      const batchData = await ProductService.getBatchesForProduct(product.id);
+      setBatches(batchData);
+    } catch (error) {
+      console.warn('⚠️ Batch functions not available yet:', error);
+      setBatches([]);
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
+
+  const handleStockAdded = async (result) => {
+    console.log('✅ Stock added successfully:', result);
+    // Refresh batches
+    await loadBatches();
+    // You might want to refresh the main product data here too
+  };
+
+  const getExpiryStatusForBatch = (expiryDate, daysUntilExpiry) => {
+    if (!expiryDate) return { status: 'none', color: 'gray', label: 'No expiry' };
+    
+    if (daysUntilExpiry < 0) {
+      return { status: 'expired', color: 'red', label: 'Expired' };
+    } else if (daysUntilExpiry === 0) {
+      return { status: 'expires-today', color: 'red', label: 'Expires today' };
+    } else if (daysUntilExpiry <= 30) {
+      return { status: 'expiring-soon', color: 'orange', label: 'Expiring soon' };
+    } else if (daysUntilExpiry <= 90) {
+      return { status: 'expiring', color: 'yellow', label: 'Expiring' };
+    } else {
+      return { status: 'good', color: 'green', label: 'Good' };
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center z-50 p-4 py-8 overflow-y-auto">
@@ -1005,6 +1095,13 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
               </h3>
             </div>
             <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowAddStockModal(true)}
+                className="group flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-xl hover:from-green-700 hover:to-green-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                <Plus className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                <span>Add Stock</span>
+              </button>
               <button
                 onClick={onEdit}
                 className="group flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
@@ -1266,10 +1363,119 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                   </div>
                 </div>
               </div>
+
+              {/* Batch Tracking Information */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
+                <div className="flex items-center justify-between mb-6">
+                  <h4 className="text-xl font-bold text-gray-900 flex items-center">
+                    <Package className="h-6 w-6 mr-3 text-purple-600" />
+                    Batch Tracking
+                  </h4>
+                  <span className="text-sm text-gray-600">
+                    {batches.length} batch{batches.length !== 1 ? 'es' : ''} found
+                  </span>
+                </div>
+                
+                {loadingBatches ? (
+                  <div className="bg-white rounded-xl p-8 shadow-sm border border-purple-100 text-center">
+                    <div className="animate-spin h-8 w-8 border-2 border-purple-600 border-t-transparent rounded-full mx-auto"></div>
+                    <p className="text-gray-600 mt-2">Loading batches...</p>
+                  </div>
+                ) : batches.length === 0 ? (
+                  <div className="bg-white rounded-xl p-8 shadow-sm border border-purple-100 text-center">
+                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <h5 className="text-lg font-semibold text-gray-900 mb-2">No Batches Found</h5>
+                    <p className="text-gray-600 mb-4">This product doesn't have any batch records yet.</p>
+                    <button
+                      onClick={() => setShowAddStockModal(true)}
+                      className="inline-flex items-center px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add First Batch
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl shadow-sm border border-purple-100 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Batch ID
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Batch No.
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Quantity
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Expiry Status
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Date Added
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {batches.map((batch) => {
+                            const batchExpiryStatus = getExpiryStatusForBatch(batch.expiry_date, batch.days_until_expiry);
+                            
+                            return (
+                              <tr key={batch.batch_id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span className="text-sm font-mono font-medium text-gray-900">
+                                    #{batch.batch_id}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span className="text-sm text-gray-900">
+                                    {batch.batch_number || '-'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {batch.quantity?.toLocaleString()} pieces
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <div className="space-y-1">
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-${batchExpiryStatus.color}-100 text-${batchExpiryStatus.color}-800`}>
+                                      {batchExpiryStatus.label}
+                                    </span>
+                                    {batch.expiry_date && (
+                                      <div className="text-xs text-gray-500">
+                                        {formatDate(batch.expiry_date)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span className="text-sm text-gray-500">
+                                    {formatDate(batch.created_at)}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Add Stock Modal */}
+      <AddStockModal
+        isOpen={showAddStockModal}
+        onClose={() => setShowAddStockModal(false)}
+        product={product}
+        onSuccess={handleStockAdded}
+      />
     </div>
   );
 }

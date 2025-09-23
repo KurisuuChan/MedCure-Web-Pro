@@ -1,0 +1,92 @@
+import React from 'react';
+import { Package, Plus, Tag, Box } from 'lucide-react';
+
+const ProductSelectionCard = ({ product, onAddStock }) => {
+  const handleAddClick = () => {
+    onAddStock(product);
+  };
+
+  const getStockStatusColor = (stock) => {
+    if (stock === 0) return 'text-red-600 bg-red-50';
+    if (stock < 10) return 'text-orange-600 bg-orange-50';
+    if (stock < 50) return 'text-yellow-600 bg-yellow-50';
+    return 'text-green-600 bg-green-50';
+  };
+
+  const getStockStatusText = (stock) => {
+    if (stock === 0) return 'Out of Stock';
+    if (stock < 10) return 'Low Stock';
+    if (stock < 50) return 'Medium Stock';
+    return 'In Stock';
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 overflow-hidden group">
+      {/* Card Header */}
+      <div className="p-6 pb-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-100 p-2 rounded-lg group-hover:bg-blue-200 transition-colors">
+              <Package className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 text-lg leading-tight mb-1">
+                {product.name}
+              </h3>
+              {product.brand && (
+                <p className="text-sm text-gray-500">
+                  {product.brand}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Product Details */}
+        <div className="space-y-3">
+          {/* Category */}
+          <div className="flex items-center space-x-2">
+            <Tag className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-600">
+              {product.category || 'Uncategorized'}
+            </span>
+          </div>
+
+          {/* Stock Information */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Box className="h-4 w-4 text-gray-400" />
+              <span className="text-sm text-gray-600">Current Stock:</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="font-semibold text-gray-900">
+                {(product.stock_in_pieces || 0).toLocaleString()}
+              </span>
+              <span className="text-xs text-gray-500">pieces</span>
+            </div>
+          </div>
+
+          {/* Stock Status Badge */}
+          <div className="flex justify-center">
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStockStatusColor(product.stock_in_pieces || 0)}`}>
+              {getStockStatusText(product.stock_in_pieces || 0)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Card Footer - Add Stock Button */}
+      <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+        <button
+          onClick={handleAddClick}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 shadow-sm hover:shadow-md"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add Stock</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default ProductSelectionCard;

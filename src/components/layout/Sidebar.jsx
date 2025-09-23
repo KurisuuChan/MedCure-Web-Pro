@@ -11,6 +11,7 @@ import {
   X,
   UserCheck,
   TrendingUp,
+  Box,
 } from "lucide-react";
 
 const navigationItems = [
@@ -36,11 +37,11 @@ const navigationItems = [
     category: "main",
   },
   {
-    name: "Pharmacy Analytics",
-    href: "/analytics",
-    icon: BarChart3,
-    roles: ["admin", "manager"],
-    category: "insights",
+    name: "Batch Management",
+    href: "/batch-management",
+    icon: Box,
+    roles: ["admin", "manager", "staff"],
+    category: "main",
   },
   {
     name: "Pharmacy Management",

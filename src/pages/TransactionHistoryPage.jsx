@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from "../hooks/useAuth";
 import unifiedTransactionService from "../services/domains/sales/transactionService";
 import SimpleReceipt from "../components/ui/SimpleReceipt";
@@ -23,6 +24,8 @@ import {
 import { formatCurrency, formatDate } from "../utils/formatting";
 
 const TransactionHistoryPage = () => {
+  const navigate = useNavigate();
+  
   // State Management
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -228,10 +231,24 @@ const TransactionHistoryPage = () => {
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Transaction History</h1>
-              <p className="text-sm text-gray-600">Complete transaction management and reports</p>
+          <div className="flex items-center justify-between py-6">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('/pos')}
+                className="inline-flex items-center justify-center p-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200 border border-gray-200"
+                title="Back to POS"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                  <Clock className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Transaction History</h1>
+                  <p className="text-sm text-gray-600">Complete transaction management and reports</p>
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -360,7 +377,7 @@ const TransactionHistoryPage = () => {
         </div>
 
         {/* Transactions Table */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden backdrop-blur-sm">
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
           {filteredTransactions.length === 0 ? (
             <div className="text-center py-16">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -374,7 +391,7 @@ const TransactionHistoryPage = () => {
               {/* Table */}
               <div className="overflow-x-auto">
                 <table className="min-w-full">
-                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                  <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
                         <div className="flex items-center gap-1">
@@ -823,7 +840,25 @@ const TransactionHistoryPage = () => {
         </div>
       )}
 
-
+      {/* Receipt Modal */}
+      {showReceipt && selectedTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Transaction Receipt</h3>
+              <button
+                onClick={() => setShowReceipt(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+              <SimpleReceipt transaction={selectedTransaction} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
