@@ -38,7 +38,7 @@ import FixedCustomerService from '../services/FixedCustomerService';
 
 const CustomerInformationPage = () => {
   const navigate = useNavigate();
-  const { customers, fetchCustomers, forceRefresh, deleteCustomer, updateCustomer } = useCustomers();
+  const { customers, fetchCustomers, forceRefresh, deleteCustomer, updateCustomer, createCustomer } = useCustomers();
   
   // Professional error handling (inline implementation)
   const [error, setError] = useState(null);
@@ -114,6 +114,13 @@ const CustomerInformationPage = () => {
   const [transactionSearchTerm, setTransactionSearchTerm] = useState('');
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    customer_name: '',
+    phone: '',
+    email: '',
+    address: ''
+  });
 
   useEffect(() => {
     fetchCustomers();
@@ -515,15 +522,160 @@ const CustomerInformationPage = () => {
     setShowReceiptModal(true);
   };
 
+  const validateNewCustomer = useCallback((customerData) => {
+    const errors = [];
+    
+    // Required field validations
+    if (!customerData.customer_name?.trim()) {
+      errors.push('Customer name is required');
+    } else if (customerData.customer_name.trim().length < 2) {
+      errors.push('Customer name must be at least 2 characters long');
+    } else if (customerData.customer_name.trim().length > 100) {
+      errors.push('Customer name cannot exceed 100 characters');
+    } else if (!/^[a-zA-Z\s\-\'\.]+$/.test(customerData.customer_name.trim())) {
+      errors.push('Customer name can only contain letters, spaces, hyphens, and apostrophes');
+    }
+    
+    if (!customerData.phone?.trim()) {
+      errors.push('Phone number is required');
+    } else {
+      // Phone number format validation
+      const phoneRegex = /^(\+63|63|0)?[9]\d{9}$/; // Philippine mobile format
+      const cleanPhone = customerData.phone.replace(/[\s\-\(\)\.]/g, '');
+      if (!phoneRegex.test(cleanPhone)) {
+        errors.push('Please enter a valid Philippine phone number (e.g., 09123456789)');
+      }
+      
+      // Check for duplicate phone number
+      const existingCustomer = customers.find(customer => 
+        customer.phone && customer.phone.replace(/[\s\-\(\)\.]/g, '') === cleanPhone
+      );
+      if (existingCustomer) {
+        errors.push(`Phone number already exists for customer: ${existingCustomer.customer_name}`);
+      }
+    }
+    
+    // Email validation (optional but must be valid if provided)
+    if (customerData.email?.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerData.email.trim())) {
+        errors.push('Please enter a valid email address');
+      }
+      
+      // Check for duplicate email
+      const existingEmailCustomer = customers.find(customer => 
+        customer.email && customer.email.toLowerCase() === customerData.email.trim().toLowerCase()
+      );
+      if (existingEmailCustomer) {
+        errors.push(`Email address already exists for customer: ${existingEmailCustomer.customer_name}`);
+      }
+    }
+    
+    // Address validation (optional but reasonable length if provided)
+    if (customerData.address?.trim() && customerData.address.trim().length > 255) {
+      errors.push('Address cannot exceed 255 characters');
+    }
+    
+    // Check for potential duplicate names (warning, not error)
+    const duplicateName = customers.find(customer => 
+      customer.customer_name && 
+      customer.customer_name.toLowerCase().trim() === customerData.customer_name.toLowerCase().trim()
+    );
+    if (duplicateName) {
+      errors.push(`A customer with similar name "${duplicateName.customer_name}" already exists. Please verify this is a different person.`);
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }, [customers]);
+
+  const handleCreateNewCustomer = async () => {
+    // Enhanced validation with duplicate checks
+    const validationResult = validateNewCustomer(newCustomerForm);
+    if (!validationResult.isValid) {
+      showNotification(
+        'error',
+        'Validation Failed',
+        `Please fix the following issues: ${validationResult.errors.join(' • ')}`
+      );
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      // Create customer using the same service as POS
+      const savedCustomer = await createCustomer({
+        customer_name: newCustomerForm.customer_name.trim(),
+        phone: newCustomerForm.phone.trim(),
+        email: newCustomerForm.email?.trim() || null,
+        address: newCustomerForm.address?.trim() || null,
+      });
+      
+      // Success notification
+      showNotification(
+        'success',
+        'Customer Created Successfully',
+        `${savedCustomer.customer_name} has been added to your customer database and is ready for transactions.`
+      );
+      
+      // Close modal and refresh data
+      closeAllModals();
+      await fetchCustomers(); // Refresh the customer list
+      
+    } catch (error) {
+      console.error('❌ Error creating customer:', error);
+      
+      // Enhanced error handling for different scenarios
+      let title = 'Customer Creation Failed';
+      let message = 'Unable to create customer. Please try again.';
+      
+      if (error.message?.toLowerCase().includes('duplicate') || 
+          error.message?.toLowerCase().includes('already exists')) {
+        title = 'Duplicate Customer Information';
+        message = 'A customer with this phone number or email already exists. Please check your information and try again.';
+      } else if (error.message?.toLowerCase().includes('network') || 
+                 error.message?.toLowerCase().includes('connection')) {
+        title = 'Network Error';
+        message = 'Unable to connect to the server. Please check your internet connection and try again.';
+      } else if (error.message?.toLowerCase().includes('validation')) {
+        title = 'Invalid Customer Information';
+        message = 'The customer information provided is not valid. Please check all fields and try again.';
+      } else if (error.message?.toLowerCase().includes('permission') || 
+                 error.message?.toLowerCase().includes('unauthorized')) {
+        title = 'Permission Denied';
+        message = 'You do not have permission to create customers. Please contact your administrator.';
+      } else if (error.message?.toLowerCase().includes('database') || 
+                 error.message?.toLowerCase().includes('server')) {
+        title = 'Database Error';
+        message = 'There was a problem saving the customer information. Please try again in a moment.';
+      }
+      
+      setError({ title, message, retryable: true });
+      showNotification('error', title, message, {
+        label: 'Try Again',
+        onClick: () => {
+          clearError();
+          clearNotification();
+        }
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const closeAllModals = () => {
     setShowViewModal(false);
     setShowEditModal(false);
     setShowDeleteConfirm(false);
     setShowTransactionHistory(false);
     setShowReceiptModal(false);
+    setShowAddCustomerModal(false);
     setSelectedCustomer(null);
     setSelectedTransaction(null);
     setEditForm({ customer_name: '', phone: '', email: '', address: '' });
+    setNewCustomerForm({ customer_name: '', phone: '', email: '', address: '' });
     setCustomerTransactions([]);
     setTransactionSearchTerm('');
     clearError(); // Clear any errors when closing modals
@@ -589,6 +741,13 @@ const CustomerInformationPage = () => {
               >
                 <RefreshCw className="h-4 w-4" />
                 <span>Refresh</span>
+              </button>
+              <button
+                onClick={() => setShowAddCustomerModal(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add New Customer</span>
               </button>
             </div>
           </div>
@@ -1443,6 +1602,202 @@ const CustomerInformationPage = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add New Customer Modal */}
+        {showAddCustomerModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Add New Customer</h3>
+                <button
+                  onClick={closeAllModals}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Customer Error Display */}
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex justify-between items-center">
+                  <span className="text-sm font-medium">❌ {error.message}</span>
+                  <button
+                    onClick={clearError}
+                    className="text-red-500 hover:text-red-700 ml-2"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={(e) => { e.preventDefault(); handleCreateNewCustomer(); }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Customer Name *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Juan Dela Cruz"
+                    value={newCustomerForm.customer_name}
+                    onChange={(e) => setNewCustomerForm({...newCustomerForm, customer_name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    required
+                    maxLength={100}
+                  />
+                  {newCustomerForm.customer_name && customers.find(c => 
+                    c.customer_name?.toLowerCase().trim() === newCustomerForm.customer_name.toLowerCase().trim()
+                  ) && (
+                    <p className="mt-1 text-sm text-amber-600 flex items-center">
+                      <AlertTriangle className="h-4 w-4 mr-1" />
+                      Similar customer name already exists
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="e.g., 09123456789"
+                    value={newCustomerForm.phone}
+                    onChange={(e) => setNewCustomerForm({...newCustomerForm, phone: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    required
+                    maxLength={15}
+                  />
+                  {newCustomerForm.phone && (
+                    (() => {
+                      const cleanPhone = newCustomerForm.phone.replace(/[\s\-\(\)\.]/g, '');
+                      const existingCustomer = customers.find(c => 
+                        c.phone && c.phone.replace(/[\s\-\(\)\.]/g, '') === cleanPhone
+                      );
+                      const phoneRegex = /^(\+63|63|0)?[9]\d{9}$/;
+                      
+                      if (existingCustomer) {
+                        return (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Phone number already used by {existingCustomer.customer_name}
+                          </p>
+                        );
+                      } else if (cleanPhone && !phoneRegex.test(cleanPhone)) {
+                        return (
+                          <p className="mt-1 text-sm text-amber-600 flex items-center">
+                            <AlertTriangle className="h-4 w-4 mr-1" />
+                            Please enter a valid Philippine mobile number
+                          </p>
+                        );
+                      } else if (cleanPhone && phoneRegex.test(cleanPhone)) {
+                        return (
+                          <p className="mt-1 text-sm text-green-600 flex items-center">
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Valid phone number
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="e.g., juan@email.com (Optional)"
+                    value={newCustomerForm.email}
+                    onChange={(e) => setNewCustomerForm({...newCustomerForm, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                  {newCustomerForm.email && (
+                    (() => {
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      const existingEmailCustomer = customers.find(c => 
+                        c.email && c.email.toLowerCase() === newCustomerForm.email.toLowerCase().trim()
+                      );
+                      
+                      if (existingEmailCustomer) {
+                        return (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Email already used by {existingEmailCustomer.customer_name}
+                          </p>
+                        );
+                      } else if (!emailRegex.test(newCustomerForm.email.trim())) {
+                        return (
+                          <p className="mt-1 text-sm text-amber-600 flex items-center">
+                            <AlertTriangle className="h-4 w-4 mr-1" />
+                            Please enter a valid email address
+                          </p>
+                        );
+                      } else {
+                        return (
+                          <p className="mt-1 text-sm text-green-600 flex items-center">
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Valid email address
+                          </p>
+                        );
+                      }
+                    })()
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Address
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g., 123 Main Street, Barangay, City, Province (Optional)"
+                    value={newCustomerForm.address}
+                    onChange={(e) => setNewCustomerForm({...newCustomerForm, address: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                    maxLength={255}
+                  />
+                  {newCustomerForm.address && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {newCustomerForm.address.length}/255 characters
+                    </p>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeAllModals}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!newCustomerForm.customer_name || !newCustomerForm.phone || isUpdating}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        <span>Create Customer</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

@@ -26,6 +26,7 @@ import {
 import { DashboardService } from "../services/domains/analytics/dashboardService";
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
+import SalesChart from "../components/charts/SalesChart";
 
 // Memoized components to prevent unnecessary re-renders
 const MemoizedCleanMetricCard = React.memo(CleanMetricCard);
@@ -277,78 +278,74 @@ export default function DashboardPage() {
             </div>
           </aside>
 
-          {/* Performance Overview */}
+          {/* Sales Chart Overview */}
           <section className="lg:col-span-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Today's Performance
-                  </h3>
-                  <p className="text-gray-500 text-sm">
-                    Real-time business metrics
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="p-2 bg-green-50 rounded-lg border border-green-200">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                  </div>
-                  <span className="text-sm font-medium text-green-700">
-                    +15.3%
-                  </span>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {/* Performance Stats Cards */}
-                <PerformanceStat
-                  icon={ShoppingCart}
-                  value="24"
-                  label="Sales Today"
-                  color="blue"
-                />
-                <PerformanceStat
-                  icon={Heart}
-                  value="98%"
-                  label="Customer Satisfaction"
-                  color="green"
-                />
-                <PerformanceStat
-                  icon={Activity}
-                  value="5.2min"
-                  label="Avg. Processing Time"
-                  color="purple"
-                />
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900 mb-4 flex items-center">
+            <SalesChart />
+          </section>
+        </main>
+
+        {/* Compact Performance & Recent Activity Row */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Performance Stats */}
+          <div className="lg:col-span-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
                   <Activity className="h-4 w-4 mr-2 text-gray-500" />
-                  Recent Activity
-                </h4>
-                <div className="space-y-2">
-                  {dashboardData.recentSales?.length > 0 ? (
-                    dashboardData.recentSales
-                      .slice(0, 3)
-                      .map((sale, index) => (
-                        <RecentSaleItem key={sale.id || index} sale={sale} />
-                      ))
-                  ) : (
-                    <div className="text-center py-6">
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                        <ShoppingCart className="h-6 w-6 text-gray-400" />
-                      </div>
-                      <p className="text-gray-600 font-medium text-sm">
-                        No recent activity
-                      </p>
-                      <p className="text-gray-400 text-xs">
-                        Start processing sales to see activity here
-                      </p>
-                    </div>
-                  )}
+                  Today's Performance
+                </h3>
+                <span className="text-xs text-green-600 font-medium">+15.3%</span>
+              </div>
+              <div className="grid grid-cols-3 gap-4 flex-1 items-center">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-900">24</div>
+                  <div className="text-xs text-gray-600">Sales Today</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-900">98%</div>
+                  <div className="text-xs text-gray-600">Satisfaction</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-purple-900">5.2min</div>
+                  <div className="text-xs text-gray-600">Avg. Time</div>
                 </div>
               </div>
             </div>
-          </section>
-        </main>
+          </div>
+
+          {/* Recent Activity - Mini */}
+          <div className="lg:col-span-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-full flex flex-col">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                <ShoppingCart className="h-4 w-4 mr-2 text-gray-500" />
+                Recent Sales
+              </h3>
+              <div className="space-y-2 flex-1">
+                {dashboardData.recentSales?.length > 0 ? (
+                  dashboardData.recentSales
+                    .slice(0, 3)
+                    .map((sale, index) => (
+                      <div key={sale.id || index} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-gray-600 truncate max-w-20">
+                            {sale.customer_name || 'Walk-in'}
+                          </span>
+                        </div>
+                        <div className="font-medium text-gray-900">
+                          {formatCurrency(sale.total_amount || 0)}
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="text-center py-2 flex-1 flex items-center justify-center">
+                    <p className="text-xs text-gray-400">No recent sales</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Enhanced Stock Alerts */}
         {dashboardData.lowStockCount > 0 && (
@@ -530,6 +527,7 @@ function CleanActionCard({
     green: "bg-green-600",
     purple: "bg-purple-600",
     gray: "bg-gray-600",
+    orange: "bg-orange-600",
   };
   return (
     <a
