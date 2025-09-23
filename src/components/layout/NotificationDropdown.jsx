@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Bell, X, AlertTriangle, Package, Calendar, CheckCircle } from "lucide-react";
-import { SimpleNotificationService } from "../../services/domains/notifications/simpleNotificationService";
+import { Bell, X, AlertTriangle, Package, Calendar, CheckCircle, Clock, DollarSign, Plus, Edit, ShoppingCart, Info, XCircle } from "lucide-react";
+import NotificationManager from "../../services/NotificationManager";
 
 /**
  * NotificationDropdown Component
@@ -27,135 +27,185 @@ const getRelativeTime = (timestamp) => {
   return `${days} day${days > 1 ? 's' : ''} ago`;
 };
 
-// Helper function to generate stable notification IDs that persist across sessions
-const generateNotificationId = (type, productId, date = null) => {
-  const today = date || new Date().toDateString();
-  return `${type}-${productId}-${today}`;
+// Helper function to convert icon names to components
+const getIconComponent = (iconName) => {
+  const iconMap = {
+    'Package': Package,
+    'Calendar': Calendar,
+    'AlertTriangle': AlertTriangle,
+    'Clock': Clock,
+    'DollarSign': DollarSign,
+    'Plus': Plus,
+    'Edit': Edit,
+    'ShoppingCart': ShoppingCart,
+    'Info': Info,
+    'XCircle': XCircle
+  };
+  return iconMap[iconName] || AlertTriangle;
 };
 
-// Helper function to clean up old dismissed notifications (older than 7 days)
-const cleanupOldDismissedNotifications = () => {
+
+
+
+// Export function to add transaction success notifications
+export const addTransactionNotification = (type, details = {}) => {
   try {
-    const dismissed = JSON.parse(sessionStorage.getItem('dismissed_notifications') || '[]');
-    const timestamps = JSON.parse(sessionStorage.getItem('notification_timestamps') || '{}');
-    const read = JSON.parse(sessionStorage.getItem('read_notifications') || '[]');
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const transaction = {
+      id: Date.now().toString(),
+      type,
+      timestamp: Date.now(),
+      ...details
+    };
     
-    // Filter out old dismissed notifications
-    const activeDismissed = dismissed.filter(id => {
-      const timestamp = timestamps[id];
-      return timestamp && timestamp > sevenDaysAgo;
-    });
+    // Get existing transactions
+    const existingTransactions = JSON.parse(sessionStorage.getItem('recent_transactions') || '[]');
     
-    // Filter out old read notifications  
-    const activeRead = read.filter(id => {
-      const timestamp = timestamps[id];
-      return timestamp && timestamp > sevenDaysAgo;
-    });
+    // Add new transaction to the beginning and limit to 10 most recent
+    const updatedTransactions = [transaction, ...existingTransactions].slice(0, 10);
     
-    // Update sessionStorage with cleaned data
-    sessionStorage.setItem('dismissed_notifications', JSON.stringify(activeDismissed));
-    sessionStorage.setItem('read_notifications', JSON.stringify(activeRead));
+    // Save to sessionStorage
+    sessionStorage.setItem('recent_transactions', JSON.stringify(updatedTransactions));
     
-    // Clean up old timestamps too
-    const activeTimestamps = {};
-    Object.entries(timestamps).forEach(([id, timestamp]) => {
-      if (timestamp > sevenDaysAgo) {
-        activeTimestamps[id] = timestamp;
-      }
-    });
-    sessionStorage.setItem('notification_timestamps', JSON.stringify(activeTimestamps));
+    // Also show desktop notification if available
+    if (window.SimpleNotificationService) {
+      window.SimpleNotificationService.showTransactionSuccess(type, details);
+    }
     
-    console.log(`✅ [NotificationDropdown] Cleaned up old notifications. Kept ${activeDismissed.length} dismissed, ${activeRead.length} read`);
+    console.log('✅ [NotificationDropdown] Added transaction notification:', transaction);
+    return transaction;
   } catch (error) {
-    console.error('❌ [NotificationDropdown] Error cleaning up old notifications:', error);
+    console.error('❌ [NotificationDropdown] Error adding transaction notification:', error);
+    return null;
   }
 };
+
+
 
 // Export function to clear all notification data (useful for logout)
-// This function is automatically called during logout to ensure notifications
-// don't persist between different user sessions
 export const clearAllNotificationData = () => {
   try {
-    sessionStorage.removeItem('dismissed_notifications');
-    sessionStorage.removeItem('read_notifications');
-    sessionStorage.removeItem('notification_timestamps');
-    sessionStorage.removeItem('notifications_last_clear');
+    NotificationManager.clearAll();
     console.log('✅ [NotificationDropdown] Cleared all notification data for logout');
   } catch (error) {
-    console.error('❌ [NotificationDropdown] Error clearing notification data:', error);
-  }
-};
-
-// Debug function to inspect notification state (useful for troubleshooting)
-export const debugNotificationState = () => {
-  try {
-    const dismissed = JSON.parse(sessionStorage.getItem('dismissed_notifications') || '[]');
-    const read = JSON.parse(sessionStorage.getItem('read_notifications') || '[]');
-    const timestamps = JSON.parse(sessionStorage.getItem('notification_timestamps') || '{}');
-    const lastClear = sessionStorage.getItem('notifications_last_clear');
-    
-    console.group('🔍 [NotificationDropdown] Debug State');
-    console.log('Dismissed notifications:', dismissed);
-    console.log('Read notifications:', read);
-    console.log('Timestamps:', timestamps);
-    console.log('Last clear time:', lastClear ? new Date(parseInt(lastClear)).toLocaleString() : 'Never');
-    console.groupEnd();
-    
-    return { dismissed, read, timestamps, lastClear };
-  } catch (error) {
-    console.error('❌ [NotificationDropdown] Error debugging notification state:', error);
-    return null;
+    console.error('Error clearing notification data:', error);
   }
 };
 
 export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onNotificationCountChange }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [dismissedNotifications, setDismissedNotifications] = useState(new Set());
-  const [readNotifications, setReadNotifications] = useState(new Set());
-  const [notificationTimestamps, setNotificationTimestamps] = useState(new Map());
-  const [lastClearTime, setLastClearTime] = useState(0); // Track when notifications were last cleared
+  const [realtimeSubscription, setRealtimeSubscription] = useState(null);
 
-  // Initialize component state on mount (only once)
+  // Setup real-time WebSocket subscription and notification event listeners
   useEffect(() => {
-    // Clean up old dismissed notifications on component mount
-    cleanupOldDismissedNotifications();
+    const setupRealtimeSubscription = async () => {
+      try {
+        const { supabase } = await import('../../config/supabase.js');
+        
+        if (supabase) {
+          const subscription = supabase
+            .channel('notification-updates')
+            .on(
+              'postgres_changes',
+              {
+                event: '*',
+                schema: 'public',
+                table: 'products'
+              },
+              (payload) => {
+                console.log('🔄 [NotificationDropdown] Real-time product update:', payload);
+                // Run notification checks when products change
+                NotificationManager.runAllChecks();
+                loadNotifications();
+              }
+            )
+            .on(
+              'postgres_changes',
+              {
+                event: '*',
+                schema: 'public',
+                table: 'sales'
+              },
+              (payload) => {
+                console.log('🔄 [NotificationDropdown] Real-time sale update:', payload);
+                // Run checks after sales to update stock levels
+                setTimeout(() => {
+                  NotificationManager.runAllChecks();
+                  loadNotifications();
+                }, 1000);
+              }
+            )
+            .subscribe();
+            
+          setRealtimeSubscription(subscription);
+          console.log('🔔 [NotificationDropdown] Real-time subscription established');
+        }
+      } catch (error) {
+        console.error('❌ [NotificationDropdown] Error setting up real-time subscription:', error);
+      }
+    };
     
-    // Load dismissed notifications from sessionStorage (only persists during session)
-    const dismissed = JSON.parse(sessionStorage.getItem('dismissed_notifications') || '[]');
-    setDismissedNotifications(new Set(dismissed));
+    // Setup notification event listeners
+    const handleNotificationAdded = () => loadNotifications();
+    const handleNotificationRead = () => loadNotifications();
+    const handleNotificationDismissed = () => loadNotifications();
+    const handleAllNotificationsRead = () => loadNotifications();
+    const handleAllNotificationsCleared = () => loadNotifications();
     
-    // Load read notifications from sessionStorage (only persists during session)
-    const read = JSON.parse(sessionStorage.getItem('read_notifications') || '[]');
-    setReadNotifications(new Set(read));
+    window.addEventListener('notificationAdded', handleNotificationAdded);
+    window.addEventListener('notificationRead', handleNotificationRead);
+    window.addEventListener('notificationDismissed', handleNotificationDismissed);
+    window.addEventListener('allNotificationsRead', handleAllNotificationsRead);
+    window.addEventListener('allNotificationsCleared', handleAllNotificationsCleared);
     
-    // Load notification timestamps from sessionStorage (only persists during session)
-    const timestamps = JSON.parse(sessionStorage.getItem('notification_timestamps') || '{}');
-    setNotificationTimestamps(new Map(Object.entries(timestamps)));
+    setupRealtimeSubscription();
     
-    // Load last clear time to prevent immediate reappearance
-    const lastClear = parseInt(sessionStorage.getItem('notifications_last_clear') || '0');
-    setLastClearTime(lastClear);
+    return () => {
+      if (realtimeSubscription) {
+        realtimeSubscription.unsubscribe();
+        console.log('🔔 [NotificationDropdown] Real-time subscription closed');
+      }
+      
+      // Cleanup event listeners
+      window.removeEventListener('notificationAdded', handleNotificationAdded);
+      window.removeEventListener('notificationRead', handleNotificationRead);
+      window.removeEventListener('notificationDismissed', handleNotificationDismissed);
+      window.removeEventListener('allNotificationsRead', handleAllNotificationsRead);
+      window.removeEventListener('allNotificationsCleared', handleAllNotificationsCleared);
+    };
+  }, []);
+
+  // Initialize component on mount
+  useEffect(() => {
+    // Make notification functions globally available
+    window.NotificationManager = NotificationManager;
+    window.addTransactionNotification = (type, details) => {
+      return NotificationManager.addNotification(NotificationManager.NOTIFICATION_TYPES.TRANSACTION_SUCCESS, details);
+    };
     
-    // Load initial notifications
-    loadNotifications();
+    // Cleanup old notifications
+    NotificationManager.cleanup();
+    
+    // Run initial checks and load notifications
+    NotificationManager.runAllChecks().then(() => {
+      loadNotifications();
+    });
+    
+    // Set up periodic checks every 5 minutes
+    const checkInterval = setInterval(() => {
+      NotificationManager.runAllChecks();
+    }, 5 * 60 * 1000);
+    
+    return () => clearInterval(checkInterval);
   }, []); // Only run once on mount
 
-  // Handle dropdown open/close and intervals
+  // Handle dropdown open/close - load notifications when opened
   useEffect(() => {
     if (isOpen) {
-      console.log('🔔 [NotificationDropdown] Dropdown opened - refreshing notifications');
-      // Refresh notifications when dropdown opens
+      console.log('🔔 [NotificationDropdown] Dropdown opened - loading notifications');
       loadNotifications();
       
-      // Real-time updates: refresh notifications every 30 seconds while open
-      const refreshInterval = setInterval(() => {
-        console.log('🔄 [NotificationDropdown] Auto-refreshing notifications');
-        loadNotifications();
-      }, 30000); // Refresh every 30 seconds
-      
-      // Update timestamps every minute while open
+      // Update timestamps every 30 seconds while open
       const timestampInterval = setInterval(() => {
         setNotifications(prev => 
           prev.map(notification => ({
@@ -163,14 +213,28 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
             time: getRelativeTime(notification.timestamp)
           }))
         );
-      }, 60000); // Update every minute
+      }, 30000); // Update every 30 seconds
       
       return () => {
         console.log('🔔 [NotificationDropdown] Dropdown closed - clearing intervals');
-        clearInterval(refreshInterval);
         clearInterval(timestampInterval);
       };
     }
+  }, [isOpen]);
+
+  // Background polling for notifications even when dropdown is closed
+  useEffect(() => {
+    // Set up background polling every 15 seconds to catch new notifications
+    const backgroundInterval = setInterval(() => {
+      if (!isOpen) {
+        console.log('🔄 [NotificationDropdown] Background notification check');
+        loadNotifications();
+      }
+    }, 15000); // Check every 15 seconds in background
+    
+    return () => {
+      clearInterval(backgroundInterval);
+    };
   }, [isOpen]);
 
   // Sync notification count whenever notifications change
@@ -182,140 +246,41 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
     }
   }, [notifications, onNotificationCountChange]);
 
-  const loadNotifications = async () => {
+  // Mark all notifications as read when dropdown is opened
+  useEffect(() => {
+    if (isOpen && notifications.length > 0) {
+      const unreadNotifications = notifications.filter(n => !n.isRead);
+      if (unreadNotifications.length > 0) {
+        console.log(`📖 [NotificationDropdown] Marking ${unreadNotifications.length} notifications as read`);
+        
+        // Mark all as read using the NotificationManager
+        unreadNotifications.forEach(notification => {
+          NotificationManager.markAsRead(notification.id);
+        });
+        
+        // Reload notifications to reflect the changes
+        loadNotifications();
+      }
+    }
+  }, [isOpen, notifications.length]); // Only depend on isOpen and notifications.length to avoid infinite loops
+
+  const loadNotifications = () => {
     setLoading(true);
     console.log('🔄 [NotificationDropdown] Loading notifications...');
     
     try {
-      // Get fresh state from sessionStorage to ensure we have latest data
-      const currentDismissed = new Set(JSON.parse(sessionStorage.getItem('dismissed_notifications') || '[]'));
-      const currentLastClear = parseInt(sessionStorage.getItem('notifications_last_clear') || '0');
+      // Get notifications from the new manager
+      const allNotifications = NotificationManager.getNotifications();
       
-      // Check if notifications were recently cleared (within last 5 minutes)
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-      if (currentLastClear > fiveMinutesAgo) {
-        console.log('⏳ [NotificationDropdown] Skipping reload - notifications recently cleared');
-        setNotifications([]);
-        setLoading(false);
-        return;
-      }
+      // Convert to display format with icons
+      const displayNotifications = allNotifications.map(notification => ({
+        ...notification,
+        time: getRelativeTime(notification.timestamp),
+        icon: getIconComponent(notification.icon)
+      }));
       
-      // Get recent notifications
-      const recentNotifications = getRecentNotifications();
-      
-      // Get individual low stock and expiring products
-      const lowStockProducts = await getLowStockProducts();
-      const expiringProducts = await getExpiringProducts();
-      
-      const today = new Date().toDateString();
-      const timestamp = Date.now();
-      
-      // Create individual notifications for each low stock product, but ONLY if not dismissed
-      const lowStockNotifications = (lowStockProducts || [])
-        .map((product, index) => {
-          const notificationId = generateNotificationId('low-stock', product.id || index);
-          
-          // Skip if this notification was already dismissed (use fresh data)
-          if (currentDismissed.has(notificationId)) {
-            console.log(`⏭️ [NotificationDropdown] Skipping dismissed notification: ${notificationId}`);
-            return null;
-          }
-          
-          // Use existing timestamp if available, otherwise create new one
-          let timestamp;
-          if (notificationTimestamps.has(notificationId)) {
-            timestamp = notificationTimestamps.get(notificationId);
-          } else {
-            timestamp = Date.now() - (index * 1000); // Stagger by 1 second each
-            // Store new timestamp for session
-            const newTimestamps = new Map(notificationTimestamps);
-            newTimestamps.set(notificationId, timestamp);
-            setNotificationTimestamps(newTimestamps);
-            sessionStorage.setItem('notification_timestamps', JSON.stringify(Object.fromEntries(newTimestamps)));
-          }
-          
-          return {
-            id: notificationId,
-            type: 'warning',
-            title: 'Low Stock Alert',
-            message: `${product.name || 'Unknown Product'} is running low (${product.stock_in_pieces || 0} left)`,
-            time: getRelativeTime(timestamp),
-            timestamp: timestamp,
-            icon: Package,
-            color: 'text-red-600 bg-red-50',
-            persistent: true,
-            productId: product.id
-          };
-        })
-        .filter(notification => notification !== null); // Remove null entries (dismissed notifications)
-      
-      // Create individual notifications for each expiring product, but ONLY if not dismissed
-      const expiringNotifications = (expiringProducts || [])
-        .map((product, index) => {
-          const expiryDate = product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : 'unknown date';
-          const notificationId = generateNotificationId('expiring', product.id || index);
-          
-          // Skip if this notification was already dismissed (use fresh data)
-          if (currentDismissed.has(notificationId)) {
-            console.log(`⏭️ [NotificationDropdown] Skipping dismissed notification: ${notificationId}`);
-            return null;
-          }
-          
-          // Use existing timestamp if available, otherwise create new one
-          let timestamp;
-          if (notificationTimestamps.has(notificationId)) {
-            timestamp = notificationTimestamps.get(notificationId);
-          } else {
-            timestamp = Date.now() + (index * 1000); // Stagger by 1 second each, newer than low stock
-            // Store new timestamp for session
-            const newTimestamps = new Map(notificationTimestamps);
-            newTimestamps.set(notificationId, timestamp);
-            setNotificationTimestamps(newTimestamps);
-            sessionStorage.setItem('notification_timestamps', JSON.stringify(Object.fromEntries(newTimestamps)));
-          }
-          
-          return {
-            id: notificationId,
-            type: 'warning',
-            title: 'Expiry Warning',
-            message: `${product.name || 'Unknown Product'} expires soon (${expiryDate})`,
-            time: getRelativeTime(timestamp),
-            timestamp: timestamp,
-            icon: Calendar,
-            color: 'text-yellow-600 bg-yellow-50',
-            persistent: true,
-            productId: product.id
-          };
-        })
-        .filter(notification => notification !== null); // Remove null entries (dismissed notifications)
-
-      const allNotifications = [
-        ...lowStockNotifications,
-        ...expiringNotifications,
-        ...recentNotifications
-      ];
-
-      // Get fresh read notifications from sessionStorage to ensure we have latest state
-      const currentReadNotifications = new Set(JSON.parse(sessionStorage.getItem('read_notifications') || '[]'));
-      
-      // Filter out dismissed notifications, add read status, and sort by newest first
-      const activeNotifications = allNotifications
-        .filter(notification => !currentDismissed.has(notification.id))
-        .map(notification => ({
-          ...notification,
-          isRead: currentReadNotifications.has(notification.id),
-          timestamp: notification.timestamp || Date.now() // Ensure all have timestamps in milliseconds
-        }))
-        .sort((a, b) => b.timestamp - a.timestamp); // Newest first (simple numeric comparison)
-
-      // Update state with fresh data from sessionStorage
-      setDismissedNotifications(currentDismissed);
-      setReadNotifications(currentReadNotifications);
-      setLastClearTime(currentLastClear);
-      
-      setNotifications(activeNotifications);
-      console.log(`✅ [NotificationDropdown] Loaded ${activeNotifications.length} notifications`);
-    
+      setNotifications(displayNotifications);
+      console.log(`✅ [NotificationDropdown] Loaded ${displayNotifications.length} notifications`);
     } catch (error) {
       console.error('Error loading notifications:', error);
       setNotifications([{
@@ -325,104 +290,15 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
         message: 'Unable to load notifications',
         time: 'Now',
         icon: AlertTriangle,
-        color: 'text-red-600 bg-red-50'
+        color: 'text-red-600 bg-red-50',
+        isRead: false
       }]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getLowStockProducts = async () => {
-    try {
-      // Import supabase client  
-      const { supabase } = await import('../../config/supabase.js');
-      
-      if (!supabase) {
-        console.warn('Supabase client not available');
-        return [];
-      }
-      
-      const { data: products, error } = await supabase
-        .from('products')
-        .select('id, name, stock_in_pieces, reorder_level')
-        .lte('stock_in_pieces', 100); // Get products with stock <= 100 to check against reorder levels
-      
-      if (error) {
-        console.error('Database error fetching low stock products:', error);
-        // Return empty array instead of throwing
-        return [];
-      }
-      
-      // Additional filtering if needed
-      const lowStockProducts = products?.filter(product => 
-        product.stock_in_pieces <= Math.max(product.reorder_level || 5, 10)
-      ) || [];
-      
-      return lowStockProducts;
-    } catch (error) {
-      console.error('Error getting low stock products:', error);
-      // Return empty array to prevent app crash
-      return [];
-    }
-  };
 
-  const getExpiringProducts = async () => {
-    try {
-      // Import supabase client
-      const { supabase } = await import('../../config/supabase.js');
-      
-      if (!supabase) {
-        console.warn('Supabase client not available');
-        return [];
-      }
-      
-      // Calculate date 30 days from now (products expiring within 30 days)
-      const today = new Date().toISOString().split('T')[0];
-      const thirtyDaysFromNow = new Date();
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-      const expiryThreshold = thirtyDaysFromNow.toISOString().split('T')[0];
-      
-      const { data: products, error } = await supabase
-        .from('products')
-        .select('id, name, expiry_date')
-        .not('expiry_date', 'is', null)
-        .gte('expiry_date', today)
-        .lte('expiry_date', expiryThreshold);
-      
-      if (error) {
-        console.error('Database error fetching expiring products:', error);
-        // Return empty array instead of throwing
-        return [];
-      }
-      
-      return products || [];
-    } catch (error) {
-      console.error('Error getting expiring products:', error);
-      // Return empty array to prevent app crash
-      return [];
-    }
-  };
-
-  const getRecentNotifications = () => {
-    // Generate sample recent notifications (in real app, this would come from your app state or API)
-    const notifications = [];
-    
-    // You can add logic here to get recent activity from your app state
-    // For example, if you have a recent sales context or prop:
-    // if (recentSales?.length > 0) {
-    //   notifications.push({
-    //     id: 'recent-sale',
-    //     type: 'success',
-    //     title: 'Recent Sale',
-    //     message: `Sale completed: ₱${recentSales[0]?.total_amount || '0.00'}`,
-    //     time: '5 min ago',
-    //     icon: CheckCircle,
-    //     color: 'text-green-600 bg-green-50'
-    //   });
-    // }
-
-    return notifications.slice(0, 5); // Limit to 5 recent notifications
-  };
 
   const handleNotificationClick = (notification) => {
     console.log('Notification clicked, current isRead:', notification.isRead);
@@ -435,17 +311,11 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
       return;
     }
     
-    // Mark notification as read
-    const newRead = new Set([...readNotifications, notification.id]);
-    setReadNotifications(newRead);
-    sessionStorage.setItem('read_notifications', JSON.stringify([...newRead]));
+    // Mark notification as read using the manager
+    NotificationManager.markAsRead(notification.id);
     
-    // Update the notification in state immediately
-    const updatedNotifications = notifications.map(n => 
-      n.id === notification.id ? { ...n, isRead: true } : n
-    );
-    
-    setNotifications(updatedNotifications);
+    // Reload notifications to reflect the change
+    loadNotifications();
     
     console.log('Notification marked as read:', notification.id);
     
@@ -455,40 +325,22 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
   };
 
   const clearAll = () => {
-    // Add all current notification IDs to dismissed list
-    const allIds = notifications.map(n => n.id);
-    const newDismissed = new Set([...dismissedNotifications, ...allIds]);
-    setDismissedNotifications(newDismissed);
+    // Dismiss all current notifications using the manager
+    notifications.forEach(notification => {
+      NotificationManager.dismissNotification(notification.id);
+    });
     
-    // Track when notifications were cleared
-    const clearTime = Date.now();
-    setLastClearTime(clearTime);
-    
-    // Save to sessionStorage (cleared on logout/close browser)
-    sessionStorage.setItem('dismissed_notifications', JSON.stringify([...newDismissed]));
-    sessionStorage.setItem('notifications_last_clear', clearTime.toString());
-    
-    // Clear current notifications display
+    // Clear display immediately
     setNotifications([]);
     
-    console.log('✅ [NotificationDropdown] Cleared all notifications at', new Date(clearTime).toLocaleTimeString());
+    console.log('✅ [NotificationDropdown] Cleared all notifications');
   };
 
   const removeNotification = (notificationId) => {
-    // Add to dismissed notifications
-    const newDismissed = new Set([...dismissedNotifications, notificationId]);
-    setDismissedNotifications(newDismissed);
+    // Dismiss notification using the manager
+    NotificationManager.dismissNotification(notificationId);
     
-    // Save to sessionStorage
-    sessionStorage.setItem('dismissed_notifications', JSON.stringify([...newDismissed]));
-    
-    // Clean up timestamp for dismissed notification to prevent buildup
-    const newTimestamps = new Map(notificationTimestamps);
-    newTimestamps.delete(notificationId);
-    setNotificationTimestamps(newTimestamps);
-    sessionStorage.setItem('notification_timestamps', JSON.stringify(Object.fromEntries(newTimestamps)));
-    
-    // Remove from current display
+    // Update display immediately
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
@@ -500,17 +352,6 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => {
-              SimpleNotificationService.runDailyChecks();
-              // Force refresh bypassing clear time check
-              setLastClearTime(0);
-              loadNotifications();
-            }}
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-          >
-            Refresh
-          </button>
           {notifications.length > 0 && (
             <button
               onClick={clearAll}

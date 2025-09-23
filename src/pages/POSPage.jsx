@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCustomers } from "../hooks/useCustomers";
 import { CustomerService } from "../services/CustomerService";
+import { NotificationManager } from "../services/NotificationManager";
 import {
   CreditCard,
   DollarSign,
@@ -138,8 +139,29 @@ export default function POSPage() {
         "💳 POS Page - Processing payment with discount data:",
         paymentDataWithCashier
       );
+      console.log("🔍 [DEBUG] Customer data being sent to processPayment:", {
+        customer_name: paymentDataWithCashier.customer_name,
+        customer_phone: paymentDataWithCashier.customer_phone,
+        customer_address: paymentDataWithCashier.customer_address,
+        customer_email: paymentDataWithCashier.customer_email,
+        customerType: paymentDataWithCashier.customerType
+      });
 
       const transaction = await processPayment(paymentDataWithCashier);
+      
+      // Trigger sale notification
+      try {
+        const finalTotal = cartSummary.total - discount.amount;
+        NotificationManager.addNotification(NotificationManager.NOTIFICATION_TYPES.SALE_COMPLETED, {
+          amount: finalTotal,
+          itemCount: cart.length,
+          customerName: paymentData.customer_name || 'Walk-in Customer',
+          transactionId: transaction?.id || 'N/A'
+        });
+        console.log('✅ Sale notification added');
+      } catch (error) {
+        console.warn('⚠️ Failed to add sale notification:', error);
+      }
       
       // Update customer purchase history in localStorage for persistence
       if (paymentData.customerType !== null && paymentData.customerType !== 'guest' && paymentData.customer_phone) {

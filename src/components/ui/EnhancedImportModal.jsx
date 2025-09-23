@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
 import { useAuth } from "../../hooks/useAuth";
+import { NotificationManager } from "../../services/NotificationManager";
 import {
   parseFlexibleDate,
   isDateNotInPast,
@@ -270,6 +271,18 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       // Enhanced success feedback
       const importedCount = mappingResult.data?.length || previewData.length;
       console.log(`✅ [EnhancedImportModal] Successfully imported ${importedCount} products`);
+      
+      // Trigger notification for successful import
+      try {
+        NotificationManager.addNotification(NotificationManager.NOTIFICATION_TYPES.INVENTORY_UPDATE, {
+          action: 'Products Imported',
+          count: importedCount,
+          details: `Successfully imported ${importedCount} product${importedCount > 1 ? 's' : ''} to inventory`
+        });
+        console.log('✅ Import notification added');
+      } catch (error) {
+        console.warn('⚠️ Failed to add import notification:', error);
+      }
 
       setTimeout(() => {
         setIsProcessing(false);

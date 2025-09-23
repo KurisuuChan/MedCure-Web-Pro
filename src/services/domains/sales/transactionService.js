@@ -6,6 +6,7 @@
 // =====================================================
 
 import { supabase } from "../../../config/supabase";
+import { CustomerService } from "../../CustomerService";
 
 class UnifiedTransactionService {
   constructor() {
@@ -66,6 +67,36 @@ class UnifiedTransactionService {
     console.log("🆕 Creating pending transaction:", saleData);
 
     try {
+      // Handle customer creation/lookup first
+      let customerId = null;
+      
+      if (saleData.customer_name && saleData.customer_phone) {
+        try {
+          console.log("👤 Creating/finding customer for transaction");
+          console.log("🔍 [DEBUG] Customer data being sent to CustomerService:", {
+            customer_name: saleData.customer_name,
+            phone: saleData.customer_phone,
+            email: saleData.customer_email || null,
+            address: saleData.customer_address || null
+          });
+          
+          const customer = await CustomerService.createCustomer({
+            customer_name: saleData.customer_name,
+            phone: saleData.customer_phone,
+            email: saleData.customer_email || null,
+            address: saleData.customer_address || null
+          });
+          
+          customerId = customer.id;
+          console.log("✅ Customer processed for transaction:", { customerId, customerName: customer.customer_name });
+          console.log("🔍 [DEBUG] Customer ID being passed to database:", customerId);
+          console.log("🔍 [DEBUG] Full customer object returned:", customer);
+        } catch (customerError) {
+          console.warn("⚠️ Customer creation failed, proceeding without customer_id:", customerError.message);
+          console.error("🔍 [DEBUG] Customer creation error details:", customerError);
+        }
+      }
+
       // Map items to database format
       const mappedItems = saleData.items.map((item) => {
         const quantity =
@@ -129,6 +160,7 @@ class UnifiedTransactionService {
           user_id: saleData.cashierId || saleData.user_id,
           total_amount: saleData.total || saleData.total_amount,
           payment_method: saleData.paymentMethod || saleData.payment_method,
+          customer_id: customerId, // Include the customer_id
           customer_name:
             saleData.customer?.name || saleData.customer_name || null,
           customer_phone:
@@ -154,6 +186,7 @@ class UnifiedTransactionService {
       if (error) throw error;
 
       console.log("✅ Transaction created successfully:", data);
+      console.log("🔍 [DEBUG] Transaction data returned from DB:", { customer_id: data.customer_id, customer_name: data.customer_name });
       return {
         success: true,
         data: data,

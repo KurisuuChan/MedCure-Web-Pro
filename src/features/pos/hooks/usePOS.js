@@ -193,11 +193,15 @@ export function usePOS() {
 
         // Use the new unified service complete payment workflow
         const completedTransaction =
-          await unifiedTransactionService.processCompletePayment(saleData);
+          await transactionService.processCompletePayment(saleData);
         console.log(
           "✅ POS Hook - Complete payment successful:",
           completedTransaction
         );
+        console.log("🔍 [DEBUG] Customer data in completed transaction:", {
+          customer_id: completedTransaction.create_result?.customer_id,
+          customer_name: completedTransaction.create_result?.customer_name
+        });
 
         // Extract the transaction data
         const transaction = {
@@ -206,15 +210,16 @@ export function usePOS() {
           status: "completed",
         };
 
-        // Enhance transaction with additional data
+        // Enhance transaction with additional data (preserve customer information)
         const enhancedTransaction = {
-          ...transaction,
+          ...transaction, // Keep all original transaction data including customer_id and customer info
           payment: {
             method: paymentData.method,
             amount: paymentData.amount,
             change: paymentData.amount - finalTotalAfterDiscount, // ✅ FIXED: Use correct total for change calculation
           },
-          items: cartItems.map((item) => ({
+          // Override items with cart data for receipt display
+          sale_items: cartItems.map((item) => ({
             id: item.productId,
             name: item.name,
             unit: item.unit,
@@ -225,6 +230,13 @@ export function usePOS() {
           })),
           subtotal: getCartSubtotal(),
           tax: getCartTax(),
+          // Explicitly preserve customer data to ensure it's not lost
+          customer_id: transaction.customer_id,
+          customer_name: transaction.customer_name,
+          customer_phone: transaction.customer_phone,
+          customer_email: transaction.customer_email,
+          customer_address: transaction.customer_address,
+          customer_type: transaction.customer_type,
         };
 
         // Save transaction

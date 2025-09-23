@@ -135,6 +135,65 @@ export class SimpleNotificationService {
     });
   }
 
+  // Show transaction success notification (more general than sales)
+  static showTransactionSuccess(type, details = {}) {
+    const messages = {
+      sale: `Sale completed successfully! Total: ₱${details.amount?.toFixed(2) || '0.00'}`,
+      inventory_update: `Inventory updated successfully! ${details.productName || 'Product'} stock updated.`,
+      product_added: `Product added successfully! ${details.productName || 'New product'} is now in inventory.`,
+      stock_adjustment: `Stock adjustment completed! ${details.productName || 'Product'} quantity updated.`,
+      reorder: `Reorder placed successfully! ${details.productName || 'Products'} ordered from supplier.`,
+      general: details.message || 'Transaction completed successfully!'
+    };
+
+    const title = type === 'sale' ? '💰 Sale Success' : 
+                  type === 'inventory_update' ? '📦 Inventory Updated' :
+                  type === 'product_added' ? '➕ Product Added' :
+                  type === 'stock_adjustment' ? '🔄 Stock Adjusted' :
+                  type === 'reorder' ? '🛒 Reorder Placed' :
+                  '✅ Success';
+
+    return this.showNotification(title, {
+      body: messages[type] || messages.general,
+      icon: "/vite.svg",
+      tag: `transaction-${type}`,
+      requireInteraction: false,
+      data: {
+        type: this.NOTIFICATION_TYPES.SALE_COMPLETE, // Reuse same type for now
+        transactionType: type,
+        ...details
+      },
+    });
+  }
+
+  // Add transaction notification to session storage (for dropdown display)
+  static addTransactionNotification(type, details = {}) {
+    try {
+      // Import the helper function
+      if (typeof window !== 'undefined' && window.addTransactionNotification) {
+        return window.addTransactionNotification(type, details);
+      }
+      
+      // Fallback - add directly to session storage
+      const transaction = {
+        id: Date.now().toString(),
+        type,
+        timestamp: Date.now(),
+        ...details
+      };
+      
+      const existingTransactions = JSON.parse(sessionStorage.getItem('recent_transactions') || '[]');
+      const updatedTransactions = [transaction, ...existingTransactions].slice(0, 10);
+      sessionStorage.setItem('recent_transactions', JSON.stringify(updatedTransactions));
+      
+      console.log('✅ [SimpleNotificationService] Added transaction notification:', transaction);
+      return transaction;
+    } catch (error) {
+      console.error('❌ [SimpleNotificationService] Error adding transaction notification:', error);
+      return null;
+    }
+  }
+
   // Show system alert
   static showSystemAlert(message, isError = false) {
     return this.showNotification(

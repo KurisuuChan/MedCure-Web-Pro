@@ -43,6 +43,9 @@ import {
   filterLowStockProducts,
 } from "../../../utils/productUtils";
 
+// Import the enhanced settings modal
+import EnhancedInventorySettingsModal from "../../../components/inventory/EnhancedInventorySettingsModal";
+
 const EnhancedInventoryDashboard = () => {
   const [orderSuggestions, setOrderSuggestions] = useState([]);
   const [criticalAlerts, setCriticalAlerts] = useState([]);
@@ -52,6 +55,8 @@ const EnhancedInventoryDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isAutoReordering, setIsAutoReordering] = useState(false);
   const [exportingReport, setExportingReport] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [dashboardSettings, setDashboardSettings] = useState(null);
 
   // Helper function to calculate daily sales velocity
   const calculateDailySalesVelocity = async (productId) => {
@@ -453,16 +458,54 @@ const EnhancedInventoryDashboard = () => {
 
   const handleOpenSettings = () => {
     console.log("⚙️ Opening Inventory Intelligence Settings");
+    setShowSettingsModal(true);
+  };
 
-    // In a real implementation, this would open a settings modal
-    alert(
-      "⚙️ Settings Panel\n\nConfigure:\n• Reorder thresholds\n• Alert preferences\n• Auto-reorder rules\n• Report templates\n• Supplier integration"
-    );
+  // Enhanced settings handler
+  const handleSettingsSave = async (newSettings) => {
+    try {
+      console.log("💾 Saving enhanced inventory settings:", newSettings);
+      setDashboardSettings(newSettings);
+      
+      // Apply settings immediately
+      if (newSettings.dashboard?.refreshInterval && newSettings.dashboard.refreshInterval > 0) {
+        // Set up automatic refresh based on settings
+        const interval = newSettings.dashboard.refreshInterval * 1000;
+        const intervalId = setInterval(loadDashboardData, interval);
+        
+        // Clean up previous interval
+        return () => clearInterval(intervalId);
+      }
+      
+      // Show success notification
+      if (window.SimpleNotificationService) {
+        window.SimpleNotificationService.showSystemAlert("Enhanced settings applied successfully!");
+      }
+    } catch (error) {
+      console.error("❌ Error applying settings:", error);
+      if (window.SimpleNotificationService) {
+        window.SimpleNotificationService.showSystemAlert("Failed to apply settings", true);
+      }
+    }
   };
 
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // Load saved settings on component mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem("enhancedInventorySettings");
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setDashboardSettings(parsed);
+        console.log("📋 Loaded saved inventory settings:", parsed);
+      } catch (error) {
+        console.error("❌ Error loading saved settings:", error);
+      }
+    }
+  }, []);
 
   const renderOverviewCards = () => {
     if (!overview) return null;
@@ -783,6 +826,14 @@ const EnhancedInventoryDashboard = () => {
                 </span>
               )}
               <button
+                onClick={handleOpenSettings}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 flex items-center shadow-md hover:shadow-lg"
+                title="Enhanced Settings"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </button>
+              <button
                 onClick={loadDashboardData}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center shadow-sm"
               >
@@ -1028,6 +1079,13 @@ const EnhancedInventoryDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Enhanced Settings Modal */}
+      <EnhancedInventorySettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onSave={handleSettingsSave}
+      />
     </div>
   );
 };

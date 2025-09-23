@@ -16,12 +16,19 @@ export class CustomerService {
    */
   static async createCustomer(customerData) {
     try {
+      console.log('🔍 [DEBUG] CustomerService.createCustomer called with:', customerData);
+      
       // Enhanced validation
       if (!customerData.customer_name || !customerData.phone) {
+        console.error('🔍 [DEBUG] Validation failed - missing name or phone:', { 
+          customer_name: customerData.customer_name, 
+          phone: customerData.phone 
+        });
         throw new Error('Customer name and phone are required');
       }
 
       if (customerData.phone.length < 10) {
+        console.error('🔍 [DEBUG] Validation failed - phone too short:', customerData.phone);
         throw new Error('Phone number must be at least 10 digits');
       }
 
@@ -40,6 +47,7 @@ export class CustomerService {
 
       if (existingCustomers && existingCustomers.length > 0) {
         console.log('✅ Returning existing customer:', existingCustomers[0]);
+        console.log('🔍 [DEBUG] Existing customer ID:', existingCustomers[0].id);
         return existingCustomers[0];
       }
 
@@ -65,6 +73,8 @@ export class CustomerService {
       }
 
       console.log('✅ Customer created successfully in database:', newCustomer);
+      console.log('🔍 [DEBUG] New customer ID:', newCustomer.id);
+      console.log('🔍 [DEBUG] New customer object keys:', Object.keys(newCustomer));
       return newCustomer;
     } catch (error) {
       console.error('❌ Error in createCustomer:', error);
@@ -73,24 +83,169 @@ export class CustomerService {
   }
 
   /**
-   * Get all active customers from database
-   * @returns {Promise<Array>} Array of customer objects
+   * Get all active customers from database with transaction statistics
+   * @returns {Promise<Array>} Array of customer objects with purchase stats
    */
   static async getAllCustomers() {
     try {
-      const { data: customers, error } = await supabase
+      // First get all customers
+      const { data: customers, error: customerError } = await supabase
         .from('customers')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error fetching customers:', error);
-        throw new Error(`Failed to fetch customers: ${error.message}`);
+      if (customerError) {
+        console.error('❌ Error fetching customers:', customerError);
+        throw new Error(`Failed to fetch customers: ${customerError.message}`);
       }
 
       console.log(`✅ Retrieved ${customers?.length || 0} customers from database`);
-      return customers || [];
+      
+      // If no customers, return empty array
+      if (!customers || customers.length === 0) {
+        return [];
+      }
+
+      // Now get transaction statistics for each customer
+      console.log('📊 Calculating customer transaction statistics...');
+      
+      try {
+        // Get ALL transactions first (same approach as CustomerInformationPage)
+        const { data: allTransactions, error: statsError } = await supabase
+          .from('sales')
+          .select('*')
+          .not('status', 'eq', 'cancelled')
+          .not('customer_name', 'eq', '[DELETED CUSTOMER]')
+          .not('customer_name', 'is', null)
+          .order('created_at', { ascending: false });
+
+        if (statsError) {
+          console.warn('⚠️ Could not fetch transactions:', statsError);
+        } else {
+          console.log(`📈 Found ${allTransactions?.length || 0} total transactions to analyze`);
+        }
+
+        // Calculate statistics for each customer using the same logic as CustomerInformationPage
+        const customersWithStats = customers.map(customer => {
+          console.log(`\n🔍 Calculating stats for: ${customer.customer_name} (ID: ${customer.id}, Phone: ${customer.phone})`);
+          
+          // Filter transactions for this customer using the same logic as fetchCustomerTransactions
+          const customerTransactions = (allTransactions || []).filter(txn => {
+            if (!txn) return false;
+            
+            // Skip deleted customer transactions
+            if (txn.customer_name === '[DELETED CUSTOMER]' || !txn.customer_name) {
+              return false;
+            }
+            
+            // Strategy 1: Customer ID match (most reliable if available)
+            if (txn.customer_id && customer.id && txn.customer_id === customer.id) {
+              console.log(`  ✅ ID Match: ${txn.id} -> ${customer.customer_name}`);
+              return true;
+            }
+            
+            // Strategy 2: Phone number match (normalize and compare)
+            if (txn.customer_phone && customer.phone) {
+              const normalizePhone = (phone) => {
+                if (!phone) return '';
+                return phone.toString().replace(/[^\d]/g, ''); // Remove all non-digits
+              };
+              
+              const txnPhone = normalizePhone(txn.customer_phone);
+              const customerPhone = normalizePhone(customer.phone);
+              
+              if (txnPhone && customerPhone && txnPhone.length >= 10 && customerPhone.length >= 10) {
+                // Compare last 10 digits (handles country codes)
+                const txnLast10 = txnPhone.slice(-10);
+                const customerLast10 = customerPhone.slice(-10);
+                
+                if (txnLast10 === customerLast10) {
+                  console.log(`  ✅ Phone Match: ${txn.id} -> ${customer.customer_name} (${txnLast10})`);
+                  return true;
+                }
+              }
+            }
+            
+            // Strategy 3: Exact name match (case insensitive)
+            if (txn.customer_name && customer.customer_name) {
+              const txnName = txn.customer_name.toString().toLowerCase().trim();
+              const customerName = customer.customer_name.toString().toLowerCase().trim();
+              
+              if (txnName === customerName) {
+                console.log(`  ✅ Name Match: ${txn.id} -> ${customer.customer_name}`);
+                return true;
+              }
+            }
+            
+            // Strategy 4: Fuzzy name match (for slight variations)
+            if (txn.customer_name && customer.customer_name) {
+              const txnName = txn.customer_name.toString().toLowerCase().trim();
+              const customerName = customer.customer_name.toString().toLowerCase().trim();
+              
+              // Check if names are similar (one contains the other)
+              if (txnName.includes(customerName) || customerName.includes(txnName)) {
+                // Only accept fuzzy match if phone is also empty or matches
+                const txnPhone = txn.customer_phone ? txn.customer_phone.toString().trim() : '';
+                const customerPhone = customer.phone ? customer.phone.toString().trim() : '';
+                
+                if (!txnPhone && !customerPhone) {
+                  return true;
+                }
+              }
+            }
+            
+            return false;
+          });
+          
+          // Calculate statistics from matched transactions
+          const purchase_count = customerTransactions.length;
+          const total_purchases = customerTransactions.reduce((sum, txn) => 
+            sum + (parseFloat(txn.total_amount) || 0), 0
+          );
+          const last_purchase_date = customerTransactions.length > 0 
+            ? customerTransactions[0].created_at // Already sorted by created_at desc
+            : null;
+          
+          console.log(`📊 Stats for ${customer.customer_name}: ${purchase_count} orders, ₱${total_purchases.toLocaleString()}`);
+          
+          // Extra debug for zero matches
+          if (purchase_count === 0) {
+            console.log(`  ⚠️ No matches found for ${customer.customer_name}`);
+            console.log(`  📝 Customer data: ID=${customer.id}, Phone=${customer.phone}`);
+            console.log(`  📊 Available transactions sample:`, 
+              allTransactions.slice(0, 3).map(t => ({
+                id: t.id,
+                customer_id: t.customer_id,
+                customer_name: t.customer_name,
+                customer_phone: t.customer_phone
+              }))
+            );
+          }
+          
+          // Return customer with calculated stats
+          return {
+            ...customer,
+            purchase_count,
+            total_purchases,
+            last_purchase_date
+          };
+        });
+
+        console.log(`✅ Enriched ${customersWithStats.length} customers with transaction statistics`);
+        return customersWithStats;
+        
+      } catch (statsError) {
+        console.warn('⚠️ Failed to calculate transaction stats, returning customers without stats:', statsError);
+        // Return customers with zero stats if transaction calculation fails
+        return customers.map(customer => ({
+          ...customer,
+          purchase_count: 0,
+          total_purchases: 0,
+          last_purchase_date: null
+        }));
+      }
+
     } catch (error) {
       console.error('❌ Error getting customers:', error);
       return [];
@@ -258,9 +413,15 @@ export class CustomerService {
    * @returns {Promise<boolean>} Success status
    */
   static async deleteCustomer(customerId, cleanupTransactions = true) {
+    console.log('🗑️ Starting customer deletion process:', customerId);
+    
     try {
-      // First get the customer to delete
-      const { data: customerToDelete, error: fetchError } = await supabase
+      // Check if customers table exists, if not use sales table approach
+      let customerToDelete = null;
+      let useCustomersTable = true;
+      
+      // Try customers table first
+      const { data: customerData, error: fetchError } = await supabase
         .from('customers')
         .select('*')
         .eq('id', customerId)
@@ -268,24 +429,84 @@ export class CustomerService {
         .single();
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
+        if (fetchError.code === 'PGRST301' || fetchError.message.includes('does not exist')) {
+          console.log('📊 Customers table does not exist, using sales table approach');
+          useCustomersTable = false;
+          
+          // Get customer info from sales table
+          const { data: salesData, error: salesError } = await supabase
+            .from('sales')
+            .select('customer_name, customer_phone, customer_email, customer_address')
+            .eq('id', customerId) // Assuming customerId might be a sales record ID
+            .single();
+            
+          if (salesError && salesError.code === 'PGRST116') {
+            // Try to find customer by other means
+            const { data: customerFromSales, error: altError } = await supabase
+              .from('sales')
+              .select('customer_name, customer_phone, customer_email, customer_address')
+              .or(`customer_name.eq.${customerId},customer_phone.eq.${customerId}`)
+              .limit(1)
+              .single();
+              
+            if (altError) {
+              throw new Error('Customer not found in sales records');
+            }
+            customerToDelete = customerFromSales;
+          } else if (salesError) {
+            throw salesError;
+          } else {
+            customerToDelete = salesData;
+          }
+        } else if (fetchError.code === 'PGRST116') {
           throw new Error('Customer not found');
+        } else {
+          throw fetchError;
         }
-        throw fetchError;
+      } else {
+        customerToDelete = customerData;
       }
 
-      // Soft delete the customer (set is_active to false)
-      const { error: deleteError } = await supabase
-        .from('customers')
-        .update({
-          is_active: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', customerId);
+      console.log('🎯 Customer to delete:', customerToDelete);
 
-      if (deleteError) {
-        console.error('❌ Error deleting customer:', deleteError);
-        throw deleteError;
+      // Perform deletion based on table structure
+      if (useCustomersTable) {
+        // Use customers table
+        const { error: deleteError } = await supabase
+          .from('customers')
+          .update({
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', customerId);
+
+        if (deleteError) {
+          console.error('❌ Error deleting from customers table:', deleteError);
+          throw deleteError;
+        }
+        
+        console.log('✅ Customer deleted from customers table');
+      } else {
+        // Use sales table approach - mark customer data as deleted
+        if (customerToDelete?.customer_name) {
+          const { error: updateError } = await supabase
+            .from('sales')
+            .update({
+              customer_name: '[DELETED CUSTOMER]',
+              customer_phone: null,
+              customer_email: null,
+              customer_address: null,
+              notes: `Original customer: ${customerToDelete.customer_name} deleted on ${new Date().toISOString()}`
+            })
+            .or(`customer_name.eq.${customerToDelete.customer_name},customer_phone.eq.${customerToDelete.customer_phone}`);
+
+          if (updateError) {
+            console.error('❌ Error updating sales records:', updateError);
+            throw updateError;
+          }
+          
+          console.log('✅ Customer data anonymized in sales table');
+        }
       }
 
       // If cleanup is requested, mark transactions for deletion in database

@@ -25,6 +25,7 @@ class ReceiptService {
    */
   generateReceiptData(transaction, options = {}) {
     console.log("🧾 [ReceiptService] Generating receipt data:", transaction);
+    console.log("🔍 [DEBUG] Customer ID in transaction for receipt:", transaction.customer_id);
 
     const receiptData = {
       // Header Information
@@ -38,11 +39,12 @@ class ReceiptService {
 
       // Customer Information
       customer: {
+        id: transaction.customer_id || null,
         name: transaction.customer_name || null,
         phone: transaction.customer_phone || null,
         email: transaction.customer_email || null,
         address: transaction.customer_address || null,
-        type: this.formatCustomerType(transaction.customer_type),
+        type: this.formatCustomerType(transaction.customer_type, transaction.customer_id),
         pwdSeniorId: transaction.pwd_senior_id || null,
       },
 
@@ -480,17 +482,12 @@ class ReceiptService {
   /**
    * Format customer type for display
    * @param {string} customerType - Raw customer type
+   * @param {string} customerId - Customer ID (optional)
    * @returns {string} Formatted customer type
    */
-  formatCustomerType(customerType) {
-    const typeMap = {
-      'guest': 'Walk-in Customer',
-      'new': 'New Customer',
-      'old': 'Returning Customer',
-      null: 'Walk-in Customer'
-    };
-    
-    return typeMap[customerType] || 'Walk-in Customer';
+  formatCustomerType(customerType, customerId = null) {
+    // If customer has an ID, they are registered; otherwise, they're walk-in
+    return customerId ? 'Registered Customer' : 'Walk-in Customer';
   }
 
   /**

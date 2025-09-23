@@ -5,8 +5,7 @@ import SimpleReceipt from "../components/ui/SimpleReceipt";
 import { 
   Search,
   Eye,
-  Edit,
-  Undo,
+  RotateCcw,
   Printer,
   RefreshCw,
   ChevronLeft,
@@ -39,9 +38,30 @@ const TransactionHistoryPage = () => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [undoConfirm, setUndoConfirm] = useState(null);
+  
+  // Refund reason states
+  const [selectedReason, setSelectedReason] = useState("");
+  const [customReason, setCustomReason] = useState("");
+  const [finalReason, setFinalReason] = useState("");
+
+  // Common refund reasons - reduced for faster processing
+  const refundReasons = [
+    "Product defective/damaged",
+    "Wrong product ordered",
+    "Product expired",
+    "Customer changed mind",
+    "Medical reasons"
+  ];
   
   const { user } = useAuth();
+
+  // Check if transaction is within 7-day refund policy
+  const isWithinRefundPolicy = (transactionDate) => {
+    const now = new Date();
+    const transactionTime = new Date(transactionDate);
+    const diffInDays = (now - transactionTime) / (1000 * 60 * 60 * 24);
+    return diffInDays <= 7;
+  };
 
   // Fetch transactions with enhanced error handling
   const fetchTransactions = useCallback(async () => {
@@ -159,42 +179,15 @@ const TransactionHistoryPage = () => {
     setShowReceipt(true);
   };
 
-  const handleEditTransaction = (transaction) => {
+  const handleRefundTransaction = (transaction) => {
+    // Check 7-day refund policy
+    if (!isWithinRefundPolicy(transaction.created_at)) {
+      alert('❌ Refund not allowed: This transaction is older than 7 days. Our refund policy allows refunds only within 7 days of purchase.');
+      return;
+    }
+    
     setEditingTransaction(transaction);
     setShowEditModal(true);
-  };
-
-  const handleUndoTransaction = (transaction) => {
-    setUndoConfirm(transaction);
-  };
-
-  const confirmUndo = async () => {
-    if (!undoConfirm) return;
-    
-    try {
-      setLoading(true);
-      const reason = prompt("Please provide a reason for undoing this transaction:");
-      if (!reason) return;
-
-      const result = await unifiedTransactionService.undoTransaction(
-        undoConfirm.id,
-        reason,
-        user?.id || "admin-user"
-      );
-
-      if (result.success) {
-        alert("✅ Transaction undone successfully and stock restored!");
-        await fetchTransactions(); // Refresh the list
-      } else {
-        throw new Error(result.message || "Failed to undo transaction");
-      }
-    } catch (error) {
-      console.error("❌ Undo failed:", error);
-      alert(`Undo failed: ${error.message}`);
-    } finally {
-      setLoading(false);
-      setUndoConfirm(null);
-    }
   };
 
   if (loading) {
@@ -451,16 +444,9 @@ const TransactionHistoryPage = () => {
                               {transaction.customer_name || 'Walk-in'}
                             </div>
                             <div className="flex items-center gap-1 mt-0.5">
-                              {transaction.customer_type && (
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-xs font-medium ${
-                                  transaction.customer_type === 'new' 
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : transaction.customer_type === 'old'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {transaction.customer_type === 'new' ? '🆕' : 
-                                   transaction.customer_type === 'old' ? '🔄' : '👤'}
+                              {transaction.customer_id && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-700">
+                                  #{transaction.customer_id.slice(-8)}
                                 </span>
                               )}
                               {/* Show mobile info */}
@@ -530,20 +516,14 @@ const TransactionHistoryPage = () => {
                             {transaction.status === 'completed' && (
                               <>
                                 <button
-                                  onClick={() => handleEditTransaction(transaction)}
-                                  className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 p-1.5 rounded-md transition-all duration-150"
-                                  title="Edit"
+                                  onClick={() => handleRefundTransaction(transaction)}
+                                  className="text-orange-600 hover:text-orange-800 hover:bg-orange-100 p-1.5 rounded-md transition-all duration-150"
+                                  title="Process Refund"
                                 >
-                                  <Edit className="h-3.5 w-3.5" />
+                                  <RotateCcw className="h-3.5 w-3.5" />
                                 </button>
                                 
-                                <button
-                                  onClick={() => handleUndoTransaction(transaction)}
-                                  className="text-red-600 hover:text-red-800 hover:bg-red-100 p-1.5 rounded-md transition-all duration-150"
-                                  title="Undo"
-                                >
-                                  <Undo className="h-3.5 w-3.5" />
-                                </button>
+
                               </>
                             )}
                           </div>
@@ -613,12 +593,12 @@ const TransactionHistoryPage = () => {
         onClose={() => setShowReceipt(false)} 
       />
 
-      {/* Edit Transaction Modal - Placeholder for now */}
+      {/* Refund Transaction Modal - Scrollable */}
       {showEditModal && editingTransaction && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Transaction</h3>
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+              <h3 className="text-lg font-semibold text-gray-900">Process Refund</h3>
               <button
                 onClick={() => setShowEditModal(false)}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
@@ -626,87 +606,224 @@ const TransactionHistoryPage = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4">
-              <div className="text-center py-8">
-                <Edit className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h4 className="text-lg font-medium text-gray-900 mb-2">Edit Transaction</h4>
-                <p className="text-gray-600 mb-4">
-                  Transaction ID: {editingTransaction.id?.slice(-8)}
-                </p>
-                <p className="text-sm text-gray-500">
-                  Edit functionality is available in the enhanced transaction service.
-                  This modal can be expanded with full editing capabilities.
-                </p>
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Undo Confirmation Modal */}
-      {undoConfirm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <Undo className="h-6 w-6 text-red-600" />
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Undo Transaction</h3>
-                  <p className="text-sm text-gray-600">This action cannot be reversed</p>
-                </div>
-              </div>
-              
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* Transaction Info Section */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="text-sm">
-                  <div className="font-medium text-gray-900">Transaction #{undoConfirm.id?.slice(-8)}</div>
-                  <div className="text-gray-600">Customer: {undoConfirm.customer_name || 'Walk-in Customer'}</div>
-                  <div className="text-gray-600">Amount: {formatCurrency(undoConfirm.total_amount)}</div>
-                  <div className="text-gray-600">Date: {formatDate(undoConfirm.created_at)}</div>
+                <div className="flex items-start space-x-4">
+                  <div className="bg-orange-100 p-3 rounded-full">
+                    <RotateCcw className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Transaction Details</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-700">Transaction ID:</span>
+                        <p className="text-gray-900">#{editingTransaction.id?.slice(-8)}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Customer:</span>
+                        <p className="text-gray-900">{editingTransaction.customer_name || 'Walk-in Customer'}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Amount:</span>
+                        <p className="text-gray-900 font-semibold">{formatCurrency(editingTransaction.total_amount)}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Date:</span>
+                        <p className="text-gray-900">{formatDate(editingTransaction.created_at)}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
+              {/* Warning Section */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-                <div className="flex gap-3">
-                  <div className="w-5 h-5 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-amber-600 text-xs font-bold">!</span>
+                <div className="flex space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
                   </div>
-                  <div className="text-sm text-amber-800">
-                    <div className="font-medium mb-1">Warning: This will:</div>
-                    <ul className="list-disc list-inside space-y-1 text-xs">
-                      <li>Restore product inventory</li>
-                      <li>Cancel the transaction</li>
-                      <li>Cannot be undone</li>
-                    </ul>
+                  <div>
+                    <h5 className="text-sm font-medium text-amber-800 mb-1">Refund Warning</h5>
+                    <div className="text-sm text-amber-700">
+                      <p className="mb-2">Processing this refund will:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Cancel this transaction permanently</li>
+                        <li>Restore all product inventory</li>
+                        <li>Refunds must be processed within 7 days</li>
+                        <li>Cannot be undone once confirmed</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              {/* Refund Reason Selection */}
+              <div className="mb-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
+                  <RotateCcw className="h-4 w-4 mr-2 text-gray-600" />
+                  Reason for Refund <span className="text-red-500">*</span>
+                </h4>
+                
+                {/* Predefined Reason Choices */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {refundReasons.map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => {
+                        setSelectedReason(reason);
+                        if (reason !== "Others") {
+                          setFinalReason(reason);
+                          setCustomReason("");
+                        } else {
+                          setFinalReason("");
+                        }
+                      }}
+                      className={`p-3 text-left text-sm border-2 rounded-lg transition-all duration-200 hover:shadow-sm ${
+                        selectedReason === reason
+                          ? "border-orange-500 bg-orange-50 text-orange-700 shadow-sm"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{reason}</span>
+                        {selectedReason === reason && (
+                          <CheckCircle className="h-4 w-4 text-orange-500" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Reason Input (shown when "Others" is selected) */}
+                {selectedReason === "Others" && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Please specify the reason:
+                    </label>
+                    <textarea
+                      value={customReason}
+                      onChange={(e) => {
+                        setCustomReason(e.target.value);
+                        setFinalReason(e.target.value);
+                      }}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 hover:border-gray-300 resize-none text-sm"
+                      rows="3"
+                      placeholder="Please provide a detailed explanation for this refund..."
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Additional Details (always shown for selected predefined reasons) */}
+                {selectedReason && selectedReason !== "Others" && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Additional details (optional):
+                    </label>
+                    <textarea
+                      value={customReason}
+                      onChange={(e) => {
+                        setCustomReason(e.target.value);
+                        setFinalReason(selectedReason + (e.target.value.trim() ? ` - ${e.target.value}` : ""));
+                      }}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 hover:border-gray-300 resize-none text-sm"
+                      rows="2"
+                      placeholder="Add any additional details or context..."
+                    />
+                  </div>
+                )}
+                
+                {/* Show selected reason preview */}
+                {finalReason && (
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 mr-2 flex-shrink-0" />
+                      <div>
+                        <h6 className="text-sm font-medium text-orange-800 mb-1">Refund Reason:</h6>
+                        <p className="text-sm text-orange-700">{finalReason}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3">
                 <button
-                  onClick={() => setUndoConfirm(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedReason("");
+                    setCustomReason("");
+                    setFinalReason("");
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={confirmUndo}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  onClick={async () => {
+                    try {
+                      if (!finalReason.trim()) {
+                        alert('Please select a refund reason.');
+                        return;
+                      }
+                      
+                      // Process the refund using the transaction service
+                      const result = await unifiedTransactionService.undoTransaction(
+                        editingTransaction.id,
+                        `Refund: ${finalReason}`,
+                        user?.id
+                      );
+                      
+                      if (result.success) {
+                        alert('✅ Refund processed successfully!');
+                        fetchTransactions();
+                      } else {
+                        throw new Error(result.error || 'Refund processing failed');
+                      }
+                      setShowEditModal(false);
+                      setSelectedReason("");
+                      setCustomReason("");
+                      setFinalReason("");
+                    } catch (error) {
+                      console.error('Refund failed:', error);
+                      alert('Refund failed: ' + error.message);
+                    }
+                  }}
+                  disabled={!finalReason.trim()}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
                 >
-                  Undo Transaction
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Process Refund</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Action Buttons - Sticky Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex-shrink-0">
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedReason("");
+                    setCustomReason("");
+                    setFinalReason("");
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+
     </div>
   );
 };

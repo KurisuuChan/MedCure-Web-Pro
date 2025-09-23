@@ -195,8 +195,82 @@ export class UserManagementService {
 
   // Delete/Deactivate user
   static async deleteUser(userId) {
+    console.log('🗑️ User deletion process started:', userId);
+    
     try {
-      // Soft delete - mark as inactive
+      // Step 1: Validate input
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      // Step 2: Check authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Authentication required for user deletion');
+      }
+
+      console.log(`👤 Authenticated as: ${user.email}`);
+
+      // Step 3: Get current user's permissions
+      const { data: currentUser, error: currentUserError } = await supabase
+        .from('users')
+        .select('id, email, role, is_active, first_name, last_name')
+        .eq('email', user.email)
+        .single();
+
+      if (currentUserError) {
+        console.error('❌ Current user lookup failed:', currentUserError);
+        throw new Error(`Current user not found in database: ${currentUserError.message}`);
+      }
+
+      if (!currentUser.is_active) {
+        throw new Error('Current user account is inactive');
+      }
+
+      // Step 4: Check permissions
+      const adminRoles = ['admin', 'manager', 'super_admin'];
+      if (!adminRoles.includes(currentUser.role)) {
+        throw new Error(`Insufficient permissions. Required: admin/manager, Current: ${currentUser.role}`);
+      }
+
+      console.log(`✅ Permission check passed: ${currentUser.role}`);
+
+      // Step 5: Get target user
+      const { data: targetUser, error: targetError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (targetError) {
+        console.error('❌ Target user lookup failed:', targetError);
+        
+        if (targetError.code === 'PGRST116') {
+          throw new Error('User not found');
+        } else {
+          throw new Error(`Database error: ${targetError.message}`);
+        }
+      }
+
+      console.log(`🎯 Target user found: ${targetUser.email} (${targetUser.role})`);
+
+      // Step 6: Business logic validations
+      if (targetUser.id === currentUser.id) {
+        throw new Error('Cannot delete your own account');
+      }
+
+      if (!targetUser.is_active) {
+        throw new Error('User is already inactive');
+      }
+
+      // Step 7: Role hierarchy check
+      if (targetUser.role === 'admin' && currentUser.role !== 'super_admin') {
+        throw new Error('Only super admin can delete admin users');
+      }
+
+      // Step 8: Perform the deletion
+      console.log('🔄 Performing user deletion...');
+      
       const { data, error } = await supabase
         .from("users")
         .update({
@@ -207,11 +281,24 @@ export class UserManagementService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Database deletion failed:', error);
+        
+        // Provide specific error messages based on error codes
+        if (error.code === 'RLS_VIOLATION' || error.message.includes('permission')) {
+          throw new Error('Permission denied. Check Row Level Security policies.');
+        } else if (error.code === 'FOREIGN_KEY_VIOLATION') {
+          throw new Error('Cannot delete user: related records exist.');
+        } else {
+          throw new Error(`Database error: ${error.message}`);
+        }
+      }
 
+      console.log('✅ User successfully deactivated:', data.email);
       return data;
+      
     } catch (error) {
-      console.error("Error deleting user:", error);
+      console.error("❌ Error deleting user:", error);
       throw error;
     }
   }

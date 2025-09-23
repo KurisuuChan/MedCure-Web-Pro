@@ -268,7 +268,7 @@ const TransactionEditor = ({ transaction, onSave, onCancel, currentUser }) => {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
-              Edit Transaction
+              Process Refund
             </h2>
             <p className="text-gray-600 text-sm">
               Transaction #{transaction.id?.slice(0, 8)} •{" "}

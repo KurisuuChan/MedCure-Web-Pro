@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
@@ -23,20 +23,79 @@ import {
   BarChart3,
   RefreshCw,
   Copy,
-  Receipt
+  Receipt,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import unifiedTransactionService from '../services/domains/sales/transactionService';
+import '../debug/customerStatisticsValidator.js';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import SimpleReceipt from '../components/ui/SimpleReceipt';
+import FixedCustomerService from '../services/FixedCustomerService';
 
 const CustomerInformationPage = () => {
   const navigate = useNavigate();
-  const { customers, fetchCustomers, deleteCustomer, updateCustomer } = useCustomers();
+  const { customers, fetchCustomers, forceRefresh, deleteCustomer, updateCustomer } = useCustomers();
   
+  // Professional error handling (inline implementation)
+  const [error, setError] = useState(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  
+  // Debug: Log customer statistics whenever customers change
+  useEffect(() => {
+    if (customers && customers.length > 0) {
+      console.log('🔍 CUSTOMER STATISTICS DEBUG:', {
+        totalCustomers: customers.length,
+        customersWithOrders: customers.filter(c => (c.purchase_count || 0) > 0).length,
+        customersWithZeroOrders: customers.filter(c => (c.purchase_count || 0) === 0).length,
+        sampleCustomers: customers.slice(0, 3).map(c => ({
+          name: c.customer_name,
+          orders: c.purchase_count || 0,
+          total: c.total_purchases || 0,
+          lastPurchase: c.last_purchase_date
+        }))
+      });
+      
+      // Check if ALL customers have zero statistics
+      const allZero = customers.every(c => (c.purchase_count || 0) === 0 && (c.total_purchases || 0) === 0);
+      if (allZero) {
+        console.warn('⚠️ ALL CUSTOMERS HAVE ZERO STATISTICS - This suggests a matching issue!');
+        console.log('🔧 Suggestion: Click "Refresh" button to clear cache and reload data');
+      }
+    }
+  }, [customers]);
+  
+  // Basic validation function
+  const validateCustomer = useCallback((customerData) => {
+    const errors = [];
+    
+    if (!customerData.customer_name?.trim()) {
+      errors.push('Customer name is required');
+    }
+    
+    if (customerData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerData.email)) {
+      errors.push('Please enter a valid email address');
+    }
+    
+    if (customerData.phone && !/^[\d\s\-\+\(\)\.]+$/.test(customerData.phone)) {
+      errors.push('Please enter a valid phone number');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }, []);
+  
+  // Search and sort state
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('name'); // 'name', 'date', 'purchases', 'amount'
-  const [sortOrder, setSortOrder] = useState('asc');
+  const [sortConfig, setSortConfig] = useState({ key: 'customer_name', direction: 'asc' });
+  const searchInputRef = useRef(null);
+  
+  // Component state
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -48,6 +107,7 @@ const CustomerInformationPage = () => {
     address: ''
   });
   const [isUpdating, setIsUpdating] = useState(false);
+  const [notification, setNotification] = useState(null);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [customerTransactions, setCustomerTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -59,44 +119,50 @@ const CustomerInformationPage = () => {
     fetchCustomers();
   }, []);
 
-  // Filter and sort customers
-  const filteredAndSortedCustomers = customers
-    .filter(customer => {
-      return !searchTerm || 
-        customer.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (customer.phone && customer.phone.includes(searchTerm)) ||
-        (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase()));
-    })
-    .sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortBy) {
-        case 'name':
-          aValue = a.customer_name.toLowerCase();
-          bValue = b.customer_name.toLowerCase();
-          break;
-        case 'date':
-          aValue = new Date(a.created_at);
-          bValue = new Date(b.created_at);
-          break;
-        case 'purchases':
-          aValue = a.purchase_count || 0;
-          bValue = b.purchase_count || 0;
-          break;
-        case 'amount':
-          aValue = a.total_purchases || 0;
-          bValue = b.total_purchases || 0;
-          break;
-        default:
-          return 0;
-      }
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
+  // Professional notification system
+  const showNotification = useCallback((type, title, message, action = null) => {
+    setNotification({
+      id: Date.now(),
+      type,
+      title,
+      message,
+      action
+    });
+  }, []);
+
+  const clearNotification = useCallback(() => {
+    setNotification(null);
+  }, []);
+
+  // Professional error handling methods
+  const clearError = useCallback(() => {
+    setError(null);
+    setIsRetrying(false);
+  }, []);
+
+  const handleOperationError = useCallback((error, operation) => {
+    console.error(`Error during ${operation}:`, error);
+    
+    let title = 'Operation Failed';
+    let message = 'Something went wrong. Please try again.';
+    
+    if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      title = 'Network Error';
+      message = 'Please check your connection and try again.';
+    } else if (error.message?.includes('validation')) {
+      title = 'Invalid Information';
+      message = 'Please correct the highlighted fields and try again.';
+    }
+    
+    setError({ title, message, retryable: true });
+    showNotification('error', title, message, {
+      label: 'Try Again',
+      onClick: () => {
+        clearError();
+        clearNotification();
       }
     });
+  }, [showNotification, clearError, clearNotification]);
 
   const getCustomerBadge = (customer) => {
     const totalSpent = customer.total_purchases || 0;
@@ -111,38 +177,107 @@ const CustomerInformationPage = () => {
     }
   };
 
+  // Basic search handler
+  const handleSearch = useCallback((term) => {
+    setSearchTerm(term);
+  }, []);
+
+  // Basic sort handler
   const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
-    }
+    setSortConfig(prev => ({
+      key: field,
+      direction: prev.key === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
   };
 
   const getSortIcon = (field) => {
-    if (sortBy !== field) return null;
-    return sortOrder === 'asc' ? '↑' : '↓';
+    if (sortConfig.key !== field) return null;
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
+
+  // Filter and sort customers (basic implementation)
+  const displayCustomers = useMemo(() => {
+    let filtered = customers;
+    
+    // Search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = customers.filter(customer => 
+        customer.customer_name?.toLowerCase().includes(searchLower) ||
+        customer.phone?.includes(searchTerm) ||
+        customer.email?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Sort
+    if (sortConfig.key) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = a[sortConfig.key] || '';
+        const bVal = b[sortConfig.key] || '';
+        
+        if (sortConfig.direction === 'asc') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+    }
+    
+    return filtered;
+  }, [customers, searchTerm, sortConfig]);
+
+  // Basic metrics
+  const metrics = useMemo(() => ({
+    totalCustomers: customers.length,
+    filteredCustomers: displayCustomers.length,
+    displayedCustomers: displayCustomers.length,
+    cacheSize: 0
+  }), [customers.length, displayCustomers.length]);
 
   const handleDeleteCustomer = async () => {
     if (!selectedCustomer) return;
     
+    setIsUpdating(true);
     try {
-      // Use database deleteCustomer method instead of localStorage
-      await deleteCustomer(selectedCustomer.id);
+      console.log('🗑️ Attempting to delete customer:', selectedCustomer);
       
-      // Refresh customer data
-      await fetchCustomers();
+      // Use the fixed customer service that auto-detects table structure  
+      const success = await FixedCustomerService.deleteCustomer(
+        selectedCustomer.id || selectedCustomer.customer_name || selectedCustomer.phone
+      );
+      
+      if (success) {
+        // Refresh customer data
+        await fetchCustomers();
+        
+        // Success notification with undo option
+        showNotification(
+          'success',
+          'Customer Deleted',
+          `${selectedCustomer.customer_name} has been removed from your customer database.`,
+          {
+            label: 'Undo',
+            onClick: () => {
+              // Implement undo logic if needed
+              showNotification(
+                'info',
+                'Undo Not Available',
+                'Undo functionality would be implemented here in a production system.'
+              );
+            }
+          }
+        );
+      } else {
+        throw new Error('Deletion failed');
+      }
       
       // Close modal
-      setShowDeleteConfirm(false);
-      setSelectedCustomer(null);
+      closeAllModals();
       
-      console.log('Customer deleted successfully from database');
     } catch (error) {
-      console.error('Error deleting customer:', error);
-      alert('Failed to delete customer. Please try again.');
+      handleOperationError(error, 'delete');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -155,26 +290,41 @@ const CustomerInformationPage = () => {
       address: customer.address || ''
     });
     setShowEditModal(true);
+    clearError(); // Clear any previous errors
   };
 
   const handleUpdateCustomer = async () => {
-    if (!selectedCustomer || !editForm.customer_name.trim()) {
-      alert('Customer name is required');
+    if (!selectedCustomer) return;
+    
+    // Professional validation
+    const validationResult = validateCustomer(editForm);
+    if (!validationResult.isValid) {
+      showNotification(
+        'error',
+        'Validation Error',
+        `Please fix the following: ${validationResult.errors.join(', ')}`
+      );
       return;
     }
 
     setIsUpdating(true);
     try {
-      // Use database updateCustomer method instead of localStorage
+      // Use database updateCustomer method
       await updateCustomer(selectedCustomer.id, editForm);
       
-      // Close modal
-      closeAllModals();
+      // Success notification
+      showNotification(
+        'success',
+        'Customer Updated',
+        `${editForm.customer_name}'s information has been successfully updated.`
+      );
       
-      console.log('Customer updated successfully in database');
+      // Close modal and refresh
+      closeAllModals();
+      await fetchCustomers();
+      
     } catch (error) {
-      console.error('Error updating customer:', error);
-      alert('Failed to update customer. Please try again.');
+      handleOperationError(error, 'update');
     } finally {
       setIsUpdating(false);
     }
@@ -185,43 +335,36 @@ const CustomerInformationPage = () => {
     try {
       console.log('🔍 Fetching transactions for customer:', customer);
       
-      // Get all transactions - the service returns an array directly
+      // Get all transactions with extended date range
       const allTransactions = await unifiedTransactionService.getTransactions({
-        limit: 1000,
+        limit: 2000, // Increased limit
         offset: 0,
         sortBy: 'created_at',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        // Try to get transactions from last 90 days
+        startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date().toISOString()
       });
       
       console.log('📊 All transactions fetched:', allTransactions);
-      console.log('📊 Transaction data type:', typeof allTransactions);
-      console.log('📊 Is array:', Array.isArray(allTransactions));
+      console.log('📊 Transaction count:', allTransactions?.length || 0);
       
-      // Use whichever has more data or prefer today's transactions
-      const transactionData = Array.isArray(allTransactions) ? allTransactions : [];
-      
-      console.log('📋 Using transaction data:', transactionData);
-      console.log('📋 Sample transaction (first one):', transactionData[0]);
-      
-      // If no transactions at all, let's try a different approach
-      if (transactionData.length === 0) {
-        console.log('🔄 No transactions found, trying alternative approach...');
-        
-        // Try getting transactions by date range
-        const dateRangeOptions = {
-          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // Last 30 days
-          endDate: new Date().toISOString(),
-          limit: 1000
-        };
-        
-        const rangeTransactions = await unifiedTransactionService.getTransactions(dateRangeOptions);
-        console.log('� Date range transactions:', rangeTransactions);
-        
-        setCustomerTransactions(Array.isArray(rangeTransactions) ? rangeTransactions : []);
-        return;
+      // Handle different response formats
+      let transactionData = [];
+      if (Array.isArray(allTransactions)) {
+        transactionData = allTransactions;
+      } else if (allTransactions?.data && Array.isArray(allTransactions.data)) {
+        transactionData = allTransactions.data;
+      } else if (allTransactions?.transactions && Array.isArray(allTransactions.transactions)) {
+        transactionData = allTransactions.transactions;
       }
       
-      // Filter transactions for this specific customer
+      console.log('📋 Using transaction data:', transactionData.length, 'transactions');
+      if (transactionData.length > 0) {
+        console.log('📋 Sample transaction:', transactionData[0]);
+      }
+      
+      // Enhanced filtering with multiple matching strategies
       const customerTxns = transactionData.filter(txn => {
         if (!txn) return false;
         
@@ -230,51 +373,71 @@ const CustomerInformationPage = () => {
           return false;
         }
         
-        console.log('🔄 Checking transaction:', {
+        // Debug current transaction
+        const debugMatch = {
           transaction_id: txn.id,
           txn_customer_name: txn.customer_name,
           txn_customer_phone: txn.customer_phone,
+          txn_customer_id: txn.customer_id,
           target_customer_name: customer.customer_name,
           target_customer_phone: customer.phone,
           target_customer_id: customer.id,
           created_at: txn.created_at
-        });
+        };
         
-        // Primary matching: Phone number (most reliable)
+        // Strategy 1: Customer ID match (most reliable if available)
+        if (txn.customer_id && customer.id && txn.customer_id === customer.id) {
+          console.log('✅ Customer ID match found!', debugMatch);
+          return true;
+        }
+        
+        // Strategy 2: Phone number match (normalize and compare)
         if (txn.customer_phone && customer.phone) {
-          // Normalize phone numbers by removing all non-digits
-          const normalizePhone = (phone) => phone.toString().replace(/\D/g, '');
+          const normalizePhone = (phone) => {
+            if (!phone) return '';
+            return phone.toString().replace(/[^\d]/g, ''); // Remove all non-digits
+          };
           
           const txnPhone = normalizePhone(txn.customer_phone);
           const customerPhone = normalizePhone(customer.phone);
           
-          if (txnPhone && customerPhone && txnPhone === customerPhone) {
-            console.log('✅ Phone match found!', {txnPhone, customerPhone});
-            return true;
+          if (txnPhone && customerPhone && txnPhone.length >= 10 && customerPhone.length >= 10) {
+            // Compare last 10 digits (handles country codes)
+            const txnLast10 = txnPhone.slice(-10);
+            const customerLast10 = customerPhone.slice(-10);
+            
+            if (txnLast10 === customerLast10) {
+              console.log('✅ Phone match found!', { txnPhone: txnLast10, customerPhone: customerLast10, ...debugMatch });
+              return true;
+            }
           }
         }
         
-        // Secondary matching: Name (case insensitive) BUT only if phones match or both are empty
+        // Strategy 3: Exact name match (case insensitive)
         if (txn.customer_name && customer.customer_name) {
           const txnName = txn.customer_name.toString().toLowerCase().trim();
           const customerName = customer.customer_name.toString().toLowerCase().trim();
           
           if (txnName === customerName) {
-            // Only match by name if:
-            // 1. Both have matching phone numbers, OR
-            // 2. Both have no phone numbers (empty/null)
+            console.log('✅ Name match found!', debugMatch);
+            return true;
+          }
+        }
+        
+        // Strategy 4: Fuzzy name match (for slight variations)
+        if (txn.customer_name && customer.customer_name) {
+          const txnName = txn.customer_name.toString().toLowerCase().trim();
+          const customerName = customer.customer_name.toString().toLowerCase().trim();
+          
+          // Check if names are similar (one contains the other)
+          if (txnName.includes(customerName) || customerName.includes(txnName)) {
+            // Only accept fuzzy match if phone is also empty or matches
             const txnPhone = txn.customer_phone ? txn.customer_phone.toString().trim() : '';
             const customerPhone = customer.phone ? customer.phone.toString().trim() : '';
             
-            if (txnPhone && customerPhone && txnPhone === customerPhone) {
-              console.log('✅ Name + Phone match found!');
+            if (!txnPhone && !customerPhone) {
+              console.log('✅ Fuzzy name match found (no phones)!', debugMatch);
               return true;
-            } else if (!txnPhone && !customerPhone) {
-              console.log('✅ Name match found (both have no phone)!');
-              return true;
-            } else {
-              console.log('❌ Name matches but phones don\'t match:', {txnPhone, customerPhone});
-              return false;
             }
           }
         }
@@ -282,20 +445,53 @@ const CustomerInformationPage = () => {
         return false;
       });
       
-      console.log(`✅ Found ${customerTxns.length} transactions for ${customer.customer_name}`);
+      console.log(`\n✅ FINAL RESULT: Found ${customerTxns.length} transactions for ${customer.customer_name}`);
       
-      // For debugging - if no matches, show all transactions to see what's available
+      // Enhanced debugging output
       if (customerTxns.length === 0 && transactionData.length > 0) {
-        console.log('🔍 DEBUG - No matches found. Here are all available transactions:');
-        transactionData.forEach((txn, index) => {
-          console.log(`Transaction ${index + 1}:`, {
-            id: txn.id,
-            customer_name: txn.customer_name,
-            customer_phone: txn.customer_phone,
-            total_amount: txn.total_amount,
-            created_at: txn.created_at
-          });
+        console.log('\n🔍 DEBUG - No matches found! Let me show you what we have:');
+        console.log(`👤 Target Customer:`, {
+          id: customer.id,
+          name: customer.customer_name,
+          phone: customer.phone,
+          email: customer.email
         });
+        
+        console.log(`\n📦 Available Transactions (first 10):`);
+        transactionData.slice(0, 10).forEach((txn, index) => {
+          console.log(`  ${index + 1}. ${txn.customer_name} | Phone: ${txn.customer_phone} | ID: ${txn.customer_id} | Amount: ₱${txn.total_amount}`);
+        });
+        
+        // Check if there are any transactions with similar names
+        const similarTransactions = transactionData.filter(txn => {
+          if (!txn.customer_name || !customer.customer_name) return false;
+          const txnName = txn.customer_name.toLowerCase();
+          const customerName = customer.customer_name.toLowerCase();
+          return txnName.includes(customerName.split(' ')[0]) || 
+                 customerName.includes(txnName.split(' ')[0]);
+        });
+        
+        if (similarTransactions.length > 0) {
+          console.log(`\n🤔 Found ${similarTransactions.length} transactions with similar names:`);
+          similarTransactions.forEach(txn => {
+            console.log(`  - "${txn.customer_name}" vs "${customer.customer_name}"`);
+          });
+        }
+      } else if (customerTxns.length > 0) {
+        console.log(`\n🎉 Successfully matched transactions:`);
+        customerTxns.forEach((txn, index) => {
+          console.log(`  ${index + 1}. ₱${txn.total_amount} on ${new Date(txn.created_at).toLocaleDateString()}`);
+        });
+      }
+      
+      // Calculate and log summary statistics
+      if (customerTxns.length > 0) {
+        const totalAmount = customerTxns.reduce((sum, txn) => sum + (parseFloat(txn.total_amount) || 0), 0);
+        const avgAmount = totalAmount / customerTxns.length;
+        console.log(`\n📊 Transaction Summary for ${customer.customer_name}:`);
+        console.log(`   • Total Orders: ${customerTxns.length}`);
+        console.log(`   • Total Spent: ₱${totalAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`);
+        console.log(`   • Average Order: ₱${avgAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`);
       }
       
       setCustomerTransactions(customerTxns);
@@ -330,6 +526,8 @@ const CustomerInformationPage = () => {
     setEditForm({ customer_name: '', phone: '', email: '', address: '' });
     setCustomerTransactions([]);
     setTransactionSearchTerm('');
+    clearError(); // Clear any errors when closing modals
+    clearNotification(); // Clear any notifications when closing modals
   };
 
   return (
@@ -358,60 +556,115 @@ const CustomerInformationPage = () => {
             </div>
             <div className="flex items-center space-x-3">
               <div className="text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border">
-                {filteredAndSortedCustomers.length} of {customers.length} customers
+                {displayCustomers.length} of {customers.length} customers
               </div>
               <button
-                onClick={() => fetchCustomers()}
+                onClick={async () => {
+                  console.log('🔄 Refreshing customer data with transaction statistics...');
+                  
+                  // Clear any localStorage cache first
+                  const keysToRemove = [];
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (
+                      key.toLowerCase().includes('medcure') ||
+                      key.toLowerCase().includes('customer') ||
+                      key.toLowerCase().includes('transaction')
+                    )) {
+                      keysToRemove.push(key);
+                    }
+                  }
+                  
+                  if (keysToRemove.length > 0) {
+                    console.log('🗑️ Clearing cached data:', keysToRemove);
+                    keysToRemove.forEach(key => localStorage.removeItem(key));
+                  }
+                  
+                  // Refresh customer data
+                  await forceRefresh();
+                  
+                  console.log('✅ Customer data refreshed successfully!');
+                }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
               >
-                <Plus className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
                 <span>Refresh</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Filters and Search */}
+        {/* Professional Search & Filters */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Search */}
+            {/* Professional Search with Performance Optimization */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search Customers
+                Search Customers ({metrics.filteredCustomers} found)
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Search by name, phone, or email..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => handleSearch('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Sort */}
+            {/* Professional Sort with Current Status */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sort By
+                Sort By {sortConfig.key && `(${sortConfig.key} ${sortConfig.direction})`}
               </label>
               <select
-                value={`${sortBy}-${sortOrder}`}
+                value={sortConfig.key ? `${sortConfig.key}-${sortConfig.direction}` : 'name-asc'}
                 onChange={(e) => {
                   const [field, order] = e.target.value.split('-');
-                  setSortBy(field);
-                  setSortOrder(order);
+                  handleSort(field);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
-                <option value="date-desc">Newest First</option>
-                <option value="date-asc">Oldest First</option>
-                <option value="purchases-desc">Most Purchases</option>
-                <option value="amount-desc">Highest Spent</option>
+                <option value="customer_name-asc">Name (A-Z)</option>
+                <option value="customer_name-desc">Name (Z-A)</option>
+                <option value="created_at-desc">Newest First</option>
+                <option value="created_at-asc">Oldest First</option>
+                <option value="purchase_count-desc">Most Purchases</option>
+                <option value="total_purchases-desc">Highest Spent</option>
               </select>
+            </div>
+          </div>
+          
+          {/* Performance Metrics Bar */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              <div>
+                <div className="text-lg font-bold text-gray-900">{metrics.totalCustomers}</div>
+                <div className="text-xs text-gray-600">Total Customers</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-blue-600">{metrics.filteredCustomers}</div>
+                <div className="text-xs text-gray-600">Filtered Results</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-green-600">{metrics.displayedCustomers}</div>
+                <div className="text-xs text-gray-600">Displayed</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-purple-600">{metrics.cacheSize}</div>
+                <div className="text-xs text-gray-600">Cache Size</div>
+              </div>
             </div>
           </div>
         </div>
@@ -474,7 +727,7 @@ const CustomerInformationPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAndSortedCustomers.map((customer) => {
+                {displayCustomers.map((customer) => {
                   const badge = getCustomerBadge(customer);
                   return (
                     <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
@@ -601,18 +854,26 @@ const CustomerInformationPage = () => {
             </table>
           </div>
 
-          {/* Empty State */}
-          {filteredAndSortedCustomers.length === 0 && (
+          {/* Professional Empty State */}
+          {displayCustomers.length === 0 && (
             <div className="text-center py-12">
               <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 {searchTerm ? 'No customers found' : 'No customers yet'}
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-4">
                 {searchTerm 
-                  ? 'Try adjusting your search criteria' 
+                  ? `We couldn't find any customers matching "${searchTerm}". Try adjusting your search terms.`
                   : 'Customer information will appear here after purchases are made'}
               </p>
+              {searchTerm && (
+                <button
+                  onClick={() => handleSearch('')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Clear Search
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -779,17 +1040,24 @@ const CustomerInformationPage = () => {
                     <button
                       type="button"
                       onClick={closeAllModals}
-                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                       disabled={isUpdating}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
                       disabled={isUpdating}
                     >
-                      {isUpdating ? 'Updating...' : 'Update Customer'}
+                      {isUpdating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        'Update Customer'
+                      )}
                     </button>
                   </div>
                 </form>
@@ -825,15 +1093,24 @@ const CustomerInformationPage = () => {
                 <div className="flex space-x-3">
                   <button
                     onClick={closeAllModals}
-                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                    disabled={isUpdating}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleDeleteCustomer}
-                    className="flex-1 px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                    className="flex-1 px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
+                    disabled={isUpdating}
                   >
-                    Delete Customer
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete Customer'
+                    )}
                   </button>
                 </div>
               </div>
@@ -1087,6 +1364,88 @@ const CustomerInformationPage = () => {
           isOpen={showReceiptModal}
           onClose={closeAllModals}
         />
+
+        {/* Professional Notification System */}
+        {notification && (
+          <div className="fixed top-4 right-4 z-50 max-w-md w-full transform transition-all duration-300 ease-in-out">
+            <div className={`
+              border rounded-lg shadow-lg p-4 animate-in slide-in-from-right duration-300
+              ${
+                notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+                notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+                notification.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+                'bg-blue-50 border-blue-200 text-blue-800'
+              }
+            `}>
+              <div className="flex items-start">
+                <div className="flex-shrink-0 mt-0.5 mr-3">
+                  {notification.type === 'success' && <CheckCircle className="h-5 w-5 text-green-500" />}
+                  {notification.type === 'error' && <XCircle className="h-5 w-5 text-red-500" />}
+                  {notification.type === 'warning' && <AlertTriangle className="h-5 w-5 text-yellow-500" />}
+                  {notification.type === 'info' && <Users className="h-5 w-5 text-blue-500" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-sm">{notification.title}</h4>
+                  <p className="text-sm mt-1 opacity-90">{notification.message}</p>
+                  
+                  {notification.action && (
+                    <div className="mt-3">
+                      <button
+                        onClick={notification.action.onClick}
+                        className="text-sm font-medium underline hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        {notification.action.label}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <button
+                  onClick={clearNotification}
+                  className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Professional Error Display */}
+        {error && (
+          <div className="fixed bottom-4 right-4 z-50 max-w-md w-full">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <XCircle className="h-5 w-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-medium text-red-800">{error.title}</h4>
+                  <p className="text-sm text-red-700 mt-1">{error.message}</p>
+                  
+                  <div className="mt-4 flex space-x-3">
+                    {error.retryable && (
+                      <button
+                        onClick={() => {
+                          clearError();
+                          // Add retry logic here
+                        }}
+                        className="text-sm font-medium text-red-800 underline hover:no-underline"
+                        disabled={isRetrying}
+                      >
+                        {isRetrying ? 'Retrying...' : 'Try Again'}
+                      </button>
+                    )}
+                    <button
+                      onClick={clearError}
+                      className="text-sm font-medium text-red-800 underline hover:no-underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

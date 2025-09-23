@@ -38,6 +38,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
       setError(null);
 
       console.log("🧾 [SimpleReceipt] Processing transaction:", transaction);
+      console.log("🔍 [DEBUG] Customer ID in SimpleReceipt:", transaction.customer_id);
 
       // Validate transaction data
       if (!transaction) {
@@ -394,6 +395,16 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                 Customer Information
               </h4>
               <div className="text-sm space-y-2">
+                {/* Customer ID */}
+                {receiptData.customer.id && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-600">Customer ID:</span>
+                    <span className="font-medium font-mono text-blue-600">
+                      #{receiptData.customer.id.slice(-8)}
+                    </span>
+                  </div>
+                )}
+                
                 {/* Customer Type Badge */}
                 <div className="flex items-center space-x-2">
                   <span className="text-gray-600">Type:</span>

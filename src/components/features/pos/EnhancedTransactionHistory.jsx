@@ -295,16 +295,16 @@ const EnhancedTransactionHistory = () => {
             <button
               onClick={() => {
                 console.log(
-                  "🔧 Edit button clicked for transaction:",
+                  "� Refund button clicked for transaction:",
                   transaction
                 );
-                handleEditTransaction(transaction);
+                handleRefundTransaction(transaction);
               }}
-              className="group px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center space-x-2"
-              title="Edit Transaction"
+              className="group p-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center"
+              title="Process Refund"
             >
               <svg
-                className="h-4 w-4"
+                className="h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={1.5}
@@ -313,10 +313,9 @@ const EnhancedTransactionHistory = () => {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                  d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
                 />
               </svg>
-              <span>Edit</span>
             </button>
           )}
 
@@ -946,9 +945,9 @@ const EnhancedTransactionHistory = () => {
           </div>
         )}
 
-        {/* Edit Transaction Modal */}
+        {/* Refund Transaction Modal */}
         {editingTransaction && (
-          <EditTransactionModal
+          <RefundTransactionModal
             transaction={editingTransaction}
             onClose={() => setEditingTransaction(null)}
             onSave={loadTransactions}
@@ -1068,8 +1067,8 @@ const EnhancedTransactionHistory = () => {
   );
 };
 
-// Edit Transaction Modal Component
-const EditTransactionModal = ({
+// Refund Transaction Modal Component
+const RefundTransactionModal = ({
   transaction,
   onClose,
   onSave,
@@ -1082,7 +1081,24 @@ const EditTransactionModal = ({
     transaction.customer_name || ""
   );
   const [editReason, setEditReason] = useState("");
+  const [selectedReason, setSelectedReason] = useState("");
+  const [customReason, setCustomReason] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Common refund reasons
+  const refundReasons = [
+    "Customer changed mind",
+    "Product defective/damaged",
+    "Wrong product ordered",
+    "Product expired",
+    "Pricing error",
+    "Duplicate transaction",
+    "Customer not satisfied",
+    "Medical reasons",
+    "Doctor changed prescription",
+    "Insurance coverage issue",
+    "Others"
+  ];
 
   // Initialize items with proper structure
   useEffect(() => {
@@ -1314,11 +1330,11 @@ const EditTransactionModal = ({
             </div>
             <div>
               <h3 className="text-xl font-bold text-gray-900">
-                Edit Transaction #
+                Process Refund #
                 {transaction.transaction_number || transaction.id.slice(-8)}
               </h3>
               <p className="text-sm text-gray-600">
-                Modify transaction details and items
+                Review transaction details and confirm refund
               </p>
             </div>
           </div>
@@ -1345,6 +1361,60 @@ const EditTransactionModal = ({
         {/* Modal Body - Scrollable */}
         <div className="flex-1 overflow-y-auto modal-scrollbar min-h-0 p-6">
           <div className="space-y-6">
+            {/* Transaction Information */}
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <h4 className="text-base font-semibold text-blue-900 mb-3 flex items-center">
+                <svg className="h-4 w-4 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+                Transaction Details
+              </h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-600">Amount:</span>
+                  <span className="ml-2 font-semibold text-blue-900">
+                    ${typeof transaction.total_amount === 'number' ? transaction.total_amount.toFixed(2) : '0.00'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Date:</span>
+                  <span className="ml-2 font-semibold text-blue-900">
+                    {new Date(transaction.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Payment:</span>
+                  <span className="ml-2 font-semibold text-blue-900 capitalize">
+                    {transaction.payment_method || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Status:</span>
+                  <span className="ml-2 font-semibold text-blue-900 capitalize">
+                    {transaction.status || 'Completed'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Warning Section */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-start">
+                <svg className="h-5 w-5 text-amber-500 mt-0.5 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div>
+                  <h5 className="font-semibold text-amber-800 mb-1">Refund Consequences</h5>
+                  <ul className="text-sm text-amber-700 space-y-1">
+                    <li>• This action will reverse the entire transaction</li>
+                    <li>• Inventory quantities will be restored</li>
+                    <li>• Payment will be refunded to the customer</li>
+                    <li>• This action cannot be undone</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             {/* Customer Information Section */}
             <div className="bg-gray-50 rounded-xl p-4">
               <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
@@ -1607,9 +1677,9 @@ const EditTransactionModal = ({
               </div>
             </div>
 
-            {/* Edit Reason Section */}
+            {/* Refund Reason Section */}
             <div className="bg-gray-50 rounded-xl p-4">
-              <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+              <h4 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <svg
                   className="h-4 w-4 mr-2 text-gray-600"
                   fill="none"
@@ -1623,16 +1693,97 @@ const EditTransactionModal = ({
                     d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
                   />
                 </svg>
-                Reason for Edit <span className="text-red-500">*</span>
+                Reason for Refund <span className="text-red-500">*</span>
               </h4>
-              <textarea
-                value={editReason}
-                onChange={(e) => setEditReason(e.target.value)}
-                className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300 resize-none"
-                rows="2"
-                placeholder="Please explain why this transaction is being edited..."
-                required
-              />
+              
+              {/* Predefined Reason Choices */}
+              <div className="mb-4">
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {refundReasons.map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => {
+                        setSelectedReason(reason);
+                        if (reason !== "Others") {
+                          setEditReason(reason);
+                          setCustomReason("");
+                        } else {
+                          setEditReason("");
+                        }
+                      }}
+                      className={`p-3 text-left text-sm border-2 rounded-lg transition-all duration-200 hover:shadow-sm ${
+                        selectedReason === reason
+                          ? "border-orange-500 bg-orange-50 text-orange-700 shadow-sm"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{reason}</span>
+                        {selectedReason === reason && (
+                          <svg className="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Reason Input (shown when "Others" is selected) */}
+              {selectedReason === "Others" && (
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Please specify the reason:
+                  </label>
+                  <textarea
+                    value={customReason}
+                    onChange={(e) => {
+                      setCustomReason(e.target.value);
+                      setEditReason(e.target.value);
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 hover:border-gray-300 resize-none text-sm"
+                    rows="3"
+                    placeholder="Please provide a detailed explanation for this refund..."
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Additional Details (always shown for selected predefined reasons) */}
+              {selectedReason && selectedReason !== "Others" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Additional details (optional):
+                  </label>
+                  <textarea
+                    value={customReason}
+                    onChange={(e) => {
+                      setCustomReason(e.target.value);
+                      setEditReason(selectedReason + (e.target.value.trim() ? ` - ${e.target.value}` : ""));
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200 hover:border-gray-300 resize-none text-sm"
+                    rows="2"
+                    placeholder="Add any additional details or context..."
+                  />
+                </div>
+              )}
+              
+              {/* Show selected reason preview */}
+              {editReason && (
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-start">
+                    <svg className="h-4 w-4 text-orange-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                    </svg>
+                    <div>
+                      <h6 className="text-sm font-medium text-orange-800 mb-1">Refund Reason:</h6>
+                      <p className="text-sm text-orange-700">{editReason}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1649,13 +1800,13 @@ const EditTransactionModal = ({
             </button>
             <button
               onClick={handleSaveEdit}
-              disabled={saving || !editReason.trim()}
-              className="group px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+              disabled={saving || !selectedReason || (selectedReason === "Others" && !customReason.trim())}
+              className="group px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white font-semibold rounded-xl hover:from-orange-700 hover:to-orange-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
             >
               {saving ? (
                 <span className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Saving...</span>
+                  <span>Processing Refund...</span>
                 </span>
               ) : (
                 <span className="flex items-center space-x-2">
@@ -1669,10 +1820,10 @@ const EditTransactionModal = ({
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"
+                      d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
                     />
                   </svg>
-                  <span>Save Changes</span>
+                  <span>Process Refund</span>
                 </span>
               )}
             </button>
@@ -1682,8 +1833,8 @@ const EditTransactionModal = ({
     </div>
   );
 
-// PropTypes for EditTransactionModal
-EditTransactionModal.propTypes = {
+// PropTypes for RefundTransactionModal
+RefundTransactionModal.propTypes = {
   transaction: PropTypes.shape({
     id: PropTypes.string.isRequired,
     transaction_number: PropTypes.string,

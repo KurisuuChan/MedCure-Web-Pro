@@ -14,14 +14,31 @@ export const useCustomers = () => {
   /**
    * Fetch all customers
    */
-  const fetchCustomers = useCallback(async () => {
+  const fetchCustomers = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
       setError(null);
+      
+      if (forceRefresh) {
+        console.log('🔄 [useCustomers] Force refreshing customer data...');
+        // Clear any potential cache
+        setCustomers([]);
+      }
+      
       // CustomerService.getAllCustomers() is now async
       const data = await CustomerService.getAllCustomers();
       setCustomers(data);
       console.log(`✅ [useCustomers] Loaded ${data.length} customers from database`);
+      
+      // Enhanced debugging for transaction statistics
+      if (data && data.length > 0) {
+        console.log('🔍 [useCustomers] Sample customer with stats:', {
+          name: data[0].customer_name,
+          purchase_count: data[0].purchase_count,
+          total_purchases: data[0].total_purchases,
+          last_purchase_date: data[0].last_purchase_date
+        });
+      }
     } catch (err) {
       console.error('❌ [useCustomers] Failed to fetch customers:', err);
       setError(err.message);
@@ -144,6 +161,7 @@ export const useCustomers = () => {
     loading,
     error,
     fetchCustomers,
+    forceRefresh: () => fetchCustomers(true),
     createCustomer,
     searchCustomers,
     updateCustomer,

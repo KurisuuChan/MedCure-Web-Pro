@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { Bell, Search, User, LogOut, Menu } from "lucide-react";
-import { SimpleNotificationService } from "../../services/domains/notifications/simpleNotificationService";
-import NotificationDropdown from "./NotificationDropdown";
+import NotificationDropdownV2 from "./NotificationDropdownV2";
 
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();
@@ -18,24 +17,10 @@ export function Header({ onToggleSidebar }) {
     setUnreadCount(count);
   };
 
-  // Notification management
+  // Notification management - now handled by the global notification system
   useEffect(() => {
-    const initializeNotifications = async () => {
-      try {
-        // Request permission on component mount
-        const permission = await SimpleNotificationService.requestPermission();
-        setPermissionStatus(permission);
-        
-        // Run daily health check (if function exists)
-        if (typeof SimpleNotificationService.runDailyHealthCheck === 'function') {
-          await SimpleNotificationService.runDailyHealthCheck();
-        }
-      } catch (error) {
-        console.error('Failed to initialize notifications:', error);
-      }
-    };
-
-    initializeNotifications();
+    // Notification system is initialized in App.jsx
+    // No additional setup needed here
   }, []);
 
   // NotificationDropdown now handles count updates via onNotificationCountChange
@@ -108,23 +93,12 @@ export function Header({ onToggleSidebar }) {
                 )}
               </button>
               
-              <NotificationDropdown 
+              <NotificationDropdownV2 
                 isOpen={showNotifications}
                 onClose={() => setShowNotifications(false)}
                 onNotificationCountChange={handleCountChange}
               />
             </div>
-
-            {/* Debug Link (Development Only) */}
-            {import.meta.env.DEV && (
-              <Link
-                to="/debug/notifications"
-                className="px-3 py-1 text-xs bg-orange-100 text-orange-700 rounded-full hover:bg-orange-200 transition-colors"
-                title="Debug Notifications"
-              >
-                Debug
-              </Link>
-            )}
 
             {/* User menu */}
             <div className="relative">
