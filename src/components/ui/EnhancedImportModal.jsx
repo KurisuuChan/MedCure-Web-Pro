@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
 import { useAuth } from "../../hooks/useAuth";
-import { NotificationManager } from "../../services/NotificationManager";
+import notificationSystem from "../../services/NotificationSystem";
 import {
   parseFlexibleDate,
   isDateNotInPast,
@@ -274,7 +274,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       
       // Trigger notification for successful import
       try {
-        NotificationManager.addNotification(NotificationManager.NOTIFICATION_TYPES.INVENTORY_UPDATE, {
+        notificationSystem.addNotification('INVENTORY_UPDATED', {
           action: 'Products Imported',
           count: importedCount,
           details: `Successfully imported ${importedCount} product${importedCount > 1 ? 's' : ''} to inventory`
@@ -521,7 +521,8 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                     <Calendar className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <h4 className="text-sm font-medium text-amber-900 mb-2 flex items-center">
-                        � Smart Import Tips
+                        <Lightbulb className="inline mr-1" size={14} />
+                        Smart Import Tips
                         <span className="ml-2 px-2 py-1 bg-amber-200 text-amber-800 text-xs rounded-full font-medium">
                           AI-Powered
                         </span>
@@ -529,8 +530,9 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
 
                       <div className="space-y-4">
                         <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">
-                            📄 Required Fields
+                          <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                            <File className="inline" size={14} />
+                            Required Fields
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
                             <div>
@@ -559,8 +561,9 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                         </div>
 
                         <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">
-                            📅 Date Formats
+                          <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                            <Calendar className="inline" size={14} />
+                            Date Formats
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
                             <div>✓ 2024-12-31 (ISO standard)</div>
@@ -571,8 +574,9 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                         </div>
 
                         <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">
-                            🤖 Smart Features
+                          <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                            <CheckCircle className="inline" size={14} />
+                            Smart Features
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
                             <div>• Auto-creates missing categories</div>

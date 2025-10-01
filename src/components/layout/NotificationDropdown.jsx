@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Bell, X, AlertTriangle, Package, Calendar, CheckCircle, Clock, DollarSign, Plus, Edit, ShoppingCart, Info, XCircle } from "lucide-react";
-import NotificationManager from "../../services/NotificationManager";
+import notificationSystem from "../../services/NotificationSystem";
 
 /**
  * NotificationDropdown Component
@@ -84,7 +84,7 @@ export const addTransactionNotification = (type, details = {}) => {
 // Export function to clear all notification data (useful for logout)
 export const clearAllNotificationData = () => {
   try {
-    NotificationManager.clearAll();
+    notificationSystem.clearAll();
     console.log('✅ [NotificationDropdown] Cleared all notification data for logout');
   } catch (error) {
     console.error('Error clearing notification data:', error);
@@ -115,7 +115,7 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
               (payload) => {
                 console.log('🔄 [NotificationDropdown] Real-time product update:', payload);
                 // Run notification checks when products change
-                NotificationManager.runAllChecks();
+                notificationSystem.runHealthChecks();
                 loadNotifications();
               }
             )
@@ -130,7 +130,7 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
                 console.log('🔄 [NotificationDropdown] Real-time sale update:', payload);
                 // Run checks after sales to update stock levels
                 setTimeout(() => {
-                  NotificationManager.runAllChecks();
+                  notificationSystem.runHealthChecks();
                   loadNotifications();
                 }, 1000);
               }
@@ -178,22 +178,22 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
   // Initialize component on mount
   useEffect(() => {
     // Make notification functions globally available
-    window.NotificationManager = NotificationManager;
+    window.NotificationManager = notificationSystem;
     window.addTransactionNotification = (type, details) => {
-      return NotificationManager.addNotification(NotificationManager.NOTIFICATION_TYPES.TRANSACTION_SUCCESS, details);
+      return notificationSystem.addNotification('SALE_COMPLETED', details);
     };
     
     // Cleanup old notifications
-    NotificationManager.cleanup();
+    notificationSystem.cleanup();
     
     // Run initial checks and load notifications
-    NotificationManager.runAllChecks().then(() => {
+    notificationSystem.runHealthChecks().then(() => {
       loadNotifications();
     });
     
     // Set up periodic checks every 5 minutes
     const checkInterval = setInterval(() => {
-      NotificationManager.runAllChecks();
+      notificationSystem.runHealthChecks();
     }, 5 * 60 * 1000);
     
     return () => clearInterval(checkInterval);
@@ -253,9 +253,9 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
       if (unreadNotifications.length > 0) {
         console.log(`📖 [NotificationDropdown] Marking ${unreadNotifications.length} notifications as read`);
         
-        // Mark all as read using the NotificationManager
+        // Mark all as read using the notificationSystem
         unreadNotifications.forEach(notification => {
-          NotificationManager.markAsRead(notification.id);
+          notificationSystem.markAsRead(notification.id);
         });
         
         // Reload notifications to reflect the changes
@@ -270,7 +270,7 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
     
     try {
       // Get notifications from the new manager
-      const allNotifications = NotificationManager.getNotifications();
+      const allNotifications = notificationSystem.getNotifications();
       
       // Convert to display format with icons
       const displayNotifications = allNotifications.map(notification => ({
@@ -312,7 +312,7 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
     }
     
     // Mark notification as read using the manager
-    NotificationManager.markAsRead(notification.id);
+    notificationSystem.markAsRead(notification.id);
     
     // Reload notifications to reflect the change
     loadNotifications();
@@ -327,7 +327,7 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
   const clearAll = () => {
     // Dismiss all current notifications using the manager
     notifications.forEach(notification => {
-      NotificationManager.dismissNotification(notification.id);
+      notificationSystem.dismiss(notification.id);
     });
     
     // Clear display immediately
@@ -338,7 +338,7 @@ export function NotificationDropdown({ isOpen, onClose, onNotificationClick, onN
 
   const removeNotification = (notificationId) => {
     // Dismiss notification using the manager
-    NotificationManager.dismissNotification(notificationId);
+    notificationSystem.dismiss(notificationId);
     
     // Update display immediately
     setNotifications(prev => prev.filter(n => n.id !== notificationId));

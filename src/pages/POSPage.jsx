@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCustomers } from "../hooks/useCustomers";
 import { CustomerService } from "../services/CustomerService";
-import { NotificationManager } from "../services/NotificationManager";
+import notificationSystem from "../services/NotificationSystem";
 import {
   CreditCard,
   DollarSign,
@@ -152,7 +152,7 @@ export default function POSPage() {
       // Trigger sale notification
       try {
         const finalTotal = cartSummary.total - discount.amount;
-        NotificationManager.addNotification(NotificationManager.NOTIFICATION_TYPES.SALE_COMPLETED, {
+        notificationSystem.addNotification('SALE_COMPLETED', {
           amount: finalTotal,
           itemCount: cart.length,
           customerName: paymentData.customer_name || 'Walk-in Customer',
