@@ -16,9 +16,14 @@ import {
   Edit,
   ShoppingCart,
   Zap,
-  Upload
+  Upload,
+  Settings,
+  BarChart3,
+  Shield,
+  TrendingUp
 } from 'lucide-react';
 import { ProductService } from '../services/domains/inventory/productService';
+import { EnhancedBatchService } from '../services/domains/inventory/enhancedBatchService';
 import { formatDate } from '../utils/dateTime';
 import { formatCurrency } from '../utils/formatting';
 import AddStockModal from '../components/modals/AddStockModal';
@@ -35,16 +40,19 @@ const BatchManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   
   // Filter and Search States
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [expiryFilter, setExpiryFilter] = useState('all'); // all, expiring, expired
+  const [statusFilter, setStatusFilter] = useState('all'); // all, active, expired, depleted
   
   // Modal States
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [selectedProductForStock, setSelectedProductForStock] = useState(null);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   
   // Product Grid Search State
   const [productSearchTerm, setProductSearchTerm] = useState('');
@@ -63,14 +71,31 @@ const BatchManagementPage = () => {
       const productsData = await ProductService.getProducts();
       setProducts(productsData);
       
-      // Try to load batches (this might fail if RPC functions don't exist)
+      // Try to load batches using enhanced service first, fallback to basic service
       try {
-        const batchesData = await ProductService.getAllBatches();
+        const batchesData = await EnhancedBatchService.getAllBatches({
+          productId: selectedProduct || null,
+          status: statusFilter === 'all' ? null : statusFilter,
+          expiryFilter: expiryFilter,
+          limit: 200
+        });
         setBatches(batchesData);
-      } catch (batchError) {
-        console.warn('⚠️ Batch functions not available yet:', batchError);
-        setBatches([]);
-        setError('Batch tracking functions not yet configured. Please run the SQL setup in Supabase.');
+        
+        // Load analytics if enhanced service is available
+        const analyticsData = await EnhancedBatchService.getBatchAnalytics();
+        setAnalytics(analyticsData);
+      } catch (enhancedError) {
+        console.warn('⚠️ Enhanced batch service not available, using basic service:', enhancedError);
+        
+        // Fallback to basic service
+        try {
+          const batchesData = await ProductService.getAllBatches();
+          setBatches(batchesData);
+        } catch (basicError) {
+          console.warn('⚠️ Basic batch functions not available yet:', basicError);
+          setBatches([]);
+          setError('Batch tracking functions not yet configured. Please run the SQL setup in Supabase.');
+        }
       }
       
     } catch (err) {
@@ -97,7 +122,8 @@ const BatchManagementPage = () => {
       filtered = filtered.filter(batch =>
         batch.product_name?.toLowerCase().includes(term) ||
         batch.batch_number?.toLowerCase().includes(term) ||
-        batch.category_name?.toLowerCase().includes(term)
+        batch.category_name?.toLowerCase().includes(term) ||
+        batch.supplier_name?.toLowerCase().includes(term)
       );
     }
 
@@ -106,7 +132,12 @@ const BatchManagementPage = () => {
       filtered = filtered.filter(batch => batch.product_id === selectedProduct);
     }
 
-    // Expiry filter
+    // Status filter (enhanced)
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(batch => batch.status === statusFilter);
+    }
+
+    // Expiry filter (enhanced)
     if (expiryFilter !== 'all') {
       const today = new Date();
       const thirtyDaysFromNow = new Date();
@@ -129,22 +160,24 @@ const BatchManagementPage = () => {
     }
 
     return filtered;
-  }, [batches, searchTerm, selectedProduct, expiryFilter]);
+  }, [batches, searchTerm, selectedProduct, statusFilter, expiryFilter]);
 
-  // Get expiry status
+  // Get enhanced expiry status with more granular information
   const getExpiryStatus = (expiryDate, daysUntilExpiry) => {
-    if (!expiryDate) return { status: 'none', color: 'gray', label: 'No expiry' };
+    if (!expiryDate) return { status: 'none', color: 'gray', label: 'No expiry', priority: 5 };
     
     if (daysUntilExpiry < 0) {
-      return { status: 'expired', color: 'red', label: 'Expired' };
+      return { status: 'expired', color: 'red', label: 'Expired', priority: 1 };
     } else if (daysUntilExpiry === 0) {
-      return { status: 'expires-today', color: 'red', label: 'Expires today' };
+      return { status: 'expires-today', color: 'red', label: 'Expires today', priority: 2 };
+    } else if (daysUntilExpiry <= 7) {
+      return { status: 'critical', color: 'red', label: 'Critical (≤7 days)', priority: 3 };
     } else if (daysUntilExpiry <= 30) {
-      return { status: 'expiring-soon', color: 'orange', label: 'Expiring soon' };
+      return { status: 'expiring-soon', color: 'orange', label: 'Expiring soon (≤30 days)', priority: 4 };
     } else if (daysUntilExpiry <= 90) {
-      return { status: 'expiring', color: 'yellow', label: 'Expiring' };
+      return { status: 'expiring', color: 'yellow', label: 'Expiring (≤90 days)', priority: 6 };
     } else {
-      return { status: 'good', color: 'green', label: 'Good' };
+      return { status: 'good', color: 'green', label: 'Good (>90 days)', priority: 7 };
     }
   };
 
@@ -167,6 +200,46 @@ const BatchManagementPage = () => {
     await handleRefresh();
     // Close the modal
     setShowBulkImportModal(false);
+  };
+
+  // Enhanced maintenance actions
+  const handleQuarantineExpired = async () => {
+    try {
+      setRefreshing(true);
+      const result = await EnhancedBatchService.quarantineExpiredBatches();
+      
+      if (result.success) {
+        alert(`Successfully quarantined ${result.quarantined_batches} expired batches`);
+        await handleRefresh();
+      } else {
+        alert('Failed to quarantine expired batches: ' + result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error quarantining expired batches:', error);
+      alert('Failed to quarantine expired batches: ' + error.message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleRunMaintenance = async () => {
+    try {
+      setRefreshing(true);
+      const result = await EnhancedBatchService.runMaintenance();
+      
+      if (result.error) {
+        alert('Maintenance completed with errors: ' + result.error);
+      } else {
+        alert(`Maintenance completed successfully:\n- Quarantined: ${result.quarantined?.quarantined_batches || 0} batches\n- Total batches: ${result.analytics?.totalBatches || 0}`);
+      }
+      
+      await handleRefresh();
+    } catch (error) {
+      console.error('❌ Error running maintenance:', error);
+      alert('Failed to run maintenance: ' + error.message);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Handle card-based stock addition
@@ -223,6 +296,32 @@ const BatchManagementPage = () => {
             
             <div className="flex items-center space-x-3">
               <button
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                title="View batch analytics"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span>Analytics</span>
+              </button>
+              <button
+                onClick={handleQuarantineExpired}
+                disabled={refreshing}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+                title="Quarantine expired batches"
+              >
+                <Shield className="h-4 w-4" />
+                <span>Quarantine Expired</span>
+              </button>
+              <button
+                onClick={handleRunMaintenance}
+                disabled={refreshing}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+                title="Run batch maintenance"
+              >
+                <Settings className="h-4 w-4" />
+                <span>Maintenance</span>
+              </button>
+              <button
                 onClick={() => setShowBulkImportModal(true)}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
                 title="Bulk import batches from CSV"
@@ -241,6 +340,54 @@ const BatchManagementPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Enhanced Analytics Dashboard */}
+        {showAnalytics && analytics && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                Batch Analytics Dashboard
+              </h3>
+              <button
+                onClick={() => setShowAnalytics(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{analytics.totalBatches}</div>
+                <div className="text-sm text-blue-800">Total Batches</div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{analytics.activeBatches}</div>
+                <div className="text-sm text-green-800">Active Batches</div>
+              </div>
+              <div className="bg-orange-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-orange-600">{analytics.expiringBatches}</div>
+                <div className="text-sm text-orange-800">Expiring Soon</div>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-red-600">{analytics.expiredBatches}</div>
+                <div className="text-sm text-red-800">Expired Batches</div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="text-lg font-semibold text-gray-900">Total Inventory Value</div>
+                <div className="text-2xl font-bold text-green-600">{formatCurrency(analytics.totalValue)}</div>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="text-lg font-semibold text-gray-900">Average Utilization</div>
+                <div className="text-2xl font-bold text-blue-600">{analytics.averageUtilization.toFixed(1)}%</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Primary Action: Add New Stock Section */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 mb-6">
@@ -336,7 +483,7 @@ const BatchManagementPage = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search Existing Batches */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -361,6 +508,19 @@ const BatchManagementPage = () => {
                   {product.name}
                 </option>
               ))}
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="depleted">Depleted</option>
+              <option value="quarantined">Quarantined</option>
             </select>
 
             {/* Expiry Filter */}
@@ -389,10 +549,13 @@ const BatchManagementPage = () => {
                     Batch Details
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
+                    Quantity & Status
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Expiry Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Value & Supplier
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
@@ -402,7 +565,7 @@ const BatchManagementPage = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredBatches.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center">
+                    <td colSpan="6" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center space-y-4">
                         <Package className="h-16 w-16 text-gray-400" />
                         <div className="text-center">
@@ -455,8 +618,28 @@ const BatchManagementPage = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {batch.quantity?.toLocaleString()} pieces
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {batch.quantity?.toLocaleString()} pieces
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Original: {batch.original_quantity?.toLocaleString()}
+                            </div>
+                            {batch.reserved_quantity > 0 && (
+                              <div className="text-xs text-orange-600">
+                                Reserved: {batch.reserved_quantity?.toLocaleString()}
+                              </div>
+                            )}
+                            <div className="mt-1">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                batch.status === 'active' ? 'bg-green-100 text-green-800' :
+                                batch.status === 'expired' ? 'bg-red-100 text-red-800' :
+                                batch.status === 'depleted' ? 'bg-gray-100 text-gray-800' :
+                                'bg-orange-100 text-orange-800'
+                              }`}>
+                                {batch.status || 'active'}
+                              </span>
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -475,6 +658,25 @@ const BatchManagementPage = () => {
                                     })
                                   </span>
                                 )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            {batch.cost_per_unit > 0 && (
+                              <div className="text-sm font-medium text-gray-900">
+                                {formatCurrency(batch.quantity * batch.cost_per_unit)}
+                              </div>
+                            )}
+                            {batch.cost_per_unit > 0 && (
+                              <div className="text-xs text-gray-500">
+                                @ {formatCurrency(batch.cost_per_unit)}/piece
+                              </div>
+                            )}
+                            {batch.supplier_name && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                {batch.supplier_name}
                               </div>
                             )}
                           </div>
