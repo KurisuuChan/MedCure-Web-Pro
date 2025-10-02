@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DollarSign,
   ShoppingCart,
@@ -22,6 +23,7 @@ import {
   Headphones,
   Pill,
   UserCheck,
+  CheckCircle,
 } from "lucide-react";
 import { DashboardService } from "../services/domains/analytics/dashboardService";
 import { formatCurrency, formatNumber } from "../utils/formatting";
@@ -61,6 +63,7 @@ const MemoizedCleanMetricCard = React.memo(CleanMetricCard);
 const MemoizedCleanActionCard = React.memo(CleanActionCard);
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -221,6 +224,8 @@ export default function DashboardPage() {
             trend={8.2}
             trendText="vs yesterday"
             color="green"
+            href="/transaction-history"
+            onClick={() => navigate('/transaction-history')}
           />
           <MemoizedCleanMetricCard
             title="Total Products"
@@ -229,6 +234,8 @@ export default function DashboardPage() {
             trend={2.1}
             trendText="this month"
             color="blue"
+            href="/inventory"
+            onClick={() => navigate('/inventory')}
           />
           <MemoizedCleanMetricCard
             title="Low Stock Alert"
@@ -238,6 +245,8 @@ export default function DashboardPage() {
             trendText="improvement"
             color="amber"
             isAlert={true}
+            href="/inventory"
+            onClick={() => navigate('/inventory', { state: { filter: 'low-stock' } })}
           />
           <MemoizedCleanMetricCard
             title="Active Users"
@@ -246,6 +255,8 @@ export default function DashboardPage() {
             trend={12.5}
             trendText="growth rate"
             color="purple"
+            href="/management"
+            onClick={() => navigate('/management')}
           />
         </section>
 
@@ -343,7 +354,13 @@ export default function DashboardPage() {
 
           {/* Recent Activity - Mini */}
           <div className="lg:col-span-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-full flex flex-col">
+            <div 
+              onClick={() => navigate('/transaction-history')}
+              className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-full flex flex-col cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && navigate('/transaction-history')}
+            >
               <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
                 <ShoppingCart className="h-4 w-4 mr-2 text-gray-500" />
                 Recent Sales
@@ -378,7 +395,13 @@ export default function DashboardPage() {
         {/* Enhanced Analytics Section */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Sales Trend Chart */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div 
+            onClick={() => navigate('/transaction-history')}
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/transaction-history')}
+          >
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Sales Trend</h3>
@@ -389,45 +412,71 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="h-64">
-              <Line
-                data={{
-                  labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                  datasets: [
-                    {
-                      label: 'Sales (₱)',
-                      data: [12000, 15000, 13500, 18000, 16500, 22000, 19000],
-                      borderColor: 'rgb(59, 130, 246)',
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                      fill: true,
-                      tension: 0.4,
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      display: false,
-                    },
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      ticks: {
-                        callback: function(value) {
-                          return '₱' + value.toLocaleString();
+              {dashboardData.weeklyData && dashboardData.weeklyData.length > 0 ? (
+                <Line
+                  data={{
+                    labels: dashboardData.weeklyData.map(day => day.day),
+                    datasets: [
+                      {
+                        label: 'Sales (₱)',
+                        data: dashboardData.weeklyData.map(day => day.sales),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false,
+                      },
+                      tooltip: {
+                        callbacks: {
+                          title: (context) => {
+                            const index = context[0].dataIndex;
+                            return dashboardData.weeklyData[index].fullDate;
+                          },
+                          label: (context) => {
+                            return `Sales: ${formatCurrency(context.parsed.y)}`;
+                          },
                         },
                       },
                     },
-                  },
-                }}
-              />
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          callback: function(value) {
+                            return '₱' + value.toLocaleString();
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center text-gray-500">
+                    <TrendingUp className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No sales data available</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Inventory Value Chart */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div 
+            onClick={() => navigate('/inventory')}
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory')}
+          >
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Inventory Analysis</h3>
@@ -438,38 +487,71 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="h-64">
-              <Doughnut
-                data={{
-                  labels: ['Medicines', 'Vitamins', 'Medical Supplies', 'Personal Care', 'Others'],
-                  datasets: [
-                    {
-                      data: [45, 25, 15, 10, 5],
-                      backgroundColor: [
-                        'rgba(59, 130, 246, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(245, 158, 11, 0.8)',
-                        'rgba(139, 92, 246, 0.8)',
-                        'rgba(107, 114, 128, 0.8)',
-                      ],
-                      borderWidth: 2,
-                      borderColor: '#ffffff',
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: 'bottom',
-                      labels: {
-                        padding: 20,
-                        usePointStyle: true,
+              {dashboardData.categoryAnalysis && dashboardData.categoryAnalysis.length > 0 ? (
+                <Doughnut
+                  data={{
+                    labels: dashboardData.categoryAnalysis.map(cat => cat.name),
+                    datasets: [
+                      {
+                        data: dashboardData.categoryAnalysis.map(cat => parseFloat(cat.percentage)),
+                        backgroundColor: [
+                          'rgba(59, 130, 246, 0.8)',   // Blue
+                          'rgba(16, 185, 129, 0.8)',   // Green
+                          'rgba(245, 158, 11, 0.8)',   // Amber
+                          'rgba(139, 92, 246, 0.8)',   // Purple
+                          'rgba(236, 72, 153, 0.8)',   // Pink
+                          'rgba(107, 114, 128, 0.8)',  // Gray
+                          'rgba(239, 68, 68, 0.8)',    // Red
+                          'rgba(20, 184, 166, 0.8)',   // Teal
+                        ].slice(0, dashboardData.categoryAnalysis.length),
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                        labels: {
+                          padding: 20,
+                          usePointStyle: true,
+                          generateLabels: (chart) => {
+                            const data = chart.data;
+                            return data.labels.map((label, i) => ({
+                              text: `${label} (${data.datasets[0].data[i]}%)`,
+                              fillStyle: data.datasets[0].backgroundColor[i],
+                              hidden: false,
+                              index: i,
+                            }));
+                          },
+                        },
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: (context) => {
+                            const category = dashboardData.categoryAnalysis[context.dataIndex];
+                            return [
+                              `${category.name}: ${category.percentage}%`,
+                              `Value: ${formatCurrency(category.value)}`,
+                              `Products: ${category.count}`,
+                            ];
+                          },
+                        },
                       },
                     },
-                  },
-                }}
-              />
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center text-gray-500">
+                    <Package className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No inventory data available</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -478,7 +560,13 @@ export default function DashboardPage() {
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top Selling Products */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div 
+              onClick={() => navigate('/inventory')}
+              className="flex items-center justify-between mb-6 cursor-pointer hover:bg-gray-50 -m-2 p-2 rounded-lg transition-colors"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory')}
+            >
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Top Products</h3>
                 <p className="text-sm text-gray-600">Best selling items this month</p>
@@ -488,40 +576,62 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="space-y-4">
-              {[
-                { name: 'Paracetamol 500mg', sales: 145, value: 7250 },
-                { name: 'Amoxicillin 250mg', sales: 128, value: 12800 },
-                { name: 'Vitamin C 500mg', sales: 98, value: 4900 },
-                { name: 'Ibuprofen 400mg', sales: 87, value: 6090 },
-                { name: 'Multivitamins', sales: 76, value: 3800 },
-              ].map((product, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full text-xs font-bold">
-                      {index + 1}
+              {dashboardData.topProducts && dashboardData.topProducts.length > 0 ? (
+                dashboardData.topProducts.map((product, index) => (
+                  <div 
+                    key={product.id || index} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/inventory', { state: { searchQuery: product.name } });
+                    }}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-purple-50 hover:border-purple-200 border border-transparent transition-all cursor-pointer active:scale-[0.98]"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.stopPropagation();
+                        navigate('/inventory', { state: { searchQuery: product.name } });
+                      }
+                    }}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full text-xs font-bold">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{product.name}</p>
+                        <p className="text-xs text-gray-500">{product.sales} units sold</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{product.name}</p>
-                      <p className="text-xs text-gray-500">{product.sales} units sold</p>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">{formatCurrency(product.revenue)}</p>
+                      <div className="w-16 h-1 bg-gray-200 rounded-full mt-1">
+                        <div 
+                          className="h-1 bg-purple-500 rounded-full" 
+                          style={{ width: `${Math.min((product.sales / (dashboardData.topProducts[0]?.sales || 1)) * 100, 100)}%` }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">{formatCurrency(product.value)}</p>
-                    <div className="w-16 h-1 bg-gray-200 rounded-full mt-1">
-                      <div 
-                        className="h-1 bg-purple-500 rounded-full" 
-                        style={{ width: `${(product.sales / 145) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Package className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No sales data available</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
           {/* Expiry Alerts */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div 
+              onClick={() => navigate('/batch-management')}
+              className="flex items-center justify-between mb-6 cursor-pointer hover:bg-gray-50 -m-2 p-2 rounded-lg transition-colors"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && navigate('/batch-management')}
+            >
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Expiry Alerts</h3>
                 <p className="text-sm text-gray-600">Products expiring soon</p>
@@ -531,43 +641,60 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="space-y-4">
-              {[
-                { name: 'Cough Syrup 120ml', expiry: '2024-12-15', days: 3, status: 'critical' },
-                { name: 'Antibiotic Cream', expiry: '2024-12-20', days: 8, status: 'warning' },
-                { name: 'Pain Relief Gel', expiry: '2024-12-28', days: 16, status: 'notice' },
-                { name: 'Eye Drops 10ml', expiry: '2025-01-05', days: 24, status: 'notice' },
-              ].map((product, index) => {
-                const statusColors = {
-                  critical: 'bg-red-100 text-red-800 border-red-200',
-                  warning: 'bg-orange-100 text-orange-800 border-orange-200',
-                  notice: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                };
-                
-                return (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-1.5 rounded-full ${
-                        product.status === 'critical' ? 'bg-red-100' :
-                        product.status === 'warning' ? 'bg-orange-100' : 'bg-yellow-100'
-                      }`}>
-                        <AlertTriangle className={`h-3 w-3 ${
-                          product.status === 'critical' ? 'text-red-600' :
-                          product.status === 'warning' ? 'text-orange-600' : 'text-yellow-600'
-                        }`} />
+              {dashboardData.expiringProducts && dashboardData.expiringProducts.length > 0 ? (
+                dashboardData.expiringProducts.slice(0, 4).map((product, index) => {
+                  const statusColors = {
+                    critical: 'bg-red-100 text-red-800 border-red-200',
+                    warning: 'bg-orange-100 text-orange-800 border-orange-200',
+                    notice: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                  };
+                  
+                  return (
+                    <div 
+                      key={product.id || index} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/inventory', { state: { searchQuery: product.name } });
+                      }}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-orange-50 hover:border-orange-200 border border-transparent transition-all cursor-pointer active:scale-[0.98]"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.stopPropagation();
+                          navigate('/inventory', { state: { searchQuery: product.name } });
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-1.5 rounded-full ${
+                          product.status === 'critical' ? 'bg-red-100' :
+                          product.status === 'warning' ? 'bg-orange-100' : 'bg-yellow-100'
+                        }`}>
+                          <AlertTriangle className={`h-3 w-3 ${
+                            product.status === 'critical' ? 'text-red-600' :
+                            product.status === 'warning' ? 'text-orange-600' : 'text-yellow-600'
+                          }`} />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{product.name}</p>
+                          <p className="text-xs text-gray-500">Expires: {new Date(product.expiry_date).toLocaleDateString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{product.name}</p>
-                        <p className="text-xs text-gray-500">Expires: {product.expiry}</p>
+                      <div className="text-right">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColors[product.status]}`}>
+                          {product.days_until_expiry} days
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColors[product.status]}`}>
-                        {product.days} days
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-300" />
+                  <p className="text-sm">No products expiring soon</p>
+                </div>
+              )}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-200">
               <a 
@@ -705,6 +832,8 @@ function CleanMetricCard({
   trendText,
   color,
   isAlert = false,
+  href,
+  onClick,
 }) {
   const colorClasses = {
     green: "bg-green-600",
@@ -712,11 +841,22 @@ function CleanMetricCard({
     amber: "bg-amber-600",
     purple: "bg-purple-600",
   };
+  
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    }
+  };
+  
   return (
     <div
-      className={`bg-white rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow ${
+      onClick={handleClick}
+      className={`bg-white rounded-xl shadow-sm border p-6 transition-all duration-200 ${
         isAlert ? "border-amber-200 bg-amber-50/20" : "border-gray-200"
-      }`}
+      } ${href || onClick ? 'cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]' : 'hover:shadow-md'}`}
+      role={href || onClick ? "button" : undefined}
+      tabIndex={href || onClick ? 0 : undefined}
+      onKeyDown={href || onClick ? (e) => e.key === 'Enter' && handleClick() : undefined}
     >
       <div className="flex items-center justify-between mb-4">
         <div className={`p-2 rounded-lg ${colorClasses[color]}`}>

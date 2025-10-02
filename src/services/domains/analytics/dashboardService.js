@@ -20,10 +20,20 @@ export class DashboardService {
       logDebug("Fetching dashboard data");
 
       // Aggregate real data from multiple sources
-      const [salesData, productsData, usersDataResponse] = await Promise.all([
+      const [salesData, productsData, usersDataResponse, topSellingData, expiringData] = await Promise.all([
         SalesService.getSales(30), // Last 30 sales - returns data directly
         ProductService.getProducts(), // Returns data directly
         UserService.getUsers(), // Returns wrapped response
+        supabase.rpc('get_top_selling_products', { days_limit: 30, product_limit: 5 }).then(res => res.data || []),
+        supabase.from('products')
+          .select('id, name, expiry_date, stock_in_pieces')
+          .not('expiry_date', 'is', null)
+          .gte('expiry_date', new Date().toISOString())
+          .lte('expiry_date', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString())
+          .eq('is_archived', false)
+          .order('expiry_date', { ascending: true })
+          .limit(10)
+          .then(res => res.data || []),
       ]);
 
       // Extract actual data from wrapped responses
@@ -54,7 +64,16 @@ export class DashboardService {
         totalUsers: usersData.length, // For Management page
         activeUsers: activeUsers.length,
         todaySales: totalSales, // For Management page
-        recentSales: salesData.slice(0, 5),
+        recentSales: salesData
+          .filter((sale) => sale.status === "completed") // ✅ Only completed transactions
+          .slice(0, 5)
+          .map(sale => ({
+            id: sale.id,
+            customer_name: sale.customer_name || 'Walk-in Customer',
+            total_amount: sale.total_amount,
+            created_at: sale.created_at,
+            items_count: sale.items?.length || 0
+          })),
         salesTrend: salesData.slice(0, 7).reverse(), // Last 7 days
 
         // Add analytics object for ManagementPage compatibility
@@ -104,24 +123,98 @@ export class DashboardService {
                   2)
               : 0,
         },
-        weeklyData: salesData
-          .filter((sale) => sale.status === "completed") // ✅ Only completed transactions
-          .slice(0, 7)
-          .map((sale) => ({
-            day: new Date(sale.created_at).toLocaleDateString("en-US", {
-              weekday: "short",
-            }),
-            sales: sale.total_amount,
-            date: sale.created_at,
-          })),
-        topProducts: productsData
+        weeklyData: (() => {
+          // Group sales by day for the last 7 days
+          const last7Days = [];
+          const today = new Date();
+          
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - i);
+            date.setHours(0, 0, 0, 0);
+            
+            const nextDay = new Date(date);
+            nextDay.setDate(date.getDate() + 1);
+            
+            const daySales = salesData
+              .filter((sale) => {
+                if (sale.status !== "completed") return false;
+                const saleDate = new Date(sale.created_at);
+                return saleDate >= date && saleDate < nextDay;
+              })
+              .reduce((sum, sale) => sum + sale.total_amount, 0);
+            
+            last7Days.push({
+              day: date.toLocaleDateString("en-US", { weekday: "short" }),
+              fullDate: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              sales: daySales,
+              date: date.toISOString(),
+            });
+          }
+          
+          return last7Days;
+        })(),
+        topProducts: topSellingData.length > 0 ? topSellingData.map((p) => ({
+            id: p.product_id,
+            name: p.product_name,
+            sales: p.total_quantity || 0,
+            revenue: p.total_revenue || 0,
+          })) : productsData
           .sort((a, b) => (b.stock_in_pieces || 0) - (a.stock_in_pieces || 0))
           .slice(0, 5)
           .map((p) => ({
+            id: p.id,
             name: p.name,
             sales: p.stock_in_pieces || 0,
             revenue: (p.stock_in_pieces || 0) * (p.price_per_piece || 0),
           })),
+        expiringProducts: expiringData.map((p) => {
+          const daysUntilExpiry = Math.ceil((new Date(p.expiry_date) - new Date()) / (1000 * 60 * 60 * 24));
+          return {
+            id: p.id,
+            name: p.name,
+            expiry_date: p.expiry_date,
+            days_until_expiry: daysUntilExpiry,
+            stock: p.stock_in_pieces,
+            status: daysUntilExpiry <= 7 ? 'critical' : daysUntilExpiry <= 30 ? 'warning' : 'notice',
+          };
+        }),
+        categoryAnalysis: (() => {
+          // Calculate inventory value by category
+          const categoryMap = {};
+          productsData.forEach((product) => {
+            if (product.is_archived) return;
+            const category = product.category || 'Others';
+            const value = (product.stock_in_pieces || 0) * (product.price_per_piece || 0);
+            
+            if (!categoryMap[category]) {
+              categoryMap[category] = {
+                name: category,
+                value: 0,
+                count: 0,
+              };
+            }
+            categoryMap[category].value += value;
+            categoryMap[category].count += 1;
+          });
+
+          // Convert to array and sort by value
+          return Object.values(categoryMap)
+            .sort((a, b) => b.value - a.value)
+            .map(cat => ({
+              name: cat.name,
+              value: cat.value,
+              count: cat.count,
+              percentage: 0, // Will be calculated after we have total
+            }))
+            .map((cat, _, arr) => {
+              const total = arr.reduce((sum, c) => sum + c.value, 0);
+              return {
+                ...cat,
+                percentage: total > 0 ? ((cat.value / total) * 100).toFixed(1) : 0,
+              };
+            });
+        })(),
         recentTransactions: salesData
           .filter((sale) => sale.status === "completed") // ✅ Only completed transactions
           .slice(0, 5)

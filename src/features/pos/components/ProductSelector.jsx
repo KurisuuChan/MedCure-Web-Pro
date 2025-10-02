@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Filter,
   Tag,
+  ShoppingCart,
 } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatting";
 import { UnifiedCategoryService } from "../../../services/domains/inventory/unifiedCategoryService";
@@ -181,8 +182,8 @@ export default function ProductSelector({
         </div>
       </div>
 
-      {/* Product List */}
-      <div className="max-h-[600px] overflow-y-auto">
+      {/* Product Grid - Card Layout */}
+      <div className="max-h-[calc(100vh-320px)] overflow-y-auto p-6">
         {filteredProducts.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
@@ -194,229 +195,106 @@ export default function ProductSelector({
             </p>
           </div>
         ) : (
-          <div className="p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {filteredProducts.map((product) => {
               const isAvailable = isProductAvailable(product);
+              const cartQuantity = cartItems
+                .filter((item) => item.productId === product.id)
+                .reduce((total, item) => total + item.quantityInPieces, 0);
+              const availableStock = Math.max(0, product.stock_in_pieces - cartQuantity);
+              const isLowStock = availableStock <= (product.reorder_level || 0);
 
               return (
                 <button
                   key={product.id}
                   onClick={() => handleProductClick(product)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleProductClick(product);
-                    }
-                  }}
                   disabled={!isAvailable}
-                  className={`group p-6 border-2 rounded-2xl transition-all duration-300 text-left w-full transform hover:scale-[1.02] ${
+                  className={`group relative bg-white border-2 rounded-lg overflow-hidden transition-all duration-200 text-left hover:scale-[1.02] aspect-[3/4] flex flex-col ${
                     isAvailable
-                      ? "border-gray-200 hover:border-blue-400 hover:shadow-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer"
+                      ? "border-gray-200 hover:border-blue-400 hover:shadow-lg cursor-pointer"
                       : "opacity-60 cursor-not-allowed border-gray-200"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    {/* Product Info */}
-                    <div className="flex items-center space-x-5 flex-1 min-w-0">
-                      {/* Professional Medical Icon */}
-                      <div
-                        className={`p-4 rounded-2xl transition-all duration-300 ${
-                          isAvailable
-                            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg group-hover:from-blue-600 group-hover:to-blue-700"
-                            : "bg-gray-200 text-gray-400"
-                        }`}
-                      >
-                        <Package className="h-7 w-7" />
+                  {/* Status Indicator - Top Right - Only for Out of Stock */}
+                  {!isAvailable && (
+                    <div className="absolute top-2 right-2 z-10">
+                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        Out of Stock
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Card Content - Flex Layout */}
+                  <div className="p-3 flex-1 flex flex-col">
+                    {/* Product Name */}
+                    <div className="mb-2">
+                      <h4 className="font-bold text-gray-900 text-sm line-clamp-2 leading-tight">
+                        {product.name}
+                      </h4>
+                    </div>
+
+                    {/* Brand & Category */}
+                    <div className="mb-2 flex-shrink-0">
+                      <div className="space-y-1">
+                        <span className="block bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold truncate">
+                          {product.brand}
+                        </span>
+                        <span className="block bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium truncate">
+                          {product.category}
+                        </span>
                       </div>
+                    </div>
 
-                      <div className="flex-1 min-w-0">
-                        {/* Product Name */}
-                        <h4 className="font-bold text-gray-900 truncate text-xl mb-1">
-                          {product.name}
-                        </h4>
-
-                        {/* Brand & Category */}
-                        <div className="flex items-center space-x-3 mb-3">
-                          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                            {product.brand}
-                          </span>
-                          <span className="text-gray-500 font-medium">
-                            {product.category}
-                          </span>
-                        </div>
-
-                        {/* Pricing and Stock Info with Real-time Updates */}
-                        <div className="flex items-center space-x-6">
-                          <div className="bg-green-50 px-4 py-2 rounded-xl border border-green-200">
-                            <span className="text-green-600 text-sm font-medium">
-                              From{" "}
-                            </span>
-                            <span className="font-bold text-green-700 text-lg">
-                              {formatCurrency(product.price_per_piece)}
-                            </span>
-                            <span className="text-green-600 text-sm font-medium">
-                              /piece
-                            </span>
-                          </div>
-
-                          {/* Enhanced Real-Time Stock Display */}
-                          <div
-                            className={`px-4 py-2 rounded-xl border ${
-                              product.stock_in_pieces <=
-                              (product.reorder_level || 0)
-                                ? "bg-amber-50 border-amber-200"
-                                : "bg-gray-50 border-gray-200"
-                            }`}
-                          >
-                            <span className="text-gray-600 text-sm font-medium">
-                              Available:{" "}
-                            </span>
-                            <span
-                              className={`font-bold text-lg ${
-                                product.stock_in_pieces <=
-                                (product.reorder_level || 0)
-                                  ? "text-amber-600"
-                                  : "text-gray-800"
-                              }`}
-                            >
-                              {(() => {
-                                // Calculate real-time available stock
-                                const cartQuantity = cartItems
-                                  .filter(
-                                    (item) => item.productId === product.id
-                                  )
-                                  .reduce(
-                                    (total, item) =>
-                                      total + item.quantityInPieces,
-                                    0
-                                  );
-                                const availableStock = Math.max(
-                                  0,
-                                  product.stock_in_pieces - cartQuantity
-                                );
-                                return availableStock;
-                              })()}
-                            </span>
-                            <span className="text-gray-600 text-sm font-medium">
-                              {" "}
-                              pieces
-                            </span>
-                            {(() => {
-                              const cartQuantity = cartItems
-                                .filter((item) => item.productId === product.id)
-                                .reduce(
-                                  (total, item) =>
-                                    total + item.quantityInPieces,
-                                  0
-                                );
-                              return cartQuantity > 0 ? (
-                                <div className="text-xs text-blue-600 font-medium mt-1">
-                                  ({cartQuantity} in cart)
-                                </div>
-                              ) : null;
-                            })()}
-                          </div>
+                    {/* Price */}
+                    <div className="mb-3 flex-shrink-0">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                        <div className="text-green-600 text-xs font-medium">Price per piece</div>
+                        <div className="font-bold text-green-700 text-base">
+                          {formatCurrency(product.price_per_piece)}
                         </div>
                       </div>
                     </div>
 
-                    {/* Professional Add Button */}
-                    <div className="flex-shrink-0 ml-6">
-                      {isAvailable ? (
-                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-2xl group-hover:from-blue-700 group-hover:to-blue-800 transition-all duration-300 shadow-lg">
-                          <Plus className="h-6 w-6" />
+                    {/* Stock Info - Takes remaining space */}
+                    <div className="flex-1 flex flex-col justify-end">
+                      <div className="mb-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-600">Available:</span>
+                          <span className={`font-bold text-base ${
+                            availableStock === 0
+                              ? 'text-red-600'
+                              : isLowStock 
+                              ? 'text-amber-600' 
+                              : 'text-green-600'
+                          }`}>
+                            {availableStock}
+                          </span>
                         </div>
-                      ) : (
-                        <div className="bg-gray-200 text-gray-500 px-6 py-3 rounded-2xl text-sm font-bold border-2 border-gray-300">
-                          Out of Stock
+                      </div>
+                      
+                      {cartQuantity > 0 && (
+                        <div className="text-center mb-1">
+                          <span className="text-xs text-gray-500 font-medium">
+                            {cartQuantity} in cart
+                          </span>
+                        </div>
+                      )}
+                      
+                      {isAvailable && isLowStock && (
+                        <div className="bg-amber-50 p-1 rounded text-center">
+                          <div className="flex items-center justify-center gap-1 text-amber-600">
+                            <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                            <span className="text-xs font-semibold">Low Stock!</span>
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Enhanced Low Stock Warning with Progress Bar */}
-                  {isAvailable &&
-                    product.stock_in_pieces <= (product.reorder_level || 0) && (
-                      <div className="mt-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-400 rounded-lg">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="bg-amber-100 p-1 rounded-full">
-                            <AlertTriangle className="h-4 w-4 text-amber-600" />
-                          </div>
-                          <p className="text-sm font-semibold text-amber-800">
-                            ⚠️ Low Stock Alert: Only{" "}
-                            {(() => {
-                              const cartQuantity = cartItems
-                                .filter((item) => item.productId === product.id)
-                                .reduce(
-                                  (total, item) =>
-                                    total + item.quantityInPieces,
-                                  0
-                                );
-                              return Math.max(
-                                0,
-                                product.stock_in_pieces - cartQuantity
-                              );
-                            })()}{" "}
-                            pieces available
-                          </p>
-                        </div>
-                        {/* Stock Progress Bar */}
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all duration-300 ${(() => {
-                              const cartQuantity = cartItems
-                                .filter((item) => item.productId === product.id)
-                                .reduce(
-                                  (total, item) =>
-                                    total + item.quantityInPieces,
-                                  0
-                                );
-                              const availableStock = Math.max(
-                                0,
-                                product.stock_in_pieces - cartQuantity
-                              );
-                              const percentage =
-                                (availableStock /
-                                  (product.reorder_level || 10)) *
-                                100;
-                              return percentage > 50
-                                ? "bg-green-500"
-                                : percentage > 25
-                                ? "bg-yellow-500"
-                                : "bg-red-500";
-                            })()}`}
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                Math.max(
-                                  0,
-                                  (() => {
-                                    const cartQuantity = cartItems
-                                      .filter(
-                                        (item) => item.productId === product.id
-                                      )
-                                      .reduce(
-                                        (total, item) =>
-                                          total + item.quantityInPieces,
-                                        0
-                                      );
-                                    const availableStock = Math.max(
-                                      0,
-                                      product.stock_in_pieces - cartQuantity
-                                    );
-                                    return (
-                                      (availableStock /
-                                        (product.reorder_level || 10)) *
-                                      100
-                                    );
-                                  })()
-                                )
-                              )}%`,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    )}
+                  {/* Hover Overlay Effect */}
+                  {isAvailable && (
+                    <div className="absolute inset-0 bg-gradient-to-t from-blue-600/0 to-blue-600/0 group-hover:from-blue-600/5 group-hover:to-blue-600/10 transition-all duration-200 pointer-events-none rounded-lg" />
+                  )}
                 </button>
               );
             })}
