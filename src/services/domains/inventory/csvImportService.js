@@ -21,10 +21,6 @@ export class CSVImportService {
     dosage_strength: ['dosage_strength', 'Dosage Strength', 'strength'],
     dosage_form: ['dosage_form', 'Dosage Form', 'form'],
     drug_classification: ['drug_classification', 'Drug Classification', 'classification'],
-    pharmacologic_category: ['pharmacologic_category', 'Pharmacologic Category', 'pharma_category'],
-    manufacturer: ['manufacturer', 'Manufacturer'],
-    storage_conditions: ['storage_conditions', 'Storage Conditions', 'storage'],
-    registration_number: ['registration_number', 'Registration Number', 'reg_number'],
     
     // Basic product fields
     description: ['description', 'Description'],
@@ -68,8 +64,6 @@ export class CSVImportService {
     { name: 'dosage_strength', required: false },
     { name: 'dosage_form', required: false, enum: 'dosage_form' },
     { name: 'drug_classification', required: false, enum: 'drug_classification' },
-    { name: 'pharmacologic_category', required: false },
-    { name: 'manufacturer', required: false },
     { name: 'pieces_per_sheet', required: false, type: 'number', min: 1 },
     { name: 'sheets_per_box', required: false, type: 'number', min: 1 },
     { name: 'reorder_level', required: false, type: 'number', min: 0 },
@@ -199,7 +193,7 @@ export class CSVImportService {
         if (!dateResult.isValid) {
           rowErrors.push(getDateFormatErrorMessage(row.expiry_date));
         } else if (dateResult.date && !isDateNotInPast(dateResult.date)) {
-          rowErrors.push('Expiry date cannot be in the past');
+          rowErrors.push('Cannot import expired medicine - expiry date must be in the future');
         }
       }
 
@@ -227,22 +221,16 @@ export class CSVImportService {
    */
   static transformRowForDatabase(row, index) {
     const transformed = {
-      // Primary fields (with backward compatibility)
-      name: row.generic_name.trim(),
+      // Primary fields
       generic_name: row.generic_name.trim(),
       brand_name: row.brand_name ? row.brand_name.trim() : '',
-      brand: row.brand_name ? row.brand_name.trim() : '', // Backward compatibility
       description: row.description ? row.description.trim() : '',
       category: row.category_name.trim(),
       
       // Medicine-specific fields
       dosage_form: row.dosage_form || null,
       dosage_strength: row.dosage_strength || null,
-      manufacturer: row.manufacturer || null,
       drug_classification: row.drug_classification || null,
-      pharmacologic_category: row.pharmacologic_category || null,
-      storage_conditions: row.storage_conditions || null,
-      registration_number: row.registration_number || null,
       
       // Pricing fields
       price_per_piece: parseFloat(row.price_per_piece),
@@ -281,9 +269,8 @@ export class CSVImportService {
   static generateSampleCSV() {
     const headers = [
       'generic_name', 'brand_name', 'category_name', 'supplier_name', 'description',
-      'dosage_strength', 'dosage_form', 'drug_classification', 'pharmacologic_category',
-      'price_per_piece', 'pieces_per_sheet', 'sheets_per_box', 'reorder_level',
-      'storage_conditions', 'manufacturer', 'registration_number',
+      'dosage_strength', 'dosage_form', 'drug_classification',
+      'price_per_piece', 'pieces_per_sheet', 'sheets_per_box', 'stock_in_pieces', 'reorder_level',
       'cost_price', 'base_price', 'margin_percentage', 'expiry_date', 'batch_number'
     ];
 
@@ -291,25 +278,22 @@ export class CSVImportService {
       [
         'Paracetamol', 'Biogesic', 'Pain Relief', 'MediSupply Corp',
         'Analgesic and antipyretic for pain and fever relief',
-        '500mg', 'Tablet', 'Over-the-Counter (OTC)', 'Analgesic',
-        '2.50', '10', '10', '100',
-        'Store at room temperature below 25°C', 'Unilab', 'FDA-OTC-2024-001234',
+        '500mg', 'Tablet', 'Over-the-Counter (OTC)',
+        '2.50', '10', '10', '1000', '100',
         '2.00', '2.25', '25.00', '2025-12-31', 'BATCH-2024-001'
       ],
       [
         'Amoxicillin', 'Amoxil', 'Antibiotics', 'PharmaCorp Distributors',
         'Broad-spectrum antibiotic for bacterial infections',
-        '500mg', 'Capsule', 'Prescription (Rx)', 'Antibiotic',
-        '5.75', '10', '10', '50',
-        'Store at room temperature below 25°C', 'GlaxoSmithKline', 'FDA-RX-2024-001234',
+        '500mg', 'Capsule', 'Prescription (Rx)',
+        '5.75', '10', '10', '500', '50',
         '4.60', '5.18', '25.00', '2025-10-15', 'BATCH-2024-002'
       ],
       [
         'Ascorbic Acid', 'Cecon', 'Vitamins & Supplements', 'VitaCorp International',
         'Essential vitamin for immune system support',
-        '500mg', 'Tablet', 'Over-the-Counter (OTC)', 'Vitamin',
-        '1.25', '20', '10', '200',
-        'Store in a cool dry place', 'Ricola', 'FDA-OTC-2024-567890',
+        '500mg', 'Tablet', 'Over-the-Counter (OTC)',
+        '1.25', '20', '10', '2000', '200',
         '1.00', '1.13', '25.00', '2025-06-30', 'BATCH-2024-003'
       ]
     ];

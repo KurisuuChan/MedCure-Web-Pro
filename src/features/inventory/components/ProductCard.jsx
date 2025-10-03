@@ -50,7 +50,7 @@ export default function ProductCard({
           bgColor: 'bg-red-100',
           textColor: 'text-red-800',
           borderColor: 'border-red-200',
-          label: 'Rx'
+          label: 'Prescription'
         };
       case 'Over-the-Counter (OTC)':
         return {
@@ -58,7 +58,7 @@ export default function ProductCard({
           bgColor: 'bg-green-100',
           textColor: 'text-green-800',
           borderColor: 'border-green-200',
-          label: 'OTC'
+          label: 'Over-the-Counter'
         };
       case 'Controlled Substance':
         return {
@@ -66,7 +66,7 @@ export default function ProductCard({
           bgColor: 'bg-purple-100',
           textColor: 'text-purple-800',
           borderColor: 'border-purple-200',
-          label: 'CS'
+          label: 'Controlled Substance'
         };
       default:
         return {
@@ -130,16 +130,10 @@ export default function ProductCard({
               </div>
             )}
 
-            {/* Category and Manufacturer */}
+            {/* Category */}
             <div className="flex items-center space-x-3 text-sm">
               <span className="text-gray-500">Category:</span>
               <span className="font-medium text-gray-700">{product.category}</span>
-              {product.manufacturer && (
-                <>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-gray-500">by {product.manufacturer}</span>
-                </>
-              )}
             </div>
           </div>
 
@@ -214,30 +208,6 @@ export default function ProductCard({
 
         {/* Details */}
         <div className="space-y-2 pt-2 border-t border-gray-100">
-          {product.pharmacologic_category && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Drug Category:</span>
-              <span className="text-gray-900 font-medium">
-                {product.pharmacologic_category}
-              </span>
-            </div>
-          )}
-          {product.registration_number && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Reg. Number:</span>
-              <span className="text-gray-900 font-mono text-xs">
-                {product.registration_number}
-              </span>
-            </div>
-          )}
-          {product.storage_conditions && (
-            <div className="text-sm">
-              <span className="text-gray-500">Storage:</span>
-              <span className="text-gray-900 ml-1 text-xs">
-                {product.storage_conditions}
-              </span>
-            </div>
-          )}
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">Product ID:</span>
             <span className="text-gray-900 font-mono text-xs">

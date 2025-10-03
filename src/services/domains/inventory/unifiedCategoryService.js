@@ -1389,9 +1389,32 @@ export class UnifiedCategoryService {
                 `🔄 [UnifiedCategory] Fuzzy matched "${item.category}" → "${similarCategory.name}"`
               );
             } else {
-              // Mark for potential auto-creation
-              unmappedCategories.add(item.category);
-              mappingStats.unmapped++;
+              // Auto-create missing category
+              console.log(`🆕 [UnifiedCategory] Auto-creating category: "${item.category}"`);
+              try {
+                const result = await this.createCategory({
+                  name: item.category,
+                  description: `Auto-created from import: ${item.category}`,
+                  color: '#6B7280', // Default gray color
+                  icon: 'Package'
+                }, { source: 'auto_import' });
+                
+                if (result.success) {
+                  categoryId = result.data.id;
+                  // Add to maps for subsequent items
+                  categoryMap.set(originalCategory, categoryId);
+                  normalizedMap.set(normalizedCategory, categoryId);
+                  console.log(`✅ [UnifiedCategory] Successfully created category: "${item.category}" (ID: ${categoryId})`);
+                } else {
+                  console.error(`❌ [UnifiedCategory] Failed to create category: "${item.category}"`);
+                  unmappedCategories.add(item.category);
+                  mappingStats.unmapped++;
+                }
+              } catch (createError) {
+                console.error(`❌ [UnifiedCategory] Error creating category "${item.category}":`, createError);
+                unmappedCategories.add(item.category);
+                mappingStats.unmapped++;
+              }
             }
           }
         }

@@ -38,7 +38,6 @@ export class EnhancedProductSearchService {
    * @param {Object} params - Search parameters
    * @param {string} params.searchTerm - The search term
    * @param {string} params.drugClassification - Drug classification filter
-   * @param {string} params.manufacturer - Manufacturer filter
    * @param {string} params.category - Category filter
    * @param {number} params.limit - Maximum results to return
    * @returns {Promise<{success: boolean, data: Array, error?: string}>}
@@ -46,7 +45,6 @@ export class EnhancedProductSearchService {
   static async searchProductsFiltered({
     searchTerm = '',
     drugClassification = '',
-    manufacturer = '',
     category = '',
     limit = 100
   } = {}) {
@@ -54,7 +52,6 @@ export class EnhancedProductSearchService {
       console.log('🔍 Advanced search with filters:', {
         searchTerm,
         drugClassification,
-        manufacturer,
         category,
         limit
       });
@@ -63,7 +60,6 @@ export class EnhancedProductSearchService {
         .rpc('search_products_filtered', {
           search_term: searchTerm || '',
           drug_classification_filter: drugClassification || '',
-          manufacturer_filter: manufacturer || '',
           category_filter: category || '',
           limit_count: limit
         });
@@ -89,17 +85,9 @@ export class EnhancedProductSearchService {
     try {
       console.log('📋 Fetching distinct manufacturers...');
       
-      const { data, error } = await supabase
-        .rpc('get_distinct_manufacturers');
-
-      if (error) {
-        console.error('❌ Error fetching manufacturers:', error);
-        return { success: false, error: error.message, data: [] };
-      }
-
-      const manufacturers = data?.map(item => item.manufacturer).filter(Boolean) || [];
-      console.log(`✅ Found ${manufacturers.length} manufacturers`);
-      return { success: true, data: manufacturers };
+      // Since we removed manufacturer field, return empty array
+      console.log(`✅ Found 0 manufacturers (field removed)`);
+      return { success: true, data: [] };
     } catch (error) {
       console.error('❌ Exception in getDistinctManufacturers:', error);
       return { success: false, error: error.message, data: [] };
@@ -115,14 +103,18 @@ export class EnhancedProductSearchService {
       console.log('📋 Fetching distinct drug classifications...');
       
       const { data, error } = await supabase
-        .rpc('get_distinct_drug_classifications');
+        .from('products')
+        .select('drug_classification')
+        .eq('is_active', true)
+        .eq('is_archived', false)
+        .not('drug_classification', 'is', null);
 
       if (error) {
         console.error('❌ Error fetching drug classifications:', error);
         return { success: false, error: error.message, data: [] };
       }
 
-      const classifications = data?.map(item => item.drug_classification).filter(Boolean) || [];
+      const classifications = [...new Set(data?.map(item => item.drug_classification).filter(Boolean))].sort() || [];
       console.log(`✅ Found ${classifications.length} drug classifications`);
       return { success: true, data: classifications };
     } catch (error) {
@@ -148,11 +140,7 @@ export class EnhancedProductSearchService {
           brand_name,
           dosage_form,
           dosage_strength,
-          manufacturer,
-          drug_classification,
-          pharmacologic_category,
-          storage_conditions,
-          registration_number
+          drug_classification
         `)
         .eq('is_active', true)
         .eq('is_archived', false);
@@ -166,9 +154,7 @@ export class EnhancedProductSearchService {
         query = query.eq('drug_classification', filters.drugClassification);
       }
 
-      if (filters.manufacturer && filters.manufacturer !== 'All') {
-        query = query.eq('manufacturer', filters.manufacturer);
-      }
+
 
       // Order by brand name, then generic name
       query = query.order('brand_name', { ascending: true, nullsFirst: false })
@@ -207,7 +193,6 @@ export class EnhancedProductSearchService {
         .rpc('search_products_filtered', {
           search_term: searchTerm,
           drug_classification_filter: '',
-          manufacturer_filter: '',
           category_filter: '',
           limit_count: limit
         });
@@ -224,8 +209,7 @@ export class EnhancedProductSearchService {
         brand: product.brand_name || product.brand,
         generic: product.generic_name || product.name,
         dosage: product.dosage_strength,
-        form: product.dosage_form,
-        manufacturer: product.manufacturer
+        form: product.dosage_form
       })) || [];
 
       console.log(`✅ Generated ${suggestions.length} suggestions`);
@@ -266,6 +250,64 @@ export class EnhancedProductSearchService {
   }
 
   /**
+   * Get distinct dosage strengths for filter dropdown
+   * @returns {Promise<{success: boolean, data: Array, error?: string}>}
+   */
+  static async getDistinctDosageStrengths() {
+    try {
+      console.log('📋 Fetching distinct dosage strengths...');
+      
+      const { data, error } = await supabase
+        .from('products')
+        .select('dosage_strength')
+        .eq('is_active', true)
+        .eq('is_archived', false)
+        .not('dosage_strength', 'is', null);
+
+      if (error) {
+        console.error('❌ Error fetching dosage strengths:', error);
+        return { success: false, error: error.message, data: [] };
+      }
+
+      const strengths = [...new Set(data?.map(item => item.dosage_strength).filter(Boolean))].sort() || [];
+      console.log(`✅ Found ${strengths.length} dosage strengths`);
+      return { success: true, data: strengths };
+    } catch (error) {
+      console.error('❌ Exception in getDistinctDosageStrengths:', error);
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  /**
+   * Get distinct dosage forms for filter dropdown
+   * @returns {Promise<{success: boolean, data: Array, error?: string}>}
+   */
+  static async getDistinctDosageForms() {
+    try {
+      console.log('📋 Fetching distinct dosage forms...');
+      
+      const { data, error } = await supabase
+        .from('products')
+        .select('dosage_form')
+        .eq('is_active', true)
+        .eq('is_archived', false)
+        .not('dosage_form', 'is', null);
+
+      if (error) {
+        console.error('❌ Error fetching dosage forms:', error);
+        return { success: false, error: error.message, data: [] };
+      }
+
+      const forms = [...new Set(data?.map(item => item.dosage_form).filter(Boolean))].sort() || [];
+      console.log(`✅ Found ${forms.length} dosage forms`);
+      return { success: true, data: forms };
+    } catch (error) {
+      console.error('❌ Exception in getDistinctDosageForms:', error);
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  /**
    * Get filter options for advanced search
    * @returns {Promise<{success: boolean, data: Object, error?: string}>}
    */
@@ -273,9 +315,10 @@ export class EnhancedProductSearchService {
     try {
       console.log('🎛️ Fetching filter options...');
       
-      const [manufacturersResult, classificationsResult] = await Promise.all([
-        this.getDistinctManufacturers(),
-        this.getDistinctDrugClassifications()
+      const [classificationsResult, strengthsResult, formsResult] = await Promise.all([
+        this.getDistinctDrugClassifications(),
+        this.getDistinctDosageStrengths(),
+        this.getDistinctDosageForms()
       ]);
 
       // Get categories from the existing products
@@ -291,15 +334,17 @@ export class EnhancedProductSearchService {
       }
 
       const filterOptions = {
-        manufacturers: manufacturersResult.success ? manufacturersResult.data : [],
         drugClassifications: classificationsResult.success ? classificationsResult.data : [],
-        categories: categories
+        categories: categories,
+        dosageStrengths: strengthsResult.success ? strengthsResult.data : [],
+        dosageForms: formsResult.success ? formsResult.data : []
       };
 
       console.log('✅ Filter options loaded:', {
-        manufacturers: filterOptions.manufacturers.length,
         drugClassifications: filterOptions.drugClassifications.length,
-        categories: filterOptions.categories.length
+        categories: filterOptions.categories.length,
+        dosageStrengths: filterOptions.dosageStrengths.length,
+        dosageForms: filterOptions.dosageForms.length
       });
 
       return { success: true, data: filterOptions };

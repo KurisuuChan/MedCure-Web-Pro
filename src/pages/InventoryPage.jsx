@@ -25,7 +25,6 @@ import {
   getStockStatus,
   getExpiryStatus,
   productCategories,
-  productBrands,
 } from "../utils/productUtils";
 import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
@@ -288,9 +287,10 @@ export default function InventoryPage() {
           <ProductSearch
             onSearch={handleSearch}
             onFilter={handleFilter}
-            categories={getCategoriesToUse()} // Show all categories - "All Categories" is handled in ProductSearch component
-            brands={productBrands.slice(1)} // Remove "All Brands"
-            filterOptions={filterOptions}
+            filterOptions={{
+              ...filterOptions,
+              categories: filterOptions.categories || []
+            }}
             currentFilters={filters}
             searchTerm={searchTerm}
           />

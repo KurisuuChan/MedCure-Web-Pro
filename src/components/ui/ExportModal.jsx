@@ -13,9 +13,12 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
       expiryStatus: "all",
     },
     columns: {
-      name: true,
+      name: true, // generic_name
+      brand: true, // brand_name
       category: true,
-      brand: true,
+      dosageStrength: true, // Enable by default for medicine
+      dosageForm: true, // Enable by default for medicine
+      drugClassification: false,
       stock: true,
       price: true,
       costPrice: false,
@@ -105,10 +108,16 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
         const dataToExport = filteredProducts.map((product) => {
           const row = {};
 
-          if (exportOptions.columns.name) row["Product Name"] = product.generic_name || product.name || 'Unknown Product';
+          if (exportOptions.columns.name) row["Generic Name"] = product.generic_name || product.name || 'Unknown Product';
+          if (exportOptions.columns.brand) row["Brand Name"] = product.brand_name || '';
           if (exportOptions.columns.category)
             row["Category"] = product.category;
-          if (exportOptions.columns.brand) row["Brand"] = product.brand;
+          if (exportOptions.columns.dosageStrength)
+            row["Dosage Strength"] = product.dosage_strength || '';
+          if (exportOptions.columns.dosageForm)
+            row["Dosage Form"] = product.dosage_form || '';
+          if (exportOptions.columns.drugClassification)
+            row["Drug Classification"] = product.drug_classification || '';
           if (exportOptions.columns.stock)
             row["Stock (Pieces)"] = product.stock_in_pieces;
           if (exportOptions.columns.price)
@@ -133,9 +142,9 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
 
         // Generate and download file
         if (exportOptions.format === "csv") {
-          downloadCSV(dataToExport, "inventory_export");
+          downloadCSV(dataToExport, "medicine_inventory_export");
         } else {
-          downloadJSON(dataToExport, "inventory_export");
+          downloadJSON(dataToExport, "medicine_inventory_export");
         }
       }
 
@@ -224,7 +233,7 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">Export Data</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Export Medicine Inventory</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
@@ -383,9 +392,12 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {Object.entries({
-                    name: "Product Name",
+                    name: "Generic Name",
+                    brand: "Brand Name", 
                     category: "Category",
-                    brand: "Brand",
+                    dosageStrength: "Dosage Strength",
+                    dosageForm: "Dosage Form",
+                    drugClassification: "Drug Classification",
                     stock: "Stock Level",
                     price: "Price per Piece",
                     costPrice: "Cost Price",

@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Search, Filter, X, SlidersHorizontal, Building2, Shield } from "lucide-react";
+import { Search, Filter, X, SlidersHorizontal } from "lucide-react";
 
 export default function ProductSearch({
   onSearch,
   onFilter,
-  categories = [],
-  brands = [],
-  filterOptions = { manufacturers: [], drugClassifications: [], categories: [] },
+  filterOptions = { drugClassifications: [], categories: [] },
   currentFilters = {},
   searchTerm: initialSearchTerm = "",
   className = "",
@@ -14,11 +12,11 @@ export default function ProductSearch({
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [filters, setFilters] = useState({
     category: "All Categories",
-    brand: "All Brands",
     stockStatus: "All",
     expiryStatus: "All",
     drugClassification: "All",
-    manufacturer: "All",
+    dosageStrength: "All",
+    dosageForm: "All",
     ...currentFilters
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -44,14 +42,14 @@ export default function ProductSearch({
     }));
   };
 
-  const clearFilters = () => {
+    const clearFilters = () => {
     const clearedFilters = {
       category: "All Categories",
-      brand: "All Brands",
       stockStatus: "All",
       expiryStatus: "All",
       drugClassification: "All",
-      manufacturer: "All",
+      dosageStrength: "All",
+      dosageForm: "All",
     };
     setFilters(clearedFilters);
   };
@@ -59,7 +57,6 @@ export default function ProductSearch({
   const hasActiveFilters = Object.values(filters).some(
     (value) =>
       value !== "All Categories" && 
-      value !== "All Brands" && 
       value !== "All" &&
       value !== ""
   );
@@ -74,7 +71,7 @@ export default function ProductSearch({
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by brand, generic name, manufacturer, category, registration number..."
+            placeholder="Search by brand name, generic name, category, dosage..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -97,7 +94,6 @@ export default function ProductSearch({
                 Object.values(filters).filter(
                   (value) =>
                     value !== "All Categories" &&
-                    value !== "All Brands" &&
                     value !== "All"
                 ).length
               }
@@ -109,7 +105,7 @@ export default function ProductSearch({
       {/* Advanced Filters */}
       {showAdvancedFilters && (
         <div className="border-t border-gray-200 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {/* Category Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -121,35 +117,18 @@ export default function ProductSearch({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="All Categories">All Categories</option>
-                {categories.map((category) => (
+                {filterOptions.categories?.map((category) => (
                   <option
-                    key={category.id || category}
-                    value={category.name || category}
+                    key={category}
+                    value={category}
                   >
-                    {category.name || category}
+                    {category}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Brand Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Brand
-              </label>
-              <select
-                value={filters.brand}
-                onChange={(e) => handleFilterChange("brand", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="All Brands">All Brands</option>
-                {brands.map((brand) => (
-                  <option key={brand} value={brand}>
-                    {brand}
-                  </option>
-                ))}
-              </select>
-            </div>
+
 
             {/* Stock Status Filter */}
             <div>
@@ -191,8 +170,7 @@ export default function ProductSearch({
 
             {/* Drug Classification Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                <Shield className="h-4 w-4 text-blue-600" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Drug Classification
               </label>
               <select
@@ -211,23 +189,43 @@ export default function ProductSearch({
               </select>
             </div>
 
-            {/* Manufacturer Filter */}
+            {/* Dosage Strength Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-green-600" />
-                Manufacturer
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Dosage Strength
               </label>
               <select
-                value={filters.manufacturer}
+                value={filters.dosageStrength}
                 onChange={(e) =>
-                  handleFilterChange("manufacturer", e.target.value)
+                  handleFilterChange("dosageStrength", e.target.value)
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="All">All Manufacturers</option>
-                {filterOptions.manufacturers.map((manufacturer) => (
-                  <option key={manufacturer} value={manufacturer}>
-                    {manufacturer}
+                <option value="All">All Strengths</option>
+                {filterOptions.dosageStrengths?.map((strength) => (
+                  <option key={strength} value={strength}>
+                    {strength}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Dosage Form Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Dosage Form
+              </label>
+              <select
+                value={filters.dosageForm}
+                onChange={(e) =>
+                  handleFilterChange("dosageForm", e.target.value)
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="All">All Forms</option>
+                {filterOptions.dosageForms?.map((form) => (
+                  <option key={form} value={form}>
+                    {form}
                   </option>
                 ))}
               </select>
@@ -255,7 +253,6 @@ export default function ProductSearch({
           {Object.entries(filters).map(([key, value]) => {
             if (
               value === "All Categories" ||
-              value === "All Brands" ||
               value === "All"
             )
               return null;
@@ -272,8 +269,6 @@ export default function ProductSearch({
                       key,
                       key === "category"
                         ? "All Categories"
-                        : key === "brand"
-                        ? "All Brands"
                         : "All"
                     )
                   }

@@ -48,10 +48,10 @@ export class ProductService {
   static async getFilterOptions() {
     try {
       const result = await EnhancedProductSearchService.getFilterOptions();
-      return result.success ? result.data : { manufacturers: [], drugClassifications: [], categories: [] };
+      return result.success ? result.data : { drugClassifications: [], categories: [], dosageStrengths: [], dosageForms: [] };
     } catch (error) {
       console.error('❌ Error getting filter options:', error);
-      return { manufacturers: [], drugClassifications: [], categories: [] };
+      return { drugClassifications: [], categories: [], dosageStrengths: [], dosageForms: [] };
     }
   }
 
@@ -77,11 +77,7 @@ export class ProductService {
           description,
           dosage_form,
           dosage_strength,
-          manufacturer,
           drug_classification,
-          pharmacologic_category,
-          storage_conditions,
-          registration_number,
           price_per_piece,
           pieces_per_sheet,
           sheets_per_box,
@@ -115,8 +111,14 @@ export class ProductService {
           price,
           supplier_id
         `)
-        .eq("is_active", true)
         .order("generic_name");
+
+      // Also check total count without filters for debugging
+      const { count } = await supabase
+        .from("products")
+        .select("*", { count: "exact", head: true });
+      
+      console.log("📊 Total products in database (including inactive):", count);
 
       if (error) {
         console.error("❌ ProductService.getProducts() Supabase error:", error);
@@ -132,6 +134,8 @@ export class ProductService {
       console.log(
         `✅ Successfully fetched ${data?.length || 0} products from database`
       );
+      console.log("🔍 Raw database response:", { data, error });
+      
       if (data && data.length > 0) {
         console.log("📦 Sample product:", data[0]);
         // Log low stock items
@@ -180,11 +184,7 @@ export class ProductService {
           description,
           dosage_form,
           dosage_strength,
-          manufacturer,
           drug_classification,
-          pharmacologic_category,
-          storage_conditions,
-          registration_number,
           price_per_piece,
           pieces_per_sheet,
           sheets_per_box,
@@ -279,23 +279,30 @@ export class ProductService {
 
       // Ensure proper data structure for new schema
       const productData = {
+        // Copy all fields from product except old ones
         ...product,
+        // Remove old field names that might conflict
+        brand: undefined,
+        name: undefined,
         // Ensure we're using the new column structure
         generic_name: product.generic_name,
         brand_name: product.brand_name,
         dosage_form: product.dosage_form || null,
         dosage_strength: product.dosage_strength || null,
-        manufacturer: product.manufacturer || null,
         drug_classification: product.drug_classification || null,
-        pharmacologic_category: product.pharmacologic_category || null,
-        storage_conditions: product.storage_conditions || null,
-        registration_number: product.registration_number || null,
         // Set defaults
         is_active: product.is_active !== undefined ? product.is_active : true,
         is_archived: product.is_archived !== undefined ? product.is_archived : false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
+
+      // Clean up undefined fields to avoid sending them to database
+      Object.keys(productData).forEach(key => {
+        if (productData[key] === undefined) {
+          delete productData[key];
+        }
+      });
 
       const { data, error } = await supabase
         .from("products")

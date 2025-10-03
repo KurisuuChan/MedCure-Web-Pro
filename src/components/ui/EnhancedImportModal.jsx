@@ -428,26 +428,28 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
                             <div>
-                              <span className="font-medium">name</span> -
-                              Product name
+                              <span className="font-medium">generic_name</span> -
+                              Generic medicine name (required)
                             </div>
                             <div>
-                              <span className="font-medium">price</span> - Unit
-                              price (number)
+                              <span className="font-medium">category_name</span> -
+                              Product category (required)
                             </div>
                             <div>
-                              <span className="font-medium">quantity</span> -
-                              Stock quantity
+                              <span className="font-medium">price_per_piece</span> - 
+                              Unit price in PHP (required, number)
                             </div>
                             <div>
-                              <span className="font-medium">category</span> -
-                              Product category
+                              <span className="font-medium">brand_name</span> -
+                              Brand name (optional)
                             </div>
                             <div>
-                              <span className="font-medium">
-                                expiration_date
-                              </span>{" "}
-                              - See formats below
+                              <span className="font-medium">dosage_strength</span> -
+                              e.g., 500mg, 10ml (optional)
+                            </div>
+                            <div>
+                              <span className="font-medium">dosage_form</span> -
+                              Tablet, Capsule, Syrup, etc. (optional)
                             </div>
                           </div>
                         </div>
@@ -468,13 +470,15 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                             <CheckCircle className="inline" size={14} />
-                            Smart Features
+                            Smart Medicine Features
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
                             <div>• Auto-creates missing categories</div>
-                            <div>• Validates dates and prices</div>
+                            <div>• Validates medicine data and pricing</div>
+                            <div>• Handles dosage forms and classifications</div>
+                            <div>• Smart batch number generation</div>
                             <div>• Flexible date format detection</div>
-                            <div>• Smart error prevention</div>
+                            <div>• Intelligent error prevention</div>
                           </div>
                         </div>
                       </div>

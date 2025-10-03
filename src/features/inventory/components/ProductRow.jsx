@@ -34,6 +34,40 @@ function ProductRow({ product, onView, onEdit, onDelete }) {
     }
   };
 
+  // Get classification colors
+  const getClassificationStyle = (classification) => {
+    const cleanClassification = classification?.replace('(Rx)', '').replace('(OTC)', '').trim();
+    
+    switch (classification) {
+      case 'Prescription (Rx)':
+        return {
+          bgColor: 'bg-red-100',
+          textColor: 'text-red-800',
+          label: 'Prescription'
+        };
+      case 'Over-the-Counter (OTC)':
+        return {
+          bgColor: 'bg-green-100',
+          textColor: 'text-green-800',
+          label: 'Over-the-Counter'
+        };
+      case 'Controlled Substance':
+        return {
+          bgColor: 'bg-purple-100',
+          textColor: 'text-purple-800',
+          label: 'Controlled Substance'
+        };
+      default:
+        return {
+          bgColor: 'bg-gray-100',
+          textColor: 'text-gray-800',
+          label: cleanClassification || 'Not specified'
+        };
+    }
+  };
+
+  const classificationStyle = getClassificationStyle(product.drug_classification);
+
   return (
     <tr className="hover:bg-gray-50">
       <td className="px-6 py-4 whitespace-nowrap">
@@ -52,18 +86,6 @@ function ProductRow({ product, onView, onEdit, onDelete }) {
             <div className="text-sm font-medium text-gray-700">
               {product.generic_name || product.name || 'Unknown Generic'}
             </div>
-            {/* PRIMARY: Dosage (if available) */}
-            {(product.dosage_strength || product.dosage_form) && (
-              <div className="text-xs text-blue-600 font-semibold">
-                {product.dosage_strength} {product.dosage_form}
-              </div>
-            )}
-            {/* TERTIARY: Manufacturer (smallest) */}
-            {product.manufacturer && (
-              <div className="text-xs text-gray-500">
-                by {product.manufacturer}
-              </div>
-            )}
           </div>
         </div>
       </td>
@@ -71,6 +93,35 @@ function ProductRow({ product, onView, onEdit, onDelete }) {
         <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
           {product.category}
         </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">
+          {product.dosage_strength ? (
+            <span className="font-medium">{product.dosage_strength}</span>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">
+          {product.dosage_form ? (
+            <span className="font-medium">{product.dosage_form}</span>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">
+          {product.drug_classification ? (
+            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${classificationStyle.bgColor} ${classificationStyle.textColor}`}>
+              {classificationStyle.label}
+            </span>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm text-gray-900">
