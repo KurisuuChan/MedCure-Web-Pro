@@ -13,6 +13,7 @@ import {
   Info,
 } from "lucide-react";
 import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
+import { CSVImportService } from "../../services/domains/inventory/csvImportService";
 import { useAuth } from "../../hooks/useAuth";
 import notificationSystem from "../../services/NotificationSystem";
 import {
@@ -57,21 +58,23 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       let data = [];
 
       if (file.name.endsWith(".csv")) {
-        data = parseCSV(text);
+        // Use new CSV service for intelligent parsing
+        data = CSVImportService.parseCSV(text);
       } else if (file.name.endsWith(".json")) {
         data = JSON.parse(text);
       }
 
-      const { validData, validationErrors } = validateData(data);
+      // Use new validation service
+      const validationResult = CSVImportService.validateData(data);
 
-      if (validationErrors.length > 0) {
-        setErrors(validationErrors);
+      if (validationResult.validationErrors.length > 0) {
+        setErrors(validationResult.validationErrors);
         setStep("upload");
       } else {
         // Smart category detection
         const categoryAnalysis =
           await UnifiedCategoryService.detectAndProcessCategories(
-            validData,
+            validationResult.validData,
             user?.id || "system"
           );
 
@@ -81,10 +84,10 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
 
         if (categoryAnalysis.data.requiresApproval) {
           setPendingCategories(categoryAnalysis.data.newCategories);
-          setPreviewData(validData);
+          setPreviewData(validationResult.validData);
           setStep("categories");
         } else {
-          setPreviewData(validData);
+          setPreviewData(validationResult.validData);
           setStep("preview");
         }
       }
@@ -96,102 +99,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
     }
   };
 
-  const parseCSV = (text) => {
-    const lines = text.trim().split("\n");
-    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
-
-    return lines.slice(1).map((line) => {
-      const values = line.split(",").map((v) => v.trim().replace(/"/g, ""));
-      const row = {};
-      headers.forEach((header, index) => {
-        row[header] = values[index] || "";
-      });
-      return row;
-    });
-  };
-
-  const validateData = (data) => {
-    const validationErrors = [];
-    const validData = [];
-
-    const requiredFields = [
-      { name: "Product Name", required: true },
-      { name: "Category", required: true },
-      { name: "Price per Piece", required: true, type: "number", min: 0 },
-      { name: "Stock (Pieces)", required: true, type: "number", min: 0 },
-    ];
-
-    data.forEach((row, index) => {
-      const rowErrors = [];
-
-      requiredFields.forEach(({ name, required, type, min, max }) => {
-        const value = row[name];
-
-        if (type === "number" && value && value !== "") {
-          const numValue = parseFloat(value);
-          if (isNaN(numValue)) {
-            rowErrors.push(`${name} must be a valid number`);
-          } else if (numValue < min) {
-            rowErrors.push(`${name} must be at least ${min}`);
-          } else if (max && numValue > max) {
-            rowErrors.push(`${name} must be at most ${max}`);
-          }
-        } else if (required && (!value || value === "")) {
-          rowErrors.push(`${name} is required`);
-        }
-      });
-
-      // Enhanced expiry date validation with flexible parsing
-      if (row["Expiry Date"] && row["Expiry Date"] !== "") {
-        const dateResult = parseFlexibleDate(row["Expiry Date"]);
-        if (!dateResult.isValid) {
-          rowErrors.push(getDateFormatErrorMessage(row["Expiry Date"]));
-        } else if (dateResult.date && !isDateNotInPast(dateResult.date)) {
-          rowErrors.push("Expiry date cannot be in the past");
-        }
-      }
-
-      if (rowErrors.length > 0) {
-        validationErrors.push(`Row ${index + 2}: ${rowErrors.join(", ")}`);
-      } else {
-        const transformedRow = {
-          name: row["Product Name"].trim(),
-          description: row["Description"] ? row["Description"].trim() : "",
-          category: row["Category"].trim(),
-          brand: row["Brand"] ? row["Brand"].trim() : "",
-          cost_price: row["Cost Price"] ? parseFloat(row["Cost Price"]) : null,
-          base_price: row["Base Price"] ? parseFloat(row["Base Price"]) : null,
-          price_per_piece: parseFloat(row["Price per Piece"]),
-          margin_percentage: row["Margin Percentage"]
-            ? parseFloat(row["Margin Percentage"])
-            : 0,
-          pieces_per_sheet: row["Pieces per Sheet"]
-            ? parseInt(row["Pieces per Sheet"])
-            : 1,
-          sheets_per_box: row["Sheets per Box"]
-            ? parseInt(row["Sheets per Box"])
-            : 1,
-          stock_in_pieces: parseInt(row["Stock (Pieces)"]),
-          reorder_level: row["Reorder Level"]
-            ? parseInt(row["Reorder Level"])
-            : 10,
-          supplier: row["Supplier"] ? row["Supplier"].trim() : "",
-          expiry_date: row["Expiry Date"]
-            ? parseFlexibleDate(row["Expiry Date"]).isoString
-            : null,
-          batch_number: row["Batch Number"]
-            ? row["Batch Number"].trim()
-            : `BATCH-${Date.now()}-${index}`,
-          is_archived: false,
-          archived_at: null,
-          archived_by: null,
-        };
-        validData.push(transformedRow);
-      }
-    });
-
-    return { validData, validationErrors };
-  };
+  // CSV parsing and validation now handled by CSVImportService
 
   const handleCategoryApproval = async () => {
     try {
@@ -321,23 +229,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
   };
 
   const downloadTemplate = () => {
-    const template = [
-      "Product Name,Description,Category,Brand,Cost Price,Base Price,Price per Piece,Margin Percentage,Pieces per Sheet,Sheets per Box,Stock (Pieces),Reorder Level,Supplier,Expiry Date,Batch Number",
-      "Paracetamol 500mg,Pain relief tablet,Pain Relief,GenericPharm,2.00,2.25,2.50,25.00,10,10,1000,100,MediSupply,2025-12-31,BATCH-2024-001",
-      "Amoxicillin 250mg,Antibiotic capsule,Antibiotics,PharmaCorp,4.60,5.18,5.75,25.00,8,12,500,50,HealthDistrib,15/10/2024,BATCH-2024-002",
-      "Vitamin C 500mg,Immune support tablet,Vitamins,VitaPlus,1.50,1.88,2.50,66.67,20,5,2000,200,NutriCorp,30-06-2025,BATCH-2024-003",
-      "Aspirin 100mg,Blood thinner tablet,Pain Relief,CardioMed,1.80,2.03,2.25,25.00,15,8,800,80,PharmaLink,12/31/2025,BATCH-2024-004",
-    ].join("\n");
-
-    const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "smart_inventory_import_template.csv");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    CSVImportService.downloadTemplate('medcure_pharmacy_import_template.csv');
   };
 
   if (!isOpen) return null;

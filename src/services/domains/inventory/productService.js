@@ -5,8 +5,56 @@
 import { supabase } from "../../../config/supabase";
 import { logDebug, handleError } from "../../core/serviceUtils";
 import { UnifiedCategoryService } from "./unifiedCategoryService.js";
+import { EnhancedProductSearchService } from "./enhancedProductSearchService.js";
 
 export class ProductService {
+  // Enhanced search methods
+  static async searchProducts(searchTerm = '') {
+    try {
+      console.log('🔍 ProductService.searchProducts() called with term:', searchTerm);
+      const result = await EnhancedProductSearchService.searchProducts(searchTerm);
+      
+      if (result.success) {
+        console.log(`✅ Search returned ${result.data.length} products`);
+        return result.data;
+      } else {
+        console.warn('⚠️ Search failed, falling back to regular getProducts');
+        return await this.getProducts();
+      }
+    } catch (error) {
+      console.error('❌ Search error, falling back to regular getProducts:', error);
+      return await this.getProducts();
+    }
+  }
+
+  static async searchProductsFiltered(filters = {}) {
+    try {
+      console.log('🔍 ProductService.searchProductsFiltered() called with filters:', filters);
+      const result = await EnhancedProductSearchService.searchProductsFiltered(filters);
+      
+      if (result.success) {
+        console.log(`✅ Filtered search returned ${result.data.length} products`);
+        return result.data;
+      } else {
+        console.warn('⚠️ Filtered search failed, falling back to regular getProducts');
+        return await this.getProducts();
+      }
+    } catch (error) {
+      console.error('❌ Filtered search error, falling back to regular getProducts:', error);
+      return await this.getProducts();
+    }
+  }
+
+  static async getFilterOptions() {
+    try {
+      const result = await EnhancedProductSearchService.getFilterOptions();
+      return result.success ? result.data : { manufacturers: [], drugClassifications: [], categories: [] };
+    } catch (error) {
+      console.error('❌ Error getting filter options:', error);
+      return { manufacturers: [], drugClassifications: [], categories: [] };
+    }
+  }
+
   static async getProducts() {
     try {
       console.log("🔍 ProductService.getProducts() called");
@@ -21,9 +69,54 @@ export class ProductService {
 
       const { data, error } = await supabase
         .from("products")
-        .select("*")
-        .eq("is_active", true) // Only get active products
-        .order("name");
+        .select(`
+          id,
+          generic_name,
+          brand_name,
+          category,
+          description,
+          dosage_form,
+          dosage_strength,
+          manufacturer,
+          drug_classification,
+          pharmacologic_category,
+          storage_conditions,
+          registration_number,
+          price_per_piece,
+          pieces_per_sheet,
+          sheets_per_box,
+          stock_in_pieces,
+          reorder_level,
+          expiry_date,
+          supplier,
+          batch_number,
+          is_active,
+          created_at,
+          updated_at,
+          is_archived,
+          archived_at,
+          archived_by,
+          cost_price,
+          base_price,
+          margin_percentage,
+          category_id,
+          archive_reason,
+          import_metadata,
+          status,
+          expiry_status,
+          expiry_alert_days,
+          last_reorder_date,
+          reorder_frequency_days,
+          is_critical_medicine,
+          supplier_lead_time_days,
+          sku,
+          stock_quantity,
+          unit_type,
+          price,
+          supplier_id
+        `)
+        .eq("is_active", true)
+        .order("generic_name");
 
       if (error) {
         console.error("❌ ProductService.getProducts() Supabase error:", error);
@@ -52,7 +145,7 @@ export class ProductService {
         );
         lowStockItems.forEach((product) => {
           console.log(
-            `• ${product.name}: ${product.stock_in_pieces}/${product.reorder_level}`
+            `• ${product.generic_name || product.name}: ${product.stock_in_pieces}/${product.reorder_level}`
           );
         });
       }
@@ -79,7 +172,52 @@ export class ProductService {
 
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select(`
+          id,
+          generic_name,
+          brand_name,
+          category,
+          description,
+          dosage_form,
+          dosage_strength,
+          manufacturer,
+          drug_classification,
+          pharmacologic_category,
+          storage_conditions,
+          registration_number,
+          price_per_piece,
+          pieces_per_sheet,
+          sheets_per_box,
+          stock_in_pieces,
+          reorder_level,
+          expiry_date,
+          supplier,
+          batch_number,
+          is_active,
+          created_at,
+          updated_at,
+          is_archived,
+          archived_at,
+          archived_by,
+          cost_price,
+          base_price,
+          margin_percentage,
+          category_id,
+          archive_reason,
+          import_metadata,
+          status,
+          expiry_status,
+          expiry_alert_days,
+          last_reorder_date,
+          reorder_frequency_days,
+          is_critical_medicine,
+          supplier_lead_time_days,
+          sku,
+          stock_quantity,
+          unit_type,
+          price,
+          supplier_id
+        `)
         .eq("id", id)
         .single();
 
@@ -94,38 +232,84 @@ export class ProductService {
 
   static async updateProduct(id, updates) {
     try {
-      logDebug(`Updating product ${id}`, updates);
+      logDebug(`Updating product ${id} with enhanced medicine schema`, updates);
+
+      // Ensure proper data structure for updates
+      const updateData = {
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+
+      // Validate critical medicine fields if they're being updated
+      if (updateData.generic_name === "") {
+        throw new Error("Generic name cannot be empty for medicine products");
+      }
+      if (updateData.brand_name === "") {
+        throw new Error("Brand name cannot be empty for medicine products");
+      }
 
       const { data, error } = await supabase
         .from("products")
-        .update(updates)
+        .update(updateData)
         .eq("id", id)
         .select();
 
       if (error) throw error;
 
-      logDebug("Successfully updated product", data[0]);
+      logDebug("Successfully updated product with new medicine schema", data[0]);
       return data[0];
     } catch (error) {
+      console.error("❌ ProductService.updateProduct() failed:", error);
       handleError(error, "Update product");
+      throw error;
     }
   }
 
   static async addProduct(product) {
     try {
-      logDebug("Adding new product", product);
+      logDebug("Adding new product with enhanced medicine schema", product);
+
+      // Validate required medicine fields
+      if (!product.generic_name) {
+        throw new Error("Generic name is required for medicine products");
+      }
+      if (!product.brand_name) {
+        throw new Error("Brand name is required for medicine products");
+      }
+
+      // Ensure proper data structure for new schema
+      const productData = {
+        ...product,
+        // Ensure we're using the new column structure
+        generic_name: product.generic_name,
+        brand_name: product.brand_name,
+        dosage_form: product.dosage_form || null,
+        dosage_strength: product.dosage_strength || null,
+        manufacturer: product.manufacturer || null,
+        drug_classification: product.drug_classification || null,
+        pharmacologic_category: product.pharmacologic_category || null,
+        storage_conditions: product.storage_conditions || null,
+        registration_number: product.registration_number || null,
+        // Set defaults
+        is_active: product.is_active !== undefined ? product.is_active : true,
+        is_archived: product.is_archived !== undefined ? product.is_archived : false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
       const { data, error } = await supabase
         .from("products")
-        .insert([product])
+        .insert([productData])
         .select();
 
       if (error) throw error;
 
-      logDebug("Successfully added product", data[0]);
+      logDebug("Successfully added product with new medicine schema", data[0]);
       return data[0];
     } catch (error) {
+      console.error("❌ ProductService.addProduct() failed:", error);
       handleError(error, "Add product");
+      throw error;
     }
   }
 
@@ -351,9 +535,9 @@ export class ProductService {
         .from("products")
         .select("*")
         .or(
-          `name.ilike.%${query}%,brand.ilike.%${query}%,description.ilike.%${query}%`
+          `generic_name.ilike.%${query}%,brand_name.ilike.%${query}%,description.ilike.%${query}%`
         )
-        .order("name");
+        .order("generic_name");
 
       if (error) throw error;
 

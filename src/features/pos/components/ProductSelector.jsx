@@ -77,9 +77,14 @@ export default function ProductSelector({
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (product) =>
-          product.name.toLowerCase().includes(term) ||
-          product.brand.toLowerCase().includes(term) ||
-          product.category.toLowerCase().includes(term)
+          (product.name && product.name.toLowerCase().includes(term)) ||
+          (product.generic_name && product.generic_name.toLowerCase().includes(term)) ||
+          (product.brand && product.brand.toLowerCase().includes(term)) ||
+          (product.brand_name && product.brand_name.toLowerCase().includes(term)) ||
+          (product.manufacturer && product.manufacturer.toLowerCase().includes(term)) ||
+          (product.pharmacologic_category && product.pharmacologic_category.toLowerCase().includes(term)) ||
+          (product.registration_number && product.registration_number.toLowerCase().includes(term)) ||
+          (product.category && product.category.toLowerCase().includes(term))
       );
     }
 
@@ -95,7 +100,7 @@ export default function ProductSelector({
 
   const handleAddToCart = (product, quantity, selectedVariant) => {
     console.log("🔄 ProductSelector - Received:", {
-      product: product.name,
+      product: product.generic_name || product.name || 'Unknown Product',
       quantity,
       selectedVariant,
     });
@@ -224,36 +229,75 @@ export default function ProductSelector({
                     </div>
                   )}
 
-                  {/* Card Content - Flex Layout */}
+                  {/* Card Content - Standardized Medicine Display */}
                   <div className="p-3 flex-1 flex flex-col">
-                    {/* Product Name */}
-                    <div className="mb-2">
-                      <h4 className="font-bold text-gray-900 text-sm line-clamp-2 leading-tight">
-                        {product.name}
+                    {/* PRIMARY: Brand Name (Most Prominent) */}
+                    <div className="mb-1">
+                      <h4 className="font-bold text-gray-900 text-lg leading-tight line-clamp-1">
+                        {product.brand_name || product.brand || 'Unknown Brand'}
                       </h4>
                     </div>
 
-                    {/* Brand & Category */}
-                    <div className="mb-2 flex-shrink-0">
-                      <div className="space-y-1">
-                        <span className="block bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold truncate">
-                          {product.brand}
-                        </span>
-                        <span className="block bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium truncate">
-                          {product.category}
-                        </span>
-                      </div>
+                    {/* PRIMARY: Generic Name */}
+                    <div className="mb-2">
+                      <p className="text-gray-600 text-sm font-semibold line-clamp-1">
+                        {product.generic_name || product.name || 'Unknown Generic'}
+                      </p>
                     </div>
 
-                    {/* Price */}
+                    {/* PRIMARY: Dosage Information - Always Visible */}
+                    <div className="mb-3 flex-shrink-0">
+                      {(product.dosage_strength || product.dosage_form) ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                          {product.dosage_strength || 'N/A'} {product.dosage_form || ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          No dosage info
+                        </span>
+                      )}
+                    </div>
+
+                    {/* SECONDARY: Price (Prominent) */}
                     <div className="mb-3 flex-shrink-0">
                       <div className="bg-green-50 border border-green-200 rounded-lg p-2">
                         <div className="text-green-600 text-xs font-medium">Price per piece</div>
-                        <div className="font-bold text-green-700 text-base">
+                        <div className="font-bold text-green-700 text-lg">
                           {formatCurrency(product.price_per_piece)}
                         </div>
                       </div>
                     </div>
+
+                    {/* SECONDARY: Category */}
+                    <div className="mb-3 flex-shrink-0">
+                      <span className="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium truncate max-w-full">
+                        {product.category || 'No category'}
+                      </span>
+                    </div>
+
+                    {/* TERTIARY: Manufacturer (if available) */}
+                    {product.manufacturer && (
+                      <div className="mb-2 flex-shrink-0">
+                        <p className="text-gray-500 text-xs truncate">
+                          by {product.manufacturer}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* TERTIARY: Drug Classification Badge */}
+                    {product.drug_classification && (
+                      <div className="mb-3 flex-shrink-0">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          product.drug_classification === 'Prescription (Rx)' 
+                            ? 'bg-red-100 text-red-800'
+                            : product.drug_classification === 'Over-the-Counter (OTC)'
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {product.drug_classification}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Stock Info - Takes remaining space */}
                     <div className="flex-1 flex flex-col justify-end">
@@ -273,7 +317,7 @@ export default function ProductSelector({
                       </div>
                       
                       {cartQuantity > 0 && (
-                        <div className="text-center mb-1">
+                        <div className="text-center">
                           <span className="text-xs text-gray-500 font-medium">
                             {cartQuantity} in cart
                           </span>
@@ -281,7 +325,7 @@ export default function ProductSelector({
                       )}
                       
                       {isAvailable && isLowStock && (
-                        <div className="bg-amber-50 p-1 rounded text-center">
+                        <div className="bg-amber-50 p-1 rounded text-center mt-1">
                           <div className="flex items-center justify-center gap-1 text-amber-600">
                             <AlertTriangle className="h-3 w-3 flex-shrink-0" />
                             <span className="text-xs font-semibold">Low Stock!</span>

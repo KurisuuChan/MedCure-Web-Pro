@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Package, Calendar, Hash, AlertCircle } from 'lucide-react';
+import StandardizedProductDisplay from '../ui/StandardizedProductDisplay';
 
 // Simple fallback AddStockModal without external dependencies
 const AddStockModal = ({ isOpen, onClose, product, onSuccess }) => {
@@ -114,16 +115,18 @@ const AddStockModal = ({ isOpen, onClose, product, onSuccess }) => {
         {/* Content */}
         <div className="p-6">
           {product && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900">{product.name}</h3>
-              <p className="text-sm text-gray-600">
-                Current Stock: <span className="font-semibold">{product.stock_in_pieces || 0}</span> pieces
-              </p>
-              {product.reorder_level && (
-                <p className="text-sm text-gray-600">
-                  Reorder Level: <span className="font-semibold">{product.reorder_level}</span> pieces
-                </p>
-              )}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-600 mb-3 uppercase tracking-wider">
+                Product Summary
+              </h3>
+              <StandardizedProductDisplay 
+                product={product}
+                size="default"
+                showStock={true}
+                showPrice={false}
+                isReadOnly={true}
+                className="border border-blue-200 bg-blue-50"
+              />
             </div>
           )}
 

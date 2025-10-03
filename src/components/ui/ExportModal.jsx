@@ -105,7 +105,7 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
         const dataToExport = filteredProducts.map((product) => {
           const row = {};
 
-          if (exportOptions.columns.name) row["Product Name"] = product.name;
+          if (exportOptions.columns.name) row["Product Name"] = product.generic_name || product.name || 'Unknown Product';
           if (exportOptions.columns.category)
             row["Category"] = product.category;
           if (exportOptions.columns.brand) row["Brand"] = product.brand;

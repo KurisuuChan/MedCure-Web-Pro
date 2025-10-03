@@ -44,14 +44,26 @@ function ProductRow({ product, onView, onEdit, onDelete }) {
             </div>
           </div>
           <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900">
-              {product.name}
+            {/* PRIMARY: Brand Name (largest, most prominent) */}
+            <div className="text-sm font-bold text-gray-900">
+              {product.brand_name || product.brand || 'Unknown Brand'}
             </div>
-            <div className="text-sm text-gray-500 flex items-center space-x-2">
-              <span>{product.brand}</span>
-              <span>•</span>
-              <span>{product.category}</span>
+            {/* PRIMARY: Generic Name (below brand name) */}
+            <div className="text-sm font-medium text-gray-700">
+              {product.generic_name || product.name || 'Unknown Generic'}
             </div>
+            {/* PRIMARY: Dosage (if available) */}
+            {(product.dosage_strength || product.dosage_form) && (
+              <div className="text-xs text-blue-600 font-semibold">
+                {product.dosage_strength} {product.dosage_form}
+              </div>
+            )}
+            {/* TERTIARY: Manufacturer (smallest) */}
+            {product.manufacturer && (
+              <div className="text-xs text-gray-500">
+                by {product.manufacturer}
+              </div>
+            )}
           </div>
         </div>
       </td>

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { inventoryService } from "../../../services/domains/inventory/inventoryService";
+import { ProductService } from "../../../services/domains/inventory/productService";
 
 export function useInventory() {
   const [products, setProducts] = useState([]);
@@ -9,32 +10,67 @@ export function useInventory() {
     brand: "All Brands",
     stockStatus: "All",
     expiryStatus: "All",
+    drugClassification: "All",
+    manufacturer: "All"
   });
-  const [sortBy, setSortBy] = useState("name");
+  const [filterOptions, setFilterOptions] = useState({
+    manufacturers: [],
+    drugClassifications: [],
+    categories: []
+  });
+  const [sortBy, setSortBy] = useState("generic_name");
   const [sortOrder, setSortOrder] = useState("asc");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load products on mount
+  // Load products and filter options on mount
   useEffect(() => {
     loadProducts();
+    loadFilterOptions();
   }, []);
 
   const loadProducts = async () => {
     setIsLoading(true);
     try {
-      const data = await inventoryService.getProducts();
+      // Use enhanced search if search term exists, otherwise get all products
+      let data;
+      if (searchTerm || filters.drugClassification !== "All" || filters.manufacturer !== "All") {
+        data = await ProductService.searchProductsFiltered({
+          searchTerm: searchTerm,
+          drugClassification: filters.drugClassification === "All" ? "" : filters.drugClassification,
+          manufacturer: filters.manufacturer === "All" ? "" : filters.manufacturer,
+          category: filters.category === "All Categories" ? "" : filters.category,
+          limit: 200
+        });
+      } else {
+        data = await inventoryService.getProducts();
+      }
 
       // Debug logging for development
       if (import.meta.env.DEV) {
         console.log("🗃️ Loaded Products:", {
           count: data.length,
+          sampleProduct: data.length > 0 ? {
+            id: data[0].id,
+            generic_name: data[0].generic_name,
+            brand_name: data[0].brand_name,
+            dosage_form: data[0].dosage_form,
+            dosage_strength: data[0].dosage_strength,
+            manufacturer: data[0].manufacturer,
+            drug_classification: data[0].drug_classification
+          } : null,
+          hasNewSchema: data.length > 0 && data[0].generic_name !== undefined,
+          searchTerm: searchTerm,
+          filters: filters,
           firstFewProducts: data.slice(0, 3).map((p) => ({
             id: p.id,
-            name: p.name,
+            generic_name: p.generic_name,
+            brand_name: p.brand_name,
             stock: p.stock_in_pieces,
             price: p.price_per_piece,
             reorder_level: p.reorder_level,
             expiry_date: p.expiry_date,
+            manufacturer: p.manufacturer,
+            drug_classification: p.drug_classification,
             is_archived: p.is_archived,
           })),
         });
@@ -48,6 +84,25 @@ export function useInventory() {
     }
   };
 
+  const loadFilterOptions = async () => {
+    try {
+      const options = await ProductService.getFilterOptions();
+      setFilterOptions(options);
+      console.log('✅ Loaded filter options:', options);
+    } catch (error) {
+      console.error('❌ Error loading filter options:', error);
+    }
+  };
+
+  // Trigger search when search term or filters change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadProducts();
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, filters.drugClassification, filters.manufacturer, filters.category]);
+
   // Filter and search products
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
@@ -55,16 +110,25 @@ export function useInventory() {
     // Filter out archived products by default
     filtered = filtered.filter((product) => !product.is_archived);
 
-    // Apply search filter
+    // Apply search filter - enhanced for medicine schema
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (product) =>
+          // Primary medicine fields (new schema)
+          (product.generic_name && product.generic_name.toLowerCase().includes(term)) ||
+          (product.brand_name && product.brand_name.toLowerCase().includes(term)) ||
+          (product.manufacturer && product.manufacturer.toLowerCase().includes(term)) ||
+          (product.dosage_strength && product.dosage_strength.toLowerCase().includes(term)) ||
+          (product.pharmacologic_category && product.pharmacologic_category.toLowerCase().includes(term)) ||
+          (product.registration_number && product.registration_number.toLowerCase().includes(term)) ||
+          // Fallback to legacy fields for backward compatibility
           (product.name && product.name.toLowerCase().includes(term)) ||
           (product.brand && product.brand.toLowerCase().includes(term)) ||
+          // Standard fields
           (product.category && product.category.toLowerCase().includes(term)) ||
-          (product.description &&
-            product.description.toLowerCase().includes(term))
+          (product.description && product.description.toLowerCase().includes(term)) ||
+          (product.sku && product.sku.toLowerCase().includes(term))
       );
     }
 
@@ -75,9 +139,12 @@ export function useInventory() {
       );
     }
 
-    // Apply brand filter
+    // Apply brand filter - updated for new schema
     if (filters.brand !== "All Brands") {
-      filtered = filtered.filter((product) => product.brand === filters.brand);
+      filtered = filtered.filter((product) => 
+        (product.brand_name === filters.brand) || 
+        (product.brand === filters.brand) // Fallback for backward compatibility
+      );
     }
 
     // Apply stock status filter
@@ -117,6 +184,20 @@ export function useInventory() {
         }
         return true;
       });
+    }
+
+    // Apply drug classification filter (NEW)
+    if (filters.drugClassification !== "All") {
+      filtered = filtered.filter((product) => 
+        product.drug_classification === filters.drugClassification
+      );
+    }
+
+    // Apply manufacturer filter (NEW)  
+    if (filters.manufacturer !== "All") {
+      filtered = filtered.filter((product) =>
+        product.manufacturer === filters.manufacturer
+      );
     }
 
     // Apply sorting
@@ -309,6 +390,7 @@ export function useInventory() {
     products: filteredProducts,
     allProducts: products,
     analytics,
+    filterOptions,
 
     // State
     searchTerm,
@@ -323,6 +405,7 @@ export function useInventory() {
     deleteProduct,
     bulkUpdateStock,
     loadProducts,
+    loadFilterOptions,
     handleSearch,
     handleFilter,
     handleSort,

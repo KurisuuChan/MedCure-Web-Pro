@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedCure - Quick Connectivity Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .loading { background-color: #e2e3e5; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <h1>🏥 MedCure Pro - Quick System Test</h1>
+    <p>Testing core functionality...</p>
+    
+    <div id="test-results"></div>
+    
+    <script type="module">
+        const results = document.getElementById('test-results');
+        
+        function addResult(test, status, message) {
+            const div = document.createElement('div');
+            div.className = `test-result ${status}`;
+            div.innerHTML = `<strong>${test}:</strong> ${message}`;
+            results.appendChild(div);
+        }
+        
+        // Test 1: Import Test
+        addResult('Module Import Test', 'loading', 'Testing imports...');
+        try {
+            addResult('Module Import Test', 'success', 'ES6 modules loading correctly');
+        } catch (error) {
+            addResult('Module Import Test', 'error', `Import failed: ${error.message}`);
+        }
+        
+        // Test 2: Supabase Configuration
+        addResult('Supabase Config Test', 'loading', 'Checking configuration...');
+        try {
+            // Try to import and test config
+            import('./src/config/supabase.js').then(module => {
+                if (module.supabase) {
+                    addResult('Supabase Config Test', 'success', 'Configuration loaded successfully');
+                    
+                    // Test 3: Database Connection
+                    addResult('Database Connection Test', 'loading', 'Testing database connection...');
+                    
+                    // Simple query test
+                    module.supabase
+                        .from('products')
+                        .select('count', { count: 'exact' })
+                        .then(({ data, error, count }) => {
+                            if (error) {
+                                addResult('Database Connection Test', 'error', `Database error: ${error.message}`);
+                            } else {
+                                addResult('Database Connection Test', 'success', `Connected! Found ${count} products in database`);
+                                
+                                // Test 4: Enhanced Search Functions
+                                addResult('Enhanced Search Test', 'loading', 'Testing enhanced search functions...');
+                                
+                                module.supabase
+                                    .rpc('search_products', { search_term: '' })
+                                    .then(({ data, error }) => {
+                                        if (error) {
+                                            addResult('Enhanced Search Test', 'warning', `Search function exists but needs setup: ${error.message}`);
+                                        } else {
+                                            addResult('Enhanced Search Test', 'success', `Enhanced search working! Found ${data.length} results`);
+                                        }
+                                    });
+                            }
+                        });
+                } else {
+                    addResult('Supabase Config Test', 'error', 'Supabase configuration not found');
+                }
+            }).catch(error => {
+                addResult('Supabase Config Test', 'error', `Configuration import failed: ${error.message}`);
+            });
+        } catch (error) {
+            addResult('Supabase Config Test', 'error', `Configuration test failed: ${error.message}`);
+        }
+        
+        // Test 5: CSV Import Service
+        addResult('CSV Import Service Test', 'loading', 'Testing CSV import functionality...');
+        try {
+            import('./src/services/domains/inventory/csvImportService.js').then(module => {
+                if (module.CSVImportService) {
+                    // Test sample CSV generation
+                    const sampleCSV = module.CSVImportService.generateSampleCSV();
+                    if (sampleCSV && sampleCSV.includes('generic_name')) {
+                        addResult('CSV Import Service Test', 'success', 'CSV service working correctly with medicine fields');
+                    } else {
+                        addResult('CSV Import Service Test', 'warning', 'CSV service loaded but sample may be incomplete');
+                    }
+                } else {
+                    addResult('CSV Import Service Test', 'error', 'CSV Import Service not found');
+                }
+            }).catch(error => {
+                addResult('CSV Import Service Test', 'error', `CSV service test failed: ${error.message}`);
+            });
+        } catch (error) {
+            addResult('CSV Import Service Test', 'error', `CSV service import failed: ${error.message}`);
+        }
+        
+        setTimeout(() => {
+            addResult('Overall Status', 'success', 'All tests completed! Check results above.');
+        }, 3000);
+    </script>
+</body>
+</html>

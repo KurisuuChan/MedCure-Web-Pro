@@ -105,7 +105,7 @@ export default function VariantSelectionModal({
   const handleAddToCart = () => {
     if (!isOutOfStock && quantity > 0) {
       console.log("🎯 Variant Modal - Adding to cart:", {
-        product: product.name,
+        product: product.generic_name || product.name || 'Unknown Product',
         quantity: quantity,
         selectedVariant: selectedVariant,
         currentVariant: currentVariant,
@@ -136,7 +136,7 @@ export default function VariantSelectionModal({
                 <h2 className="text-lg font-semibold text-gray-900">
                   Select Product Unit
                 </h2>
-                <p className="text-sm text-gray-600">{product.name}</p>
+                <p className="text-sm text-gray-600">{product.generic_name || product.name || 'Unknown Product'}</p>
               </div>
             </div>
             <button
@@ -162,7 +162,7 @@ export default function VariantSelectionModal({
                     Product Unavailable
                   </h3>
                   <p className="text-red-600 text-sm mt-1">
-                    All stock for {product.name} is currently in your cart or
+                    All stock for {product.generic_name || product.name || 'this product'} is currently in your cart or
                     out of stock. Available: {availableStockInPieces} pieces
                   </p>
                 </div>
@@ -183,7 +183,7 @@ export default function VariantSelectionModal({
                   </h3>
                   <p className="text-yellow-600 text-sm mt-1">
                     Only {availableStockInPieces} pieces remaining for{" "}
-                    {product.name}
+                    {product.generic_name || product.name || 'Unknown Product'}
                   </p>
                 </div>
               </div>

@@ -16,6 +16,8 @@ import {
   X,
   DollarSign,
   BarChart3,
+  Pill,
+  Shield,
 } from "lucide-react";
 import EnhancedInventoryDashboard from "../features/inventory/components/EnhancedInventoryDashboard";
 import ArchiveReasonModal from "../components/modals/ArchiveReasonModal";
@@ -75,12 +77,15 @@ export default function InventoryPage() {
     products: filteredProducts,
     allProducts,
     analytics,
+    filterOptions,
     isLoading,
     addProduct,
     updateProduct,
     handleSearch,
     handleFilter,
     loadProducts,
+    filters,
+    searchTerm,
   } = useInventory();
 
   // Get current authenticated user
@@ -285,6 +290,9 @@ export default function InventoryPage() {
             onFilter={handleFilter}
             categories={getCategoriesToUse()} // Show all categories - "All Categories" is handled in ProductSearch component
             brands={productBrands.slice(1)} // Remove "All Brands"
+            filterOptions={filterOptions}
+            currentFilters={filters}
+            searchTerm={searchTerm}
           />
 
           {/* Product List/Grid Section */}
@@ -450,23 +458,34 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
   };
 
   const [formData, setFormData] = useState({
-    name: product?.name || "",
+    // Basic Information
+    generic_name: product?.generic_name || "",
+    brand_name: product?.brand_name || "",
     description: product?.description || "",
     category: product?.category || "Pain Relief",
-    brand: product?.brand || "",
+    manufacturer: product?.manufacturer || "",
+    
+    // Medicine-Specific Details
+    dosage_form: product?.dosage_form || "",
+    dosage_strength: product?.dosage_strength || "",
+    drug_classification: product?.drug_classification || "",
+    
+    // Pricing & Stock
     cost_price: product?.cost_price || "",
-    price_per_piece: product?.price_per_piece || "", // Single authoritative unit price
+    price_per_piece: product?.price_per_piece || "",
     margin_percentage: product?.margin_percentage || "",
     pieces_per_sheet: product?.pieces_per_sheet || 1,
     sheets_per_box: product?.sheets_per_box || 1,
     stock_in_pieces: product?.stock_in_pieces || "",
     reorder_level: product?.reorder_level || "",
+    
+    // Supply Chain
     supplier: product?.supplier || "",
     expiry_date: product?.expiry_date?.split("T")[0] || "",
     batch_number:
       product?.batch_number ||
       generateSmartBatchNumber(
-        product?.name || "",
+        product?.brand_name || product?.generic_name || "",
         product?.category || "Pain Relief",
         product?.expiry_date?.split("T")[0] || ""
       ),
@@ -488,16 +507,16 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
   useEffect(() => {
     if (
       !product &&
-      (formData.name || formData.category || formData.expiry_date)
+      (formData.brand_name || formData.generic_name || formData.category || formData.expiry_date)
     ) {
       const newBatch = generateSmartBatchNumber(
-        formData.name,
+        formData.brand_name || formData.generic_name,
         formData.category,
         formData.expiry_date
       );
       setFormData((prev) => ({ ...prev, batch_number: newBatch }));
     }
-  }, [formData.name, formData.category, formData.expiry_date, product]);
+  }, [formData.brand_name, formData.generic_name, formData.category, formData.expiry_date, product]);
 
   // Handle cost price change
   const handleCostPriceChange = (value) => {
@@ -574,7 +593,7 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
       batch_number:
         formData.batch_number ||
         generateSmartBatchNumber(
-          formData.name,
+          formData.brand_name || formData.generic_name,
           formData.category,
           formData.expiry_date
         ),
@@ -614,25 +633,41 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
           <div className="p-4 max-h-96 overflow-y-auto">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Basic Information Section */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <Package className="w-4 h-4 mr-2 text-gray-600" />
+              <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Package className="w-5 h-5 mr-2 text-blue-600" />
                   Basic Information
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Product Name *
+                      Generic Name *
                     </label>
                     <input
                       type="text"
                       required
-                      value={formData.name}
+                      value={formData.generic_name}
                       onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
+                        setFormData({ ...formData, generic_name: e.target.value })
                       }
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="Enter product name"
+                      placeholder="e.g., Paracetamol"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Brand Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.brand_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, brand_name: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="e.g., Tylenol"
                     />
                   </div>
 
@@ -660,6 +695,21 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                     </select>
                   </div>
 
+                  <div className="md:col-span-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Manufacturer
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.manufacturer}
+                      onChange={(e) =>
+                        setFormData({ ...formData, manufacturer: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="e.g., Johnson & Johnson"
+                    />
+                  </div>
+
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Description
@@ -677,23 +727,74 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                       placeholder="Enter product description"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Medicine-Specific Details Section */}
+              <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Pill className="w-5 h-5 mr-2 text-purple-600" />
+                  Medicine-Specific Details
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dosage Form
+                    </label>
+                    <select
+                      value={formData.dosage_form}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dosage_form: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 hover:border-gray-300"
+                    >
+                      <option value="">Select dosage form</option>
+                      <option value="Tablet">Tablet</option>
+                      <option value="Capsule">Capsule</option>
+                      <option value="Syrup">Syrup</option>
+                      <option value="Injection">Injection</option>
+                      <option value="Ointment">Ointment</option>
+                      <option value="Drops">Drops</option>
+                      <option value="Inhaler">Inhaler</option>
+                    </select>
+                  </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Brand
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dosage Strength
                     </label>
                     <input
                       type="text"
-                      value={formData.brand}
+                      value={formData.dosage_strength}
                       onChange={(e) =>
-                        setFormData({ ...formData, brand: e.target.value })
+                        setFormData({ ...formData, dosage_strength: e.target.value })
                       }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="Enter brand name"
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 hover:border-gray-300"
+                      placeholder="e.g., 500mg, 10ml"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Drug Classification
+                    </label>
+                    <select
+                      value={formData.drug_classification}
+                      onChange={(e) =>
+                        setFormData({ ...formData, drug_classification: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 hover:border-gray-300"
+                    >
+                      <option value="">Select classification</option>
+                      <option value="Prescription (Rx)">Prescription (Rx)</option>
+                      <option value="Over-the-Counter (OTC)">Over-the-Counter (OTC)</option>
+                      <option value="Controlled Substance">Controlled Substance</option>
+                    </select>
                   </div>
                 </div>
               </div>
+
+
 
               {/* Enhanced Pricing Section */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
@@ -851,7 +952,7 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         type="button"
                         onClick={() => {
                           const newBatch = generateSmartBatchNumber(
-                            formData.name,
+                            formData.brand_name || formData.generic_name,
                             formData.category,
                             formData.expiry_date
                           );
@@ -1120,61 +1221,156 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
 
           {/* Modal Body */}
           <div className="flex-1 overflow-y-auto p-6 modal-scrollbar">
-            <div className="space-y-8">
-              {/* Basic Information */}
-              <div className="bg-gray-50 rounded-xl p-6">
+            <div className="space-y-6">
+              {/* General Information */}
+              <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
                 <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
                   <Package className="h-6 w-6 mr-3 text-blue-600" />
-                  Basic Information
+                  General Information
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Product Name
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
-                      {product.name}
-                    </p>
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Generic Name
+                    </dt>
+                    <dd className="text-lg font-bold text-blue-900 mt-1">
+                      {product.generic_name || 'Not specified'}
+                    </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Brand
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
-                      {product.brand || "Not specified"}
-                    </p>
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Brand Name
+                    </dt>
+                    <dd className="text-lg font-bold text-blue-900 mt-1">
+                      {product.brand_name || 'Not specified'}
+                    </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
                       Category
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                    </dt>
+                    <dd className="text-lg font-semibold text-gray-900 mt-1">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                         {product.category}
                       </span>
-                    </p>
+                    </dd>
                   </div>
-                  <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-1">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
                       Status
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                    </dt>
+                    <dd className="text-lg font-semibold text-gray-900 mt-1">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                        Active
+                        {product.status || 'Active'}
                       </span>
-                    </p>
+                    </dd>
                   </div>
                   {product.description && (
                     <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-2">
-                      <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
                         Description
-                      </span>
-                      <p className="text-base text-gray-800 mt-2 leading-relaxed">
+                      </dt>
+                      <dd className="text-base text-gray-800 mt-2 leading-relaxed">
                         {product.description}
-                      </p>
+                      </dd>
                     </div>
                   )}
-                </div>
+                </dl>
+              </div>
+
+              {/* Pharmaceutical Details */}
+              <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
+                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                  <Pill className="h-6 w-6 mr-3 text-purple-600" />
+                  Pharmaceutical Details
+                </h4>
+                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Dosage Strength
+                    </dt>
+                    <dd className="text-lg font-bold text-purple-900 mt-1">
+                      {product.dosage_strength || 'Not specified'}
+                    </dd>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Dosage Form
+                    </dt>
+                    <dd className="text-lg font-bold text-purple-900 mt-1 capitalize">
+                      {product.dosage_form || 'Not specified'}
+                    </dd>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Drug Classification
+                    </dt>
+                    <dd className="text-lg font-semibold text-gray-900 mt-1">
+                      {product.drug_classification ? (
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          product.drug_classification === 'Prescription (Rx)' ? 'bg-red-100 text-red-800' :
+                          product.drug_classification === 'Over-the-Counter (OTC)' ? 'bg-green-100 text-green-800' :
+                          product.drug_classification === 'Controlled Substance' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {product.drug_classification}
+                        </span>
+                      ) : 'Not specified'}
+                    </dd>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Pharmacologic Category
+                    </dt>
+                    <dd className="text-lg font-bold text-purple-900 mt-1">
+                      {product.pharmacologic_category || 'Not specified'}
+                    </dd>
+                  </div>
+                  {product.storage_conditions && (
+                    <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-2">
+                      <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                        Storage Conditions
+                      </dt>
+                      <dd className="text-base text-gray-800 mt-2 leading-relaxed">
+                        {product.storage_conditions}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+
+              {/* Supply & Regulatory */}
+              <div className="bg-green-50 rounded-xl p-6 border border-green-200">
+                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                  <Shield className="h-6 w-6 mr-3 text-green-600" />
+                  Supply & Regulatory
+                </h4>
+                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Manufacturer
+                    </dt>
+                    <dd className="text-lg font-bold text-green-900 mt-1">
+                      {product.manufacturer || 'Not specified'}
+                    </dd>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Registration Number
+                    </dt>
+                    <dd className="text-lg font-mono text-green-900 mt-1">
+                      {product.registration_number || 'Not specified'}
+                    </dd>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 shadow-sm">
+                    <dt className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      Supplier
+                    </dt>
+                    <dd className="text-lg font-bold text-green-900 mt-1">
+                      {product.supplier || 'Not specified'}
+                    </dd>
+                  </div>
+                </dl>
               </div>
 
               {/* Stock Information */}

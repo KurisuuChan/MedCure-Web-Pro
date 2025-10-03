@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import StandardizedProductDisplay from "../components/ui/StandardizedProductDisplay";
 import {
   Box,
   Search,
@@ -505,7 +506,7 @@ const BatchManagementPage = () => {
               <option value="">All Products</option>
               {products.map(product => (
                 <option key={product.id} value={product.id}>
-                  {product.name}
+                  {product.brand_name || product.brand || 'Unknown Brand'} - {product.generic_name || product.name} {product.dosage_strength ? `(${product.dosage_strength})` : ''}
                 </option>
               ))}
             </select>
@@ -596,14 +597,24 @@ const BatchManagementPage = () => {
                     return (
                       <tr key={batch.batch_id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {batch.product_name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {batch.category_name}
-                            </div>
-                          </div>
+                          {/* Standardized Product Display - Compact Version */}
+                          <StandardizedProductDisplay
+                            product={{
+                              brand_name: batch.product_brand_name || batch.product_name,
+                              generic_name: batch.product_generic_name || batch.product_name,
+                              dosage_strength: batch.product_dosage_strength,
+                              dosage_form: batch.product_dosage_form,
+                              category: batch.category_name,
+                              manufacturer: batch.product_manufacturer,
+                              drug_classification: batch.product_drug_classification
+                            }}
+                            size="compact"
+                            showPrice={false}
+                            showCategory={true}
+                            showManufacturer={true}
+                            showClassification={false}
+                            className="max-w-xs"
+                          />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>

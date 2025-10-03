@@ -7,6 +7,10 @@ import {
   Eye,
   Trash2,
   Archive,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Pill,
 } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatting";
 import { formatDate } from "../../../utils/dateTime";
@@ -38,6 +42,45 @@ export default function ProductCard({
     return formatDate(expiryDate);
   };
 
+  const getDrugClassificationBadge = (classification) => {
+    switch (classification) {
+      case 'Prescription (Rx)':
+        return {
+          icon: ShieldAlert,
+          bgColor: 'bg-red-100',
+          textColor: 'text-red-800',
+          borderColor: 'border-red-200',
+          label: 'Rx'
+        };
+      case 'Over-the-Counter (OTC)':
+        return {
+          icon: ShieldCheck,
+          bgColor: 'bg-green-100',
+          textColor: 'text-green-800',
+          borderColor: 'border-green-200',
+          label: 'OTC'
+        };
+      case 'Controlled Substance':
+        return {
+          icon: Shield,
+          bgColor: 'bg-purple-100',
+          textColor: 'text-purple-800',
+          borderColor: 'border-purple-200',
+          label: 'CS'
+        };
+      default:
+        return {
+          icon: Pill,
+          bgColor: 'bg-gray-100',
+          textColor: 'text-gray-800',
+          borderColor: 'border-gray-200',
+          label: 'N/A'
+        };
+    }
+  };
+
+  const classificationBadge = getDrugClassificationBadge(product.drug_classification);
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
       {/* Header */}
@@ -51,15 +94,52 @@ export default function ProductCard({
                   Archived
                 </span>
               )}
-            </div>
-            <h3 className="font-semibold text-gray-900 text-lg leading-tight truncate">
-              {product.name}
-            </h3>
-            <div className="mt-2 flex items-center space-x-3">
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {product.brand}
+              {/* Drug Classification Badge */}
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold border ${classificationBadge.bgColor} ${classificationBadge.textColor} ${classificationBadge.borderColor}`}>
+                <classificationBadge.icon className="h-3 w-3 mr-1" />
+                {classificationBadge.label}
               </span>
-              <span className="text-sm text-gray-600">{product.category}</span>
+            </div>
+            
+            {/* Brand Name - Large and Prominent */}
+            <h3 className="font-bold text-gray-900 text-xl leading-tight truncate mb-1">
+              {product.brand_name || product.brand || 'Unknown Brand'}
+            </h3>
+            
+            {/* Generic Name - Below Brand Name */}
+            <p className="text-gray-600 font-medium text-base mb-2 truncate">
+              {product.generic_name || product.name || 'Unknown Generic'}
+            </p>
+            
+            {/* Dosage Strength - Subtle */}
+            {product.dosage_strength && (
+              <div className="mb-1">
+                <span className="text-xs text-gray-500">
+                  {product.dosage_strength}
+                </span>
+              </div>
+            )}
+            
+            {/* Dosage Form - Highlighted */}
+            {product.dosage_form && (
+              <div className="flex items-center space-x-1 mb-2">
+                <Pill className="h-3 w-3 text-purple-600" />
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  {product.dosage_form}
+                </span>
+              </div>
+            )}
+
+            {/* Category and Manufacturer */}
+            <div className="flex items-center space-x-3 text-sm">
+              <span className="text-gray-500">Category:</span>
+              <span className="font-medium text-gray-700">{product.category}</span>
+              {product.manufacturer && (
+                <>
+                  <span className="text-gray-300">•</span>
+                  <span className="text-gray-500">by {product.manufacturer}</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -134,16 +214,30 @@ export default function ProductCard({
 
         {/* Details */}
         <div className="space-y-2 pt-2 border-t border-gray-100">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Category:</span>
-            <span className="text-gray-900 font-medium">
-              {product.category}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Brand:</span>
-            <span className="text-gray-900 font-medium">{product.brand}</span>
-          </div>
+          {product.pharmacologic_category && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Drug Category:</span>
+              <span className="text-gray-900 font-medium">
+                {product.pharmacologic_category}
+              </span>
+            </div>
+          )}
+          {product.registration_number && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Reg. Number:</span>
+              <span className="text-gray-900 font-mono text-xs">
+                {product.registration_number}
+              </span>
+            </div>
+          )}
+          {product.storage_conditions && (
+            <div className="text-sm">
+              <span className="text-gray-500">Storage:</span>
+              <span className="text-gray-900 ml-1 text-xs">
+                {product.storage_conditions}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">Product ID:</span>
             <span className="text-gray-900 font-mono text-xs">

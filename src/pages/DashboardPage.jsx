@@ -29,6 +29,7 @@ import { DashboardService } from "../services/domains/analytics/dashboardService
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import SalesChart from "../components/charts/SalesChart";
+import StandardizedProductDisplay from "../components/ui/StandardizedProductDisplay";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -57,10 +58,6 @@ ChartJS.register(
   Legend,
   Filler
 );
-
-// Memoized components to prevent unnecessary re-renders
-const MemoizedCleanMetricCard = React.memo(CleanMetricCard);
-const MemoizedCleanActionCard = React.memo(CleanActionCard);
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -582,36 +579,42 @@ export default function DashboardPage() {
                     key={product.id || index} 
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate('/inventory', { state: { searchQuery: product.name } });
+                      navigate('/inventory', { state: { searchQuery: product.name || product.brand_name } });
                     }}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-purple-50 hover:border-purple-200 border border-transparent transition-all cursor-pointer active:scale-[0.98]"
+                    className="cursor-pointer active:scale-[0.98] transition-transform"
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.stopPropagation();
-                        navigate('/inventory', { state: { searchQuery: product.name } });
+                        navigate('/inventory', { state: { searchQuery: product.name || product.brand_name } });
                       }
                     }}
                   >
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 mb-2">
                       <div className="flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full text-xs font-bold">
-                        {index + 1}
+                        #{index + 1}
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{product.name}</p>
-                        <p className="text-xs text-gray-500">{product.sales} units sold</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">{formatCurrency(product.revenue)}</p>
-                      <div className="w-16 h-1 bg-gray-200 rounded-full mt-1">
-                        <div 
-                          className="h-1 bg-purple-500 rounded-full" 
-                          style={{ width: `${Math.min((product.sales / (dashboardData.topProducts[0]?.sales || 1)) * 100, 100)}%` }}
-                        ></div>
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">{product.sales} units sold</span> • 
+                        <span className="font-semibold text-purple-600 ml-1">{formatCurrency(product.revenue)}</span>
                       </div>
                     </div>
+                    <StandardizedProductDisplay 
+                      product={product}
+                      size="compact"
+                      showPrice={false}
+                      showStock={false}
+                      className="hover:bg-purple-50 hover:border-purple-200 border border-transparent"
+                      customActions={
+                        <div className="w-16 h-1 bg-gray-200 rounded-full">
+                          <div 
+                            className="h-1 bg-purple-500 rounded-full" 
+                            style={{ width: `${Math.min((product.sales / (dashboardData.topProducts[0]?.sales || 1)) * 100, 100)}%` }}
+                          ></div>
+                        </div>
+                      }
+                    />
                   </div>
                 ))
               ) : (
@@ -654,38 +657,44 @@ export default function DashboardPage() {
                       key={product.id || index} 
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate('/inventory', { state: { searchQuery: product.name } });
+                        navigate('/inventory', { state: { searchQuery: product.name || product.brand_name } });
                       }}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-orange-50 hover:border-orange-200 border border-transparent transition-all cursor-pointer active:scale-[0.98]"
+                      className="cursor-pointer active:scale-[0.98] transition-transform"
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.stopPropagation();
-                          navigate('/inventory', { state: { searchQuery: product.name } });
+                          navigate('/inventory', { state: { searchQuery: product.name || product.brand_name } });
                         }
                       }}
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className={`p-1.5 rounded-full ${
-                          product.status === 'critical' ? 'bg-red-100' :
-                          product.status === 'warning' ? 'bg-orange-100' : 'bg-yellow-100'
-                        }`}>
-                          <AlertTriangle className={`h-3 w-3 ${
-                            product.status === 'critical' ? 'text-red-600' :
-                            product.status === 'warning' ? 'text-orange-600' : 'text-yellow-600'
-                          }`} />
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <div className={`p-1.5 rounded-full ${
+                            product.status === 'critical' ? 'bg-red-100' :
+                            product.status === 'warning' ? 'bg-orange-100' : 'bg-yellow-100'
+                          }`}>
+                            <AlertTriangle className={`h-3 w-3 ${
+                              product.status === 'critical' ? 'text-red-600' :
+                              product.status === 'warning' ? 'text-orange-600' : 'text-yellow-600'
+                            }`} />
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            Expires: {new Date(product.expiry_date).toLocaleDateString()}
+                          </span>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm">{product.name}</p>
-                          <p className="text-xs text-gray-500">Expires: {new Date(product.expiry_date).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColors[product.status]}`}>
                           {product.days_until_expiry} days
                         </span>
                       </div>
+                      <StandardizedProductDisplay 
+                        product={product}
+                        size="compact"
+                        showPrice={false}
+                        showStock={false}
+                        className="hover:bg-orange-50 hover:border-orange-200 border border-transparent"
+                      />
                     </div>
                   );
                 })
@@ -928,3 +937,7 @@ function CleanActionCard({
     </a>
   );
 }
+
+// Memoized components to prevent unnecessary re-renders
+const MemoizedCleanMetricCard = React.memo(CleanMetricCard);
+const MemoizedCleanActionCard = React.memo(CleanActionCard);

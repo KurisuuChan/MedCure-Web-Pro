@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { Search, Filter, X, SlidersHorizontal } from "lucide-react";
+import { Search, Filter, X, SlidersHorizontal, Building2, Shield } from "lucide-react";
 
 export default function ProductSearch({
   onSearch,
   onFilter,
   categories = [],
   brands = [],
+  filterOptions = { manufacturers: [], drugClassifications: [], categories: [] },
+  currentFilters = {},
+  searchTerm: initialSearchTerm = "",
   className = "",
 }) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [filters, setFilters] = useState({
     category: "All Categories",
     brand: "All Brands",
     stockStatus: "All",
     expiryStatus: "All",
+    drugClassification: "All",
+    manufacturer: "All",
+    ...currentFilters
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
@@ -39,17 +45,23 @@ export default function ProductSearch({
   };
 
   const clearFilters = () => {
-    setFilters({
+    const clearedFilters = {
       category: "All Categories",
       brand: "All Brands",
       stockStatus: "All",
       expiryStatus: "All",
-    });
+      drugClassification: "All",
+      manufacturer: "All",
+    };
+    setFilters(clearedFilters);
   };
 
   const hasActiveFilters = Object.values(filters).some(
     (value) =>
-      value !== "All Categories" && value !== "All Brands" && value !== "All"
+      value !== "All Categories" && 
+      value !== "All Brands" && 
+      value !== "All" &&
+      value !== ""
   );
 
   return (
@@ -62,7 +74,7 @@ export default function ProductSearch({
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search products by name, category, or brand..."
+            placeholder="Search by brand, generic name, manufacturer, category, registration number..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -174,6 +186,50 @@ export default function ProductSearch({
                 <option value="expiring_soon">Expiring Soon</option>
                 <option value="expired">Expired</option>
                 <option value="good">Good Condition</option>
+              </select>
+            </div>
+
+            {/* Drug Classification Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-blue-600" />
+                Drug Classification
+              </label>
+              <select
+                value={filters.drugClassification}
+                onChange={(e) =>
+                  handleFilterChange("drugClassification", e.target.value)
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="All">All Classifications</option>
+                {filterOptions.drugClassifications.map((classification) => (
+                  <option key={classification} value={classification}>
+                    {classification}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Manufacturer Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-green-600" />
+                Manufacturer
+              </label>
+              <select
+                value={filters.manufacturer}
+                onChange={(e) =>
+                  handleFilterChange("manufacturer", e.target.value)
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="All">All Manufacturers</option>
+                {filterOptions.manufacturers.map((manufacturer) => (
+                  <option key={manufacturer} value={manufacturer}>
+                    {manufacturer}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

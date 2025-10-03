@@ -487,13 +487,13 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                 <tbody>
                   {receiptData.items.map((item) => (
                     <tr
-                      key={`${item.id}-${item.name}`}
+                      key={`${item.id}-${item.generic_name || item.name || 'unknown'}`}
                       className="border-b border-gray-100"
                     >
                       <td className="py-2">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {item.name}
+                            {item.generic_name || item.name || 'Unknown Product'}
                           </p>
                           {showDetails && (
                             <p className="text-xs text-gray-500">

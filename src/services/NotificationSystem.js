@@ -325,7 +325,7 @@ class NotificationSystem {
 
       const { data: products, error } = await supabase
         .from('products')
-        .select('id, name, stock_in_pieces, reorder_level')
+        .select('id, brand_name, generic_name, stock_in_pieces, reorder_level')
         .gt('stock_in_pieces', 0);
 
       if (error) throw error;
@@ -338,14 +338,14 @@ class NotificationSystem {
         if (stock <= criticalLevel) {
           this.addNotification('CRITICAL_STOCK', {
             productId: product.id,
-            productName: product.name,
+            productName: product.brand_name || product.generic_name || 'Unknown Product',
             currentStock: stock,
             criticalLevel
           });
         } else if (stock <= reorderLevel) {
           this.addNotification('LOW_STOCK', {
             productId: product.id,
-            productName: product.name,
+            productName: product.brand_name || product.generic_name || 'Unknown Product',
             currentStock: stock,
             reorderLevel
           });
@@ -370,7 +370,7 @@ class NotificationSystem {
 
       const { data: products, error } = await supabase
         .from('products')
-        .select('id, name, expiry_date')
+        .select('id, brand_name, generic_name, expiry_date')
         .not('expiry_date', 'is', null)
         .gte('expiry_date', today.toISOString().split('T')[0])
         .lte('expiry_date', warningDate.toISOString().split('T')[0]);
@@ -384,14 +384,14 @@ class NotificationSystem {
         if (daysUntilExpiry <= 7) {
           this.addNotification('EXPIRY_URGENT', {
             productId: product.id,
-            productName: product.name,
+            productName: product.brand_name || product.generic_name || 'Unknown Product',
             expiryDate: product.expiry_date,
             daysUntilExpiry
           });
         } else if (daysUntilExpiry <= 30) {
           this.addNotification('EXPIRY_WARNING', {
             productId: product.id,
-            productName: product.name,
+            productName: product.brand_name || product.generic_name || 'Unknown Product',
             expiryDate: product.expiry_date,
             daysUntilExpiry
           });

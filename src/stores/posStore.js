@@ -24,7 +24,7 @@ export const usePOSStore = create(
       // Cart actions
       addToCart: (product, quantity, unit) => {
         console.log("🛒 POS Store - addToCart called with:", {
-          productName: product.name,
+          productName: product.generic_name || product.name,
           quantity,
           unit,
           productData: {
@@ -55,7 +55,7 @@ export const usePOSStore = create(
             availableStock - currentCartQuantity
           );
           console.warn("⚠️ Insufficient stock:", {
-            product: product.name,
+            product: product.generic_name || product.name,
             requested: quantityInPieces,
             currentInCart: currentCartQuantity,
             totalRequested: totalRequestedQuantity,
@@ -116,7 +116,7 @@ export const usePOSStore = create(
           const newItem = {
             id: `${product.id}-${unit}`, // Unique ID for cart item
             productId: product.id, // Keep original product ID
-            name: product.name,
+            name: product.generic_name || product.name,
             quantity: numQuantity,
             quantityInPieces,
             unit,
