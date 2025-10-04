@@ -515,7 +515,8 @@ export class UnifiedCategoryService {
         .select(
           `
           id,
-          name,
+          generic_name,
+          brand_name,
           stock_in_pieces,
           price_per_piece,
           cost_price,

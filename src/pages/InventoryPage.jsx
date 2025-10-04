@@ -417,44 +417,18 @@ export default function InventoryPage() {
 
 // Product Modal Component
 function ProductModal({ title, product, categories, onClose, onSave }) {
-  // Smart Batch Number Generation Function
+  // Smart Batch Number Generation Function - BTMMDDYY-X Format
   const generateSmartBatchNumber = (productName, category, expiryDate) => {
     const now = new Date();
-    const year = now.getFullYear().toString().slice(-2); // Last 2 digits of year
-    const month = (now.getMonth() + 1).toString().padStart(2, "0");
-    const day = now.getDate().toString().padStart(2, "0");
-
-    // Generate category prefix (2 chars)
-    const categoryPrefix = category
-      ? category.substring(0, 2).toUpperCase()
-      : "GN";
-
-    // Generate product prefix (2 chars) from first letters of words
-    let productPrefix = "PR";
-    if (productName) {
-      const words = productName.split(" ").filter((word) => word.length > 0);
-      if (words.length >= 2) {
-        productPrefix = (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
-      } else if (words.length === 1) {
-        productPrefix = words[0].substring(0, 2).toUpperCase();
-      }
-    }
-
-    // Random 3-digit sequence for uniqueness
-    const randomSequence = Math.floor(Math.random() * 900) + 100;
-
-    // Generate expiry-aware batch (if expiry is far out, mark as extended shelf life)
-    let shelfLifeIndicator = "";
-    if (expiryDate) {
-      const expiry = new Date(expiryDate);
-      const monthsUntilExpiry = (expiry - now) / (1000 * 60 * 60 * 24 * 30);
-      shelfLifeIndicator = monthsUntilExpiry > 24 ? "X" : "S"; // X for extended, S for standard
-    } else {
-      shelfLifeIndicator = "S";
-    }
-
-    // Format: CC-PP-YYMMDD-SSS-L (Category-Product-Date-Sequence-ShelfLife)
-    return `${categoryPrefix}${productPrefix}${year}${month}${day}${randomSequence}${shelfLifeIndicator}`;
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const year = String(now.getFullYear()).slice(-2);
+    
+    // Generate a random incremental number for uniqueness (1-999)
+    const incrementalNumber = Math.floor(Math.random() * 999) + 1;
+    
+    // Format: BTMMDDYY-X (BT + Month + Day + Year + - + Incremental Number)
+    return `BT${month}${day}${year}-${incrementalNumber}`;
   };
 
   const [formData, setFormData] = useState({

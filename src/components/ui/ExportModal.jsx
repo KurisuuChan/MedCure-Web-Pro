@@ -162,11 +162,42 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
   const downloadCSV = (data, filename = "export") => {
     if (data.length === 0) return;
 
-    const headers = Object.keys(data[0]);
+    // Ensure batch_number is included in exports for inventory data
+    let processedData = data;
+    if (filename.includes('inventory') || filename.includes('medicine')) {
+      processedData = data.map(item => ({
+        ...item,
+        batch_number: item.batch_number || 'N/A'
+      }));
+    }
+
+    // Define proper column order for medicine/inventory exports
+    let orderedHeaders;
+    if (filename.includes('inventory') || filename.includes('medicine')) {
+      orderedHeaders = [
+        'generic_name', 'brand_name', 'category', 'supplier_name', 'description',
+        'dosage_strength', 'dosage_form', 'drug_classification',
+        'price_per_piece', 'pieces_per_sheet', 'sheets_per_box', 'stock_in_pieces', 
+        'reorder_level', 'cost_price', 'base_price',
+        'expiry_date', 'batch_number', 'is_active'
+      ].filter(header => processedData[0].hasOwnProperty(header));
+    } else {
+      orderedHeaders = Object.keys(processedData[0]);
+    }
+
     const csvContent = [
-      headers.join(","),
-      ...data.map((row) =>
-        headers.map((header) => `"${row[header] || ""}"`).join(",")
+      orderedHeaders.join(","),
+      ...processedData.map((row) =>
+        orderedHeaders.map((header) => {
+          let value = row[header] || "";
+          // Handle values that contain commas, quotes, or newlines
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+            value = `"${value.replace(/"/g, '""')}"`;
+          } else {
+            value = `"${value}"`;
+          }
+          return value;
+        }).join(",")
       ),
     ].join("\n");
 

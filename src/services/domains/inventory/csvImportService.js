@@ -30,7 +30,6 @@ export class CSVImportService {
     price_per_piece: ['price_per_piece', 'Price per Piece', 'price'],
     cost_price: ['cost_price', 'Cost Price'],
     base_price: ['base_price', 'Base Price'],
-    margin_percentage: ['margin_percentage', 'Margin Percentage', 'margin'],
     
     // Package structure
     pieces_per_sheet: ['pieces_per_sheet', 'Pieces per Sheet'],
@@ -69,7 +68,6 @@ export class CSVImportService {
     { name: 'reorder_level', required: false, type: 'number', min: 0 },
     { name: 'cost_price', required: false, type: 'number', min: 0 },
     { name: 'base_price', required: false, type: 'number', min: 0 },
-    { name: 'margin_percentage', required: false, type: 'number', min: 0 },
     { name: 'stock_in_pieces', required: false, type: 'number', min: 0 },
   ];
 
@@ -87,13 +85,45 @@ export class CSVImportService {
         throw new Error('CSV must have at least a header row and one data row');
       }
 
-      const rawHeaders = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      // Improved CSV parsing to handle quoted values properly
+      const parseCSVLine = (line) => {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              // Handle escaped quotes
+              current += '"';
+              i++; // Skip next quote
+            } else {
+              // Toggle quote state
+              inQuotes = !inQuotes;
+            }
+          } else if (char === ',' && !inQuotes) {
+            // End of field
+            values.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        
+        // Add last field
+        values.push(current.trim());
+        return values;
+      };
+
+      const rawHeaders = parseCSVLine(lines[0]);
       const normalizedHeaders = this.normalizeHeaders(rawHeaders);
       
       logDebug('Normalized headers:', normalizedHeaders);
 
       const data = lines.slice(1).map((line, index) => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        const values = parseCSVLine(line);
         const row = {};
         
         rawHeaders.forEach((header, i) => {
@@ -214,6 +244,23 @@ export class CSVImportService {
   }
 
   /**
+   * Generate batch number in BTMMDDYY-X format
+   * @param {number} index - Row index for incremental numbering
+   * @returns {string} Batch number in BTMMDDYY-X format
+   */
+  static generateBatchNumber(index) {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const year = String(now.getFullYear()).slice(-2);
+    
+    // Add incremental number starting from 1
+    const incrementalNumber = index + 1;
+    
+    return `BT${month}${day}${year}-${incrementalNumber}`;
+  }
+
+  /**
    * Transform row data for database insertion
    * @param {Object} row - Raw row data
    * @param {number} index - Row index for generating batch numbers
@@ -236,7 +283,6 @@ export class CSVImportService {
       price_per_piece: parseFloat(row.price_per_piece),
       cost_price: row.cost_price ? parseFloat(row.cost_price) : null,
       base_price: row.base_price ? parseFloat(row.base_price) : null,
-      margin_percentage: row.margin_percentage ? parseFloat(row.margin_percentage) : 0,
       
       // Package structure
       pieces_per_sheet: row.pieces_per_sheet ? parseInt(row.pieces_per_sheet) : 1,
@@ -249,7 +295,7 @@ export class CSVImportService {
       
       // Date fields
       expiry_date: row.expiry_date ? parseFlexibleDate(row.expiry_date).isoString : null,
-      batch_number: row.batch_number ? row.batch_number.trim() : `BATCH-${Date.now()}-${index}`,
+      batch_number: row.batch_number ? row.batch_number.trim() : this.generateBatchNumber(index),
       
       // Status fields
       is_active: true,
@@ -271,7 +317,7 @@ export class CSVImportService {
       'generic_name', 'brand_name', 'category_name', 'supplier_name', 'description',
       'dosage_strength', 'dosage_form', 'drug_classification',
       'price_per_piece', 'pieces_per_sheet', 'sheets_per_box', 'stock_in_pieces', 'reorder_level',
-      'cost_price', 'base_price', 'margin_percentage', 'expiry_date', 'batch_number'
+      'cost_price', 'base_price', 'expiry_date', 'batch_number'
     ];
 
     const sampleRows = [
@@ -280,21 +326,21 @@ export class CSVImportService {
         'Analgesic and antipyretic for pain and fever relief',
         '500mg', 'Tablet', 'Over-the-Counter (OTC)',
         '2.50', '10', '10', '1000', '100',
-        '2.00', '2.25', '25.00', '2025-12-31', 'BATCH-2024-001'
+        '2.00', '2.25', '2025-12-31', 'BT100425-1'
       ],
       [
         'Amoxicillin', 'Amoxil', 'Antibiotics', 'PharmaCorp Distributors',
         'Broad-spectrum antibiotic for bacterial infections',
         '500mg', 'Capsule', 'Prescription (Rx)',
         '5.75', '10', '10', '500', '50',
-        '4.60', '5.18', '25.00', '2025-10-15', 'BATCH-2024-002'
+        '4.60', '5.18', '2025-10-15', 'BT100425-2'
       ],
       [
         'Ascorbic Acid', 'Cecon', 'Vitamins & Supplements', 'VitaCorp International',
         'Essential vitamin for immune system support',
         '500mg', 'Tablet', 'Over-the-Counter (OTC)',
         '1.25', '20', '10', '2000', '200',
-        '1.00', '1.13', '25.00', '2025-06-30', 'BATCH-2024-003'
+        '1.00', '1.13', '2025-06-30', 'BT100425-3'
       ]
     ];
 

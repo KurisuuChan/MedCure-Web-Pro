@@ -53,7 +53,9 @@ export function usePOS() {
     (product, quantity = 1, unit = "piece") => {
       try {
         console.log("🎪 usePOS Hook - Received:", {
-          productName: product.name,
+          productName: product.generic_name || product.brand_name || 'Unknown Medicine',
+          brandName: product.brand_name,
+          genericName: product.generic_name,
           quantity,
           unit,
           typeof_quantity: typeof quantity,
@@ -221,7 +223,8 @@ export function usePOS() {
           // Override items with cart data for receipt display
           sale_items: cartItems.map((item) => ({
             id: item.productId,
-            name: item.name,
+            generic_name: item.generic_name || 'Unknown Medicine',
+            brand_name: item.brand_name || 'Generic',
             unit: item.unit,
             quantity: item.quantity,
             quantityInPieces: item.quantityInPieces,

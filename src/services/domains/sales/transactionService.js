@@ -161,14 +161,10 @@ class UnifiedTransactionService {
           total_amount: saleData.total || saleData.total_amount,
           payment_method: saleData.paymentMethod || saleData.payment_method,
           customer_id: customerId, // Include the customer_id
-          customer_name:
-            saleData.customer?.name || saleData.customer_name || null,
-          customer_phone:
-            saleData.customer?.phone || saleData.customer_phone || null,
-          customer_email:
-            saleData.customer?.email || saleData.customer_email || null,
-          customer_address:
-            saleData.customer?.address || saleData.customer_address || null,
+          customer_name: saleData.customer_name || null,
+          customer_phone: saleData.customer_phone || null,
+          customer_email: saleData.customer_email || null,
+          customer_address: saleData.customer_address || null,
           customer_type: saleData.customer_type || 'guest',
           notes: saleData.notes || null,
           discount_type: saleData.discount_type || "none",
@@ -367,7 +363,7 @@ class UnifiedTransactionService {
           restoredProducts.push({
             product_id: item.product_id,
             quantity_restored: item.quantity,
-            product_name: productCheck.name,
+            product_name: productCheck.generic_name || productCheck.brand_name || 'Unknown Product',
             previous_stock: productCheck.stock_in_pieces,
             new_stock: newStockLevel,
             verified: updatedProduct
@@ -638,7 +634,7 @@ class UnifiedTransactionService {
 
           stockMovements.push({
             product_id: adjustment.product_id,
-            product_name: currentStock.name,
+            product_name: currentStock.generic_name || currentStock.brand_name || 'Unknown Product',
             change: adjustment.change,
             stock_before: stockBefore,
             stock_after: stockAfter,
@@ -1256,7 +1252,7 @@ class UnifiedTransactionService {
           items: items.map((item) => ({
             ...item,
             // Enhanced item data
-            product_name: item.products?.name || "Unknown Product",
+            product_name: item.products?.generic_name || item.products?.brand_name || "Unknown Product",
             product_brand: item.products?.brand || "",
             product_category: item.products?.category || "",
             unit_display: this.formatUnitDisplay(item.unit_type, item.quantity),
@@ -1768,7 +1764,7 @@ if (typeof window !== "undefined") {
             (i) => i.product_id === before.id
           );
           return {
-            product_name: before.name,
+            product_name: before.generic_name || before.brand_name || 'Unknown Product',
             product_id: before.id,
             quantity_sold: item ? item.quantity : 0,
             stock_before: before.stock_in_pieces,

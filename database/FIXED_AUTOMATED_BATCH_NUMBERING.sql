@@ -31,6 +31,7 @@ DECLARE
     v_current_stock INTEGER;
     v_new_stock INTEGER;
     v_date_string TEXT;
+    v_batch_increment INTEGER;
 BEGIN
     -- Log function start for debugging
     RAISE NOTICE 'add_product_batch called with: product_id=%, quantity=%, expiry_date=%', p_product_id, p_quantity, p_expiry_date;
@@ -77,10 +78,25 @@ BEGIN
     )
     RETURNING id INTO v_batch_id;
 
-    -- Step 2: Generate the batch number using the pattern BT + YYMMDD + - + batch_id
-    -- Format current date as YYMMDD (e.g., 250924 for September 24, 2025)
-    v_date_string := TO_CHAR(CURRENT_DATE, 'YYMMDD');
-    v_generated_batch_number := 'BT' || v_date_string || '-' || v_batch_id::TEXT;
+    -- Step 2: Generate the batch number using the pattern BT + MMDDYY + - + incremental_number
+    -- Format current date as MMDDYY (e.g., 100425 for October 4, 2025)
+    v_date_string := TO_CHAR(CURRENT_DATE, 'MMDDYY');
+    
+    -- Get the next incremental number for today's date
+    -- Count existing batches with today's date pattern
+    SELECT COALESCE(MAX(
+        CAST(
+            SUBSTRING(
+                batch_number FROM 'BT' || v_date_string || '-(\\d+)'
+            ) AS INTEGER
+        )
+    ), 0) + 1
+    INTO v_batch_increment
+    FROM product_batches 
+    WHERE batch_number LIKE 'BT' || v_date_string || '-%'
+    AND batch_number ~ ('^BT' || v_date_string || '-[0-9]+$');
+    
+    v_generated_batch_number := 'BT' || v_date_string || '-' || v_batch_increment::TEXT;
 
     -- Step 3: Update the batch record with the generated batch number
     UPDATE product_batches 
@@ -98,7 +114,7 @@ BEGIN
     INSERT INTO inventory_logs (
         product_id,
         batch_id,
-        action_type,
+        action,
         quantity_change,
         new_quantity,
         reason,

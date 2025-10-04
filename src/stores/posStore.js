@@ -24,7 +24,9 @@ export const usePOSStore = create(
       // Cart actions
       addToCart: (product, quantity, unit) => {
         console.log("🛒 POS Store - addToCart called with:", {
-          productName: product.generic_name || product.name,
+          productName: product.generic_name || product.brand_name || 'Unknown Medicine',
+          brandName: product.brand_name,
+          genericName: product.generic_name,
           quantity,
           unit,
           productData: {
@@ -55,7 +57,7 @@ export const usePOSStore = create(
             availableStock - currentCartQuantity
           );
           console.warn("⚠️ Insufficient stock:", {
-            product: product.generic_name || product.name,
+            product: product.generic_name || product.brand_name || 'Unknown Medicine',
             requested: quantityInPieces,
             currentInCart: currentCartQuantity,
             totalRequested: totalRequestedQuantity,
@@ -116,7 +118,8 @@ export const usePOSStore = create(
           const newItem = {
             id: `${product.id}-${unit}`, // Unique ID for cart item
             productId: product.id, // Keep original product ID
-            name: product.generic_name || product.name,
+            generic_name: product.generic_name || 'Unknown Medicine',
+            brand_name: product.brand_name || 'Generic',
             quantity: numQuantity,
             quantityInPieces,
             unit,

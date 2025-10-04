@@ -77,7 +77,6 @@ export default function POSPage() {
   });
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastTransaction, setLastTransaction] = useState(null);
-  const [isCartVisible, setIsCartVisible] = useState(false); // Control cart visibility - hidden by default
 
   const cartSummary = getCartSummary();
 
@@ -297,100 +296,92 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Main Content - Full Width Products */}
-      <div className="relative">
-        {/* Product Selector - Full Width */}
-        <ProductSelector
-          products={availableProducts}
-          onAddToCart={handleAddToCart}
-          cartItems={cartItems}
-        />
-
-        {/* Floating Cart Button */}
-        <button
-          onClick={() => setIsCartVisible(!isCartVisible)}
-          className="fixed bottom-6 right-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-full shadow-2xl hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300 z-40 group"
-          aria-label="Toggle Shopping Cart"
-        >
-          <div className="relative">
-            <ShoppingCart className="h-7 w-7" />
-            {cartItems.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center animate-pulse">
-                {cartItems.length}
-              </span>
-            )}
-          </div>
-          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            {isCartVisible ? 'Hide Cart' : 'Show Cart'}
-          </span>
-        </button>
-
-        {/* Sliding Cart Panel */}
-        <div
-          className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${
-            isCartVisible ? 'translate-x-0' : 'translate-x-full'
-          }`}
-        >
-          <div className="flex flex-col h-full">
-            {/* Cart Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold flex items-center">
-                  <ShoppingCart className="h-6 w-6 mr-2" />
-                  Shopping Cart
-                </h2>
-                <p className="text-blue-100 text-sm">
-                  {cartItems.length} item{cartItems.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <button
-                onClick={() => setIsCartVisible(false)}
-                className="p-2 hover:bg-blue-800 rounded-lg transition-colors"
-                aria-label="Close cart"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            {/* Cart Content */}
-            <div className="flex-1 overflow-y-auto">
-              <ShoppingCartComponent
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-                onClearCart={handleClearCart}
-              />
-            </div>
-
-            {/* Checkout Button - Sticky at Bottom */}
-            {cartItems.length > 0 && (
-              <div className="p-4 border-t border-gray-200 bg-gray-50">
-                <button
-                  onClick={handleCheckout}
-                  className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-4 rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 flex items-center justify-center space-x-2 font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
-                >
-                  <CreditCard className="h-6 w-6" />
-                  <span>
-                    Checkout - {formatCurrency(cartSummary.total - discount.amount)}
-                  </span>
-                </button>
-                {discount.amount > 0 && (
-                  <p className="text-center text-sm text-green-600 font-medium mt-2">
-                    💰 You save {formatCurrency(discount.amount)}!
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+      {/* Main Content - Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Product Selector - Left Column (2/3 width) */}
+        <div className="lg:col-span-2">
+          <ProductSelector
+            products={availableProducts}
+            onAddToCart={handleAddToCart}
+            cartItems={cartItems}
+          />
         </div>
 
-        {/* Backdrop Overlay */}
-        {isCartVisible && (
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
-            onClick={() => setIsCartVisible(false)}
-          />
-        )}
+        {/* Shopping Cart - Right Column (1/3 width) */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-6">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+              {/* Cart Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    <h2 className="text-lg font-semibold">Shopping Cart</h2>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-blue-800 px-2 py-1 rounded-full">
+                      <span className="text-sm font-medium">
+                        {cartItems.length} item{cartItems.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {cartItems.length > 0 && (
+                      <button
+                        onClick={handleClearCart}
+                        className="text-sm text-blue-100 hover:text-white transition-colors underline"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cart Content */}
+              <div className="flex-1">
+                <ShoppingCartComponent
+                  items={cartItems}
+                  onUpdateQuantity={handleUpdateQuantity}
+                  onRemoveItem={handleRemoveItem}
+                  onClearCart={handleClearCart}
+                />
+              </div>
+
+              {/* Checkout Section */}
+              {cartItems.length > 0 && (
+                <div className="border-t border-gray-200 p-4 bg-gray-50">
+                  {/* Discount Display Only */}
+                  {discount.amount > 0 && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex justify-between text-sm text-green-700 font-medium">
+                        <span>Discount Applied:</span>
+                        <span>-{formatCurrency(discount.amount)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-lg text-green-800 border-t border-green-200 pt-2 mt-2">
+                        <span>Final Total:</span>
+                        <span>{formatCurrency(cartSummary.total - discount.amount)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Checkout Button */}
+                  <button
+                    onClick={handleCheckout}
+                    className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 flex items-center justify-center space-x-2 font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                  >
+                    <CreditCard className="h-5 w-5" />
+                    <span>Checkout</span>
+                  </button>
+                  
+                  {discount.amount > 0 && (
+                    <p className="text-center text-sm text-green-600 font-medium mt-2">
+                      💰 You save {formatCurrency(discount.amount)}!
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Checkout Modal */}

@@ -77,7 +77,7 @@ export default function ProductSelector({
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (product) =>
-          (product.name && product.name.toLowerCase().includes(term)) ||
+          (product.generic_name && product.generic_name.toLowerCase().includes(term)) ||
           (product.generic_name && product.generic_name.toLowerCase().includes(term)) ||
           (product.brand && product.brand.toLowerCase().includes(term)) ||
           (product.brand_name && product.brand_name.toLowerCase().includes(term)) ||
@@ -100,7 +100,9 @@ export default function ProductSelector({
 
   const handleAddToCart = (product, quantity, selectedVariant) => {
     console.log("🔄 ProductSelector - Received:", {
-      product: product.generic_name || product.name || 'Unknown Product',
+      product: `${product.brand_name || 'Generic'} - ${product.generic_name || 'Unknown Medicine'}`,
+      generic_name: product.generic_name,
+      brand_name: product.brand_name,
       quantity,
       selectedVariant,
     });
@@ -200,7 +202,7 @@ export default function ProductSelector({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredProducts.map((product) => {
               const isAvailable = isProductAvailable(product);
               const cartQuantity = cartItems
@@ -210,161 +212,91 @@ export default function ProductSelector({
               const isLowStock = availableStock <= (product.reorder_level || 0);
 
               return (
-                <button
+                <div
                   key={product.id}
-                  onClick={() => handleProductClick(product)}
-                  disabled={!isAvailable}
-                  className={`group relative bg-white border-2 rounded-lg overflow-hidden transition-all duration-200 text-left hover:scale-[1.02] aspect-[3/4] flex flex-col ${
+                  onClick={() => isAvailable && handleProductClick(product)}
+                  className={`group relative bg-white border rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden ${
                     isAvailable
-                      ? "border-gray-200 hover:border-blue-400 hover:shadow-lg cursor-pointer"
+                      ? "border-gray-200 hover:border-blue-300 cursor-pointer hover:scale-[1.02]"
                       : "opacity-60 cursor-not-allowed border-gray-200"
                   }`}
                 >
-                  {/* Status Indicator - Top Right - Only for Out of Stock */}
-                  {!isAvailable && (
-                    <div className="absolute top-2 right-2 z-10">
-                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                  {/* Status Badges */}
+                  <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
+                    {!isAvailable && (
+                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
                         Out of Stock
                       </span>
-                    </div>
-                  )}
-
-                  {/* Card Content - Standardized Medicine Display */}
-                  <div className="p-3 flex-1 flex flex-col">
-                    {/* PRIMARY: Brand Name (Most Prominent) */}
-                    <div className="mb-1">
-                      <h4 className="font-bold text-gray-900 text-lg leading-tight line-clamp-1">
-                        {product.brand_name || product.brand || 'Unknown Brand'}
-                      </h4>
-                    </div>
-
-                    {/* PRIMARY: Generic Name */}
-                    <div className="mb-2">
-                      <p className="text-gray-600 text-sm font-semibold line-clamp-1">
-                        {product.generic_name || product.name || 'Unknown Generic'}
-                      </p>
-                    </div>
-
-                    {/* PRIMARY: Dosage Information - Always Visible */}
-                    <div className="mb-3 flex-shrink-0">
-                      {(product.dosage_strength || product.dosage_form) ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-                          {product.dosage_strength || 'N/A'} {product.dosage_form || ''}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          No dosage info
-                        </span>
-                      )}
-                    </div>
-
-                    {/* SECONDARY: Price (Prominent) */}
-                    <div className="mb-3 flex-shrink-0">
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-2">
-                        <div className="text-green-600 text-xs font-medium">Price per piece</div>
-                        <div className="font-bold text-green-700 text-lg">
-                          {formatCurrency(product.price_per_piece)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* SECONDARY: Category */}
-                    <div className="mb-3 flex-shrink-0">
-                      <span className="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium truncate max-w-full">
-                        {product.category || 'No category'}
+                    )}
+                    {isLowStock && isAvailable && (
+                      <span className="bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
+                        Low Stock
                       </span>
+                    )}
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="p-4">
+                    {/* Brand Name */}
+                    <h3 className="font-bold text-gray-900 text-base leading-tight mb-1 line-clamp-1">
+                      {product.brand_name || product.brand || 'Unknown Brand'}
+                    </h3>
+
+                    {/* Generic Name */}
+                    <p className="text-gray-600 text-sm font-medium mb-3 line-clamp-2">
+                      {product.generic_name || 'Unknown Medicine'}
+                    </p>
+
+                    {/* Dosage Info */}
+                    {(product.dosage_strength || product.dosage_form) && (
+                      <div className="flex items-center gap-2 mb-3">
+                        {product.dosage_strength && (
+                          <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded font-medium">
+                            {product.dosage_strength}
+                          </span>
+                        )}
+                        {product.dosage_form && (
+                          <span className="text-xs text-white bg-purple-500 px-2 py-1 rounded font-medium">
+                            {product.dosage_form}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Price */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xl font-bold text-green-600">
+                        {formatCurrency(product.price_per_piece || product.price || 0)}
+                      </span>
+                      <span className="text-xs text-gray-500">per piece</span>
                     </div>
 
-                    {/* TERTIARY: Manufacturer (if available) */}
-                    {product.manufacturer && (
-                      <div className="mb-2 flex-shrink-0">
-                        <p className="text-gray-500 text-xs truncate">
-                          by {product.manufacturer}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* TERTIARY: Drug Classification Badge */}
-                    {product.drug_classification && (
-                      <div className="mb-3 flex-shrink-0">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          product.drug_classification === 'Prescription (Rx)' 
-                            ? 'bg-red-100 text-red-800'
-                            : product.drug_classification === 'Over-the-Counter (OTC)'
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {product.drug_classification}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Stock Info - Takes remaining space */}
-                    <div className="flex-1 flex flex-col justify-end">
-                      <div className="mb-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-600">Available:</span>
-                          <span className={`font-bold text-base ${
-                            availableStock === 0
-                              ? 'text-red-600'
-                              : isLowStock 
-                              ? 'text-amber-600' 
-                              : 'text-green-600'
-                          }`}>
-                            {availableStock}
-                          </span>
-                        </div>
-                      </div>
-                      
+                    {/* Stock Info */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className={`font-medium ${
+                        availableStock === 0 ? 'text-red-600' : 
+                        isLowStock ? 'text-amber-600' : 'text-gray-700'
+                      }`}>
+                        Stock: {availableStock}
+                      </span>
                       {cartQuantity > 0 && (
-                        <div className="text-center">
-                          <span className="text-xs text-gray-500 font-medium">
-                            {cartQuantity} in cart
-                          </span>
-                        </div>
-                      )}
-                      
-                      {isAvailable && isLowStock && (
-                        <div className="bg-amber-50 p-1 rounded text-center mt-1">
-                          <div className="flex items-center justify-center gap-1 text-amber-600">
-                            <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                            <span className="text-xs font-semibold">Low Stock!</span>
-                          </div>
-                        </div>
+                        <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium text-xs">
+                          {cartQuantity} in cart
+                        </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Hover Overlay Effect */}
+                  {/* Hover Overlay */}
                   {isAvailable && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-blue-600/0 to-blue-600/0 group-hover:from-blue-600/5 group-hover:to-blue-600/10 transition-all duration-200 pointer-events-none rounded-lg" />
+                    <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/5 transition-all duration-200 pointer-events-none rounded-xl" />
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
         )}
       </div>
-
-      {/* Summary */}
-      {cartItems.length > 0 && (
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">
-              {cartItems.length} item{cartItems.length !== 1 ? "s" : ""} in cart
-            </span>
-            <span className="font-medium text-gray-900">
-              Total:{" "}
-              {formatCurrency(
-                cartItems.reduce(
-                  (sum, item) => sum + item.price * item.quantity,
-                  0
-                )
-              )}
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Variant Selection Modal */}
       <VariantSelectionModal
