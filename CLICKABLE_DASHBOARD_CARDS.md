@@ -221,7 +221,7 @@ Cards can be navigated and activated using:
 ```
 Dashboard Metrics
     │
-    ├─► Revenue Today ($12.88)
+    ├─► Revenue Today (₱12.88)
     │   └─► Click → Transaction History Page
     │       └─► View all sales and revenue
     │

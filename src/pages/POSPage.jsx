@@ -268,7 +268,7 @@ export default function POSPage() {
               className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
             >
               <History className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-              <span className="font-medium">Today's Transactions</span>
+              <span className="font-medium">Transactions</span>
             </button>
 
             {/* Customer Information Button */}

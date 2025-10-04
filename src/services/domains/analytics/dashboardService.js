@@ -26,7 +26,7 @@ export class DashboardService {
         UserService.getUsers(), // Returns wrapped response
         supabase.rpc('get_top_selling_products', { days_limit: 30, product_limit: 5 }).then(res => res.data || []),
         supabase.from('products')
-          .select('id, name, expiry_date, stock_in_pieces')
+          .select('id, generic_name, brand_name, expiry_date, stock_in_pieces')
           .not('expiry_date', 'is', null)
           .gte('expiry_date', new Date().toISOString())
           .lte('expiry_date', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString())
@@ -156,7 +156,8 @@ export class DashboardService {
         })(),
         topProducts: topSellingData.length > 0 ? topSellingData.map((p) => ({
             id: p.product_id,
-            name: p.product_name,
+            generic_name: p.generic_name || '',
+            brand_name: p.brand_name || '',
             sales: p.total_quantity || 0,
             revenue: p.total_revenue || 0,
           })) : productsData
@@ -164,7 +165,11 @@ export class DashboardService {
           .slice(0, 5)
           .map((p) => ({
             id: p.id,
-            name: p.name,
+            name: p.brand_name && p.brand_name !== '' 
+              ? `${p.brand_name} (${p.generic_name})` 
+              : p.generic_name,
+            generic_name: p.generic_name || '',
+            brand_name: p.brand_name || '',
             sales: p.stock_in_pieces || 0,
             revenue: (p.stock_in_pieces || 0) * (p.price_per_piece || 0),
           })),
@@ -172,7 +177,11 @@ export class DashboardService {
           const daysUntilExpiry = Math.ceil((new Date(p.expiry_date) - new Date()) / (1000 * 60 * 60 * 24));
           return {
             id: p.id,
-            name: p.name,
+            name: p.brand_name && p.brand_name !== '' 
+              ? `${p.brand_name} (${p.generic_name})` 
+              : p.generic_name,
+            generic_name: p.generic_name || '',
+            brand_name: p.brand_name || '',
             expiry_date: p.expiry_date,
             days_until_expiry: daysUntilExpiry,
             stock: p.stock_in_pieces,
@@ -253,18 +262,24 @@ export class DashboardService {
           return {
             lowStock: lowStockProducts.map((p) => ({
               type: "warning",
-              message: `${p.name} is low in stock (${p.stock_in_pieces} remaining)`,
+              message: `${p.brand_name && p.brand_name !== '' 
+                ? `${p.brand_name} (${p.generic_name})` 
+                : p.generic_name} is low in stock (${p.stock_in_pieces} remaining)`,
               product: p,
             })),
             expiring: [
               ...expiredProducts.map((p) => ({
                 type: "danger",
-                message: `${p.name} has expired`,
+                message: `${p.brand_name && p.brand_name !== '' 
+                  ? `${p.brand_name} (${p.generic_name})` 
+                  : p.generic_name} has expired`,
                 product: p,
               })),
               ...expiringProducts.map((p) => ({
                 type: "warning",
-                message: `${p.name} expires on ${new Date(
+                message: `${p.brand_name && p.brand_name !== '' 
+                  ? `${p.brand_name} (${p.generic_name})` 
+                  : p.generic_name} expires on ${new Date(
                   p.expiry_date
                 ).toLocaleDateString()}`,
                 product: p,

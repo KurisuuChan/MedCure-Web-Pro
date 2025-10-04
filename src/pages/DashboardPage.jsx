@@ -29,6 +29,7 @@ import { DashboardService } from "../services/domains/analytics/dashboardService
 import { formatCurrency, formatNumber } from "../utils/formatting";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import SalesChart from "../components/charts/SalesChart";
+import VerticalBarChart from '../components/charts/VerticalBarChart';
 import StandardizedProductDisplay from "../components/ui/StandardizedProductDisplay";
 import {
   Chart as ChartJS,
@@ -217,7 +218,7 @@ export default function DashboardPage() {
           <MemoizedCleanMetricCard
             title="Revenue Today"
             value={formatCurrency(dashboardData.totalSales || 0)}
-            icon={DollarSign}
+            icon={TrendingUp}
             trend={8.2}
             trendText="vs yesterday"
             color="green"
@@ -257,219 +258,83 @@ export default function DashboardPage() {
           />
         </section>
 
-        {/* Main Content Grid */}
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Quick Actions */}
-          <aside className="lg:col-span-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Quick Actions
-                  </h3>
-                  <p className="text-gray-500 text-sm">Essential tasks</p>
-                </div>
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <Stethoscope className="h-5 w-5 text-gray-600" />
-                </div>
+        {/* Sales Overview - Full Width */}
+        <main className="w-full">
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Sales Overview</h2>
+                <p className="text-sm text-gray-600">Comprehensive sales analytics and trends</p>
               </div>
-              <div className="space-y-3">
-                <MemoizedCleanActionCard
-                  icon={ShoppingCart}
-                  title="Process Sale"
-                  description="Quick POS transaction"
-                  href="/pos"
-                  color="blue"
-                  badge="Popular"
-                />
-                <MemoizedCleanActionCard
-                  icon={Pill}
-                  title="Add Medication"
-                  description="Add new products"
-                  href="/inventory"
-                  color="green"
-                />
-                <MemoizedCleanActionCard
-                  icon={Package}
-                  title="Batch Management"
-                  description="Track product batches"
-                  href="/batch-management"
-                  color="purple"
-                />
-                <MemoizedCleanActionCard
-                  icon={UserCheck}
-                  title="User Management"
-                  description="System administration"
-                  href="/management"
-                  color="gray"
-                />
-                <MemoizedCleanActionCard
-                  icon={Users}
-                  title="Customer Information"
-                  description="View customer database"
-                  href="/customers"
-                  color="orange"
-                />
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                </div>
               </div>
             </div>
-          </aside>
-
-          {/* Sales Chart Overview */}
-          <section className="lg:col-span-8">
             <SalesChart />
           </section>
         </main>
 
-        {/* Compact Performance & Recent Activity Row */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Performance Stats */}
-          <div className="lg:col-span-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-full flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-900 flex items-center">
-                  <Activity className="h-4 w-4 mr-2 text-gray-500" />
-                  Today's Performance
-                </h3>
-                <span className="text-xs text-green-600 font-medium">+15.3%</span>
-              </div>
-              <div className="grid grid-cols-3 gap-4 flex-1 items-center">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-blue-900">24</div>
-                  <div className="text-xs text-gray-600">Sales Today</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-green-900">98%</div>
-                  <div className="text-xs text-gray-600">Satisfaction</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-purple-900">5.2min</div>
-                  <div className="text-xs text-gray-600">Avg. Time</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Activity - Mini */}
-          <div className="lg:col-span-4">
-            <div 
-              onClick={() => navigate('/transaction-history')}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-full flex flex-col cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && navigate('/transaction-history')}
-            >
-              <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                <ShoppingCart className="h-4 w-4 mr-2 text-gray-500" />
-                Recent Sales
-              </h3>
-              <div className="space-y-2 flex-1">
-                {dashboardData.recentSales?.length > 0 ? (
-                  dashboardData.recentSales
-                    .slice(0, 3)
-                    .map((sale, index) => (
-                      <div key={sale.id || index} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="text-gray-600 truncate max-w-20">
-                            {sale.customer_name || 'Walk-in'}
-                          </span>
-                        </div>
-                        <div className="font-medium text-gray-900">
-                          {formatCurrency(sale.total_amount || 0)}
-                        </div>
-                      </div>
-                    ))
-                ) : (
-                  <div className="text-center py-2 flex-1 flex items-center justify-center">
-                    <p className="text-xs text-gray-400">No recent sales</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Enhanced Analytics Section */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Sales Trend Chart */}
-          <div 
-            onClick={() => navigate('/transaction-history')}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && navigate('/transaction-history')}
-          >
+        {/* Quick Actions and Inventory Analysis */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Quick Actions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Sales Trend</h3>
-                <p className="text-sm text-gray-600">Daily sales over the last 7 days</p>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Quick Actions
+                </h3>
+                <p className="text-gray-500 text-sm">Essential tasks</p>
               </div>
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <Stethoscope className="h-5 w-5 text-gray-600" />
               </div>
             </div>
-            <div className="h-64">
-              {dashboardData.weeklyData && dashboardData.weeklyData.length > 0 ? (
-                <Line
-                  data={{
-                    labels: dashboardData.weeklyData.map(day => day.day),
-                    datasets: [
-                      {
-                        label: 'Sales (₱)',
-                        data: dashboardData.weeklyData.map(day => day.sales),
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                      },
-                    ],
-                  }}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false,
-                      },
-                      tooltip: {
-                        callbacks: {
-                          title: (context) => {
-                            const index = context[0].dataIndex;
-                            return dashboardData.weeklyData[index].fullDate;
-                          },
-                          label: (context) => {
-                            return `Sales: ${formatCurrency(context.parsed.y)}`;
-                          },
-                        },
-                      },
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        ticks: {
-                          callback: function(value) {
-                            return '₱' + value.toLocaleString();
-                          },
-                        },
-                      },
-                    },
-                  }}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center text-gray-500">
-                    <TrendingUp className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No sales data available</p>
-                  </div>
-                </div>
-              )}
+            <div className="space-y-3">
+              <MemoizedCleanActionCard
+                icon={ShoppingCart}
+                title="Process Sale"
+                description="Quick POS transaction"
+                href="/pos"
+                color="blue"
+                badge="Popular"
+              />
+              <MemoizedCleanActionCard
+                icon={Pill}
+                title="Add Medication"
+                description="Add new products"
+                href="/inventory"
+                color="green"
+              />
+              <MemoizedCleanActionCard
+                icon={Package}
+                title="Batch Management"
+                description="Track product batches"
+                href="/batch-management"
+                color="purple"
+              />
+              <MemoizedCleanActionCard
+                icon={UserCheck}
+                title="User Management"
+                description="System administration"
+                href="/management"
+                color="gray"
+              />
+              <MemoizedCleanActionCard
+                icon={Users}
+                title="Customer Information"
+                description="View customer database"
+                href="/customers"
+                color="orange"
+              />
             </div>
           </div>
 
-          {/* Inventory Value Chart */}
+          {/* Inventory Analysis */}
           <div 
             onClick={() => navigate('/inventory')}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.01] h-fit"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && navigate('/inventory')}
@@ -483,7 +348,7 @@ export default function DashboardPage() {
                 <Package className="h-5 w-5 text-green-600" />
               </div>
             </div>
-            <div className="h-64">
+            <div className="h-56">
               {dashboardData.categoryAnalysis && dashboardData.categoryAnalysis.length > 0 ? (
                 <Doughnut
                   data={{
@@ -509,12 +374,22 @@ export default function DashboardPage() {
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                      padding: {
+                        top: 10,
+                        bottom: 10
+                      }
+                    },
                     plugins: {
                       legend: {
                         position: 'bottom',
                         labels: {
-                          padding: 20,
+                          padding: 10,
                           usePointStyle: true,
+                          boxWidth: 12,
+                          font: {
+                            size: 12
+                          },
                           generateLabels: (chart) => {
                             const data = chart.data;
                             return data.labels.map((label, i) => ({
@@ -553,9 +428,8 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Top Products and Expiry Alerts */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Selling Products */}
+        {/* Top Products - Full Width */}
+        <section className="w-full">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div 
               onClick={() => navigate('/inventory')}
@@ -572,147 +446,29 @@ export default function DashboardPage() {
                 <BarChart3 className="h-5 w-5 text-purple-600" />
               </div>
             </div>
-            <div className="space-y-4">
-              {dashboardData.topProducts && dashboardData.topProducts.length > 0 ? (
-                dashboardData.topProducts.map((product, index) => (
-                  <div 
-                    key={product.id || index} 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate('/inventory', { state: { searchQuery: product.name || product.brand_name } });
-                    }}
-                    className="cursor-pointer active:scale-[0.98] transition-transform"
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.stopPropagation();
-                        navigate('/inventory', { state: { searchQuery: product.name || product.brand_name } });
-                      }
-                    }}
-                  >
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full text-xs font-bold">
-                        #{index + 1}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">{product.sales} units sold</span> • 
-                        <span className="font-semibold text-purple-600 ml-1">{formatCurrency(product.revenue)}</span>
-                      </div>
-                    </div>
-                    <StandardizedProductDisplay 
-                      product={product}
-                      size="compact"
-                      showPrice={false}
-                      showStock={false}
-                      className="hover:bg-purple-50 hover:border-purple-200 border border-transparent"
-                      customActions={
-                        <div className="w-16 h-1 bg-gray-200 rounded-full">
-                          <div 
-                            className="h-1 bg-purple-500 rounded-full" 
-                            style={{ width: `${Math.min((product.sales / (dashboardData.topProducts[0]?.sales || 1)) * 100, 100)}%` }}
-                          ></div>
-                        </div>
-                      }
-                    />
-                  </div>
-                ))
-              ) : (
+            
+            {/* Vertical Bar Chart */}
+            <div className="px-4 py-2">
+              <VerticalBarChart
+                data={dashboardData.topProducts && dashboardData.topProducts.length > 0 ? 
+                  dashboardData.topProducts.map((product) => ({
+                    value: parseFloat(product.revenue || 0),  // Ensure numeric value for sales amount
+                    label: product.brand_name || product.generic_name || 'Unknown',
+                    sublabel: `${product.sales || 0} units sold`,  // Show units as sublabel
+                    formattedValue: `₱${parseFloat(product.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`  // Formatted peso amount
+                  })) : []
+                }
+                maxHeight={280}
+                colors={['#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE', '#EDE9FE']}
+              />
+              
+              {/* No data fallback */}
+              {(!dashboardData.topProducts || dashboardData.topProducts.length === 0) && (
                 <div className="text-center py-8 text-gray-500">
                   <Package className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                   <p className="text-sm">No sales data available</p>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Expiry Alerts */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div 
-              onClick={() => navigate('/batch-management')}
-              className="flex items-center justify-between mb-6 cursor-pointer hover:bg-gray-50 -m-2 p-2 rounded-lg transition-colors"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && navigate('/batch-management')}
-            >
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Expiry Alerts</h3>
-                <p className="text-sm text-gray-600">Products expiring soon</p>
-              </div>
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-orange-600" />
-              </div>
-            </div>
-            <div className="space-y-4">
-              {dashboardData.expiringProducts && dashboardData.expiringProducts.length > 0 ? (
-                dashboardData.expiringProducts.slice(0, 4).map((product, index) => {
-                  const statusColors = {
-                    critical: 'bg-red-100 text-red-800 border-red-200',
-                    warning: 'bg-orange-100 text-orange-800 border-orange-200',
-                    notice: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                  };
-                  
-                  return (
-                    <div 
-                      key={product.id || index} 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/inventory', { state: { searchQuery: product.name || product.brand_name } });
-                      }}
-                      className="cursor-pointer active:scale-[0.98] transition-transform"
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.stopPropagation();
-                          navigate('/inventory', { state: { searchQuery: product.name || product.brand_name } });
-                        }
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <div className={`p-1.5 rounded-full ${
-                            product.status === 'critical' ? 'bg-red-100' :
-                            product.status === 'warning' ? 'bg-orange-100' : 'bg-yellow-100'
-                          }`}>
-                            <AlertTriangle className={`h-3 w-3 ${
-                              product.status === 'critical' ? 'text-red-600' :
-                              product.status === 'warning' ? 'text-orange-600' : 'text-yellow-600'
-                            }`} />
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            Expires: {new Date(product.expiry_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColors[product.status]}`}>
-                          {product.days_until_expiry} days
-                        </span>
-                      </div>
-                      <StandardizedProductDisplay 
-                        product={product}
-                        size="compact"
-                        showPrice={false}
-                        showStock={false}
-                        className="hover:bg-orange-50 hover:border-orange-200 border border-transparent"
-                      />
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-300" />
-                  <p className="text-sm">No products expiring soon</p>
-                </div>
-              )}
-            </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <a 
-                href="/batch-management"
-                className="text-sm text-orange-600 hover:text-orange-700 font-medium flex items-center space-x-1"
-              >
-                <span>View all batches</span>
-                <ChevronRight className="h-3 w-3" />
-              </a>
             </div>
           </div>
         </section>
@@ -905,6 +661,8 @@ function CleanActionCard({
   color,
   badge,
 }) {
+  const navigate = useNavigate();
+  
   const colorClasses = {
     blue: "bg-blue-600",
     green: "bg-green-600",
@@ -912,10 +670,14 @@ function CleanActionCard({
     gray: "bg-gray-600",
     orange: "bg-orange-600",
   };
+  
   return (
-    <a
-      href={href}
-      className="relative block group bg-white hover:bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-all duration-200" // FIX: Added `relative`
+    <div
+      onClick={() => navigate(href)}
+      className="relative block group bg-white hover:bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-all duration-200 cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && navigate(href)}
     >
       <div className="flex items-center space-x-3">
         {badge && (
@@ -934,7 +696,7 @@ function CleanActionCard({
         </div>
         <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-0.5 transition-all duration-200" />
       </div>
-    </a>
+    </div>
   );
 }
 

@@ -213,14 +213,15 @@ export class SimpleNotificationService {
     try {
       const { data: lowStockProducts, error } = await supabase
         .from("products")
-        .select("name, stock_in_pieces")
+        .select("generic_name, brand_name, stock_in_pieces")
         .lte("stock_in_pieces", 10)
         .gt("stock_in_pieces", 0);
 
       if (error) throw error;
 
       lowStockProducts.forEach((product) => {
-        this.showLowStockAlert(product.name, product.stock_in_pieces);
+        const displayName = product.generic_name || product.brand_name || 'Unknown Product';
+        this.showLowStockAlert(displayName, product.stock_in_pieces);
       });
 
       return lowStockProducts.length;
@@ -239,7 +240,7 @@ export class SimpleNotificationService {
 
       const { data: expiringProducts, error } = await supabase
         .from("products")
-        .select("name, expiry_date")
+        .select("generic_name, brand_name, expiry_date")
         .not("expiry_date", "is", null)
         .lte("expiry_date", thirtyDaysFromNow.toISOString().split("T")[0])
         .gt("stock_in_pieces", 0);
@@ -247,7 +248,8 @@ export class SimpleNotificationService {
       if (error) throw error;
 
       expiringProducts.forEach((product) => {
-        this.showExpiryWarning(product.name, product.expiry_date);
+        const displayName = product.generic_name || product.brand_name || 'Unknown Product';
+        this.showExpiryWarning(displayName, product.expiry_date);
       });
 
       return expiringProducts.length;
@@ -345,14 +347,15 @@ export class SimpleNotificationService {
     try {
       const { data: product, error } = await supabase
         .from("products")
-        .select("name, stock_in_pieces")
+        .select("generic_name, brand_name, stock_in_pieces")
         .eq("id", productId)
         .single();
 
       if (error) throw error;
 
       if (product.stock_in_pieces <= 10 && product.stock_in_pieces > 0) {
-        this.showLowStockAlert(product.name, product.stock_in_pieces);
+        const displayName = product.generic_name || product.brand_name || 'Unknown Product';
+        this.showLowStockAlert(displayName, product.stock_in_pieces);
       }
     } catch (error) {
       console.error("Error checking specific product stock:", error);

@@ -1,5 +1,5 @@
--- Create function to get top selling products
--- This aggregates sales_items data to show best sellers
+-- Updated Top Selling Products Function with proper field mapping
+-- Execute this in Supabase SQL editor to replace the existing function
 
 CREATE OR REPLACE FUNCTION get_top_selling_products(
   days_limit INTEGER DEFAULT 30,
@@ -24,8 +24,11 @@ BEGIN
       ELSE p.generic_name
     END as product_name,
     SUM(si.quantity)::BIGINT as total_quantity,
-    SUM(si.subtotal)::NUMERIC as total_revenue
-  FROM sales_items si
+    -- Use total_price if available, fallback to price * quantity
+    SUM(
+      COALESCE(si.total_price, p.price * si.quantity)
+    )::NUMERIC as total_revenue
+  FROM sale_items si
   INNER JOIN products p ON p.id = si.product_id
   INNER JOIN sales s ON s.id = si.sale_id
   WHERE 
@@ -37,9 +40,3 @@ BEGIN
   LIMIT product_limit;
 END;
 $$;
-
--- Grant execute permission
-GRANT EXECUTE ON FUNCTION get_top_selling_products(INTEGER, INTEGER) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_top_selling_products(INTEGER, INTEGER) TO anon;
-
-COMMENT ON FUNCTION get_top_selling_products IS 'Returns top selling products based on completed sales within the specified time period';

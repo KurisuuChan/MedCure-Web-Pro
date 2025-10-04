@@ -474,7 +474,7 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            High Value Threshold ($)
+            High Value Threshold (₱)
           </label>
           <input
             type="number"

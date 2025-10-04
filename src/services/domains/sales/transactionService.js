@@ -70,7 +70,9 @@ class UnifiedTransactionService {
       // Handle customer creation/lookup first
       let customerId = null;
       
-      if (saleData.customer_name && saleData.customer_phone) {
+      // Create customer only if we have BOTH name and phone (real customers)
+      // Walk-in customers will be saved in sales record but not in customers table
+      if (saleData.customer_name && saleData.customer_phone && saleData.customer_phone.trim() !== '') {
         try {
           console.log("👤 Creating/finding customer for transaction");
           console.log("🔍 [DEBUG] Customer data being sent to CustomerService:", {
@@ -95,6 +97,14 @@ class UnifiedTransactionService {
           console.warn("⚠️ Customer creation failed, proceeding without customer_id:", customerError.message);
           console.error("🔍 [DEBUG] Customer creation error details:", customerError);
         }
+      } else {
+        console.log("📋 Walk-in customer - saving customer info in sales record only");
+        console.log("🔍 [DEBUG] Customer data for sales record:", {
+          customer_name: saleData.customer_name || 'Walk-in Customer',
+          customer_phone: saleData.customer_phone || null,
+          customer_email: saleData.customer_email || null,
+          customer_address: saleData.customer_address || null
+        });
       }
 
       // Map items to database format
@@ -1187,8 +1197,8 @@ class UnifiedTransactionService {
             total_price,
             products (
               id,
-              name,
-              brand,
+              generic_name,
+              brand_name,
               category,
               description,
               price_per_piece,
