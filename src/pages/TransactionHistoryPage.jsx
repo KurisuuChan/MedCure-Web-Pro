@@ -19,6 +19,7 @@ import {
   Package,
   AlertTriangle,
   CheckCircle,
+  Receipt,
   X
 } from "lucide-react";
 import { formatCurrency, formatDate } from "../utils/formatting";
@@ -41,6 +42,8 @@ const TransactionHistoryPage = () => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [showRefundSuccess, setShowRefundSuccess] = useState(false);
+  const [refundedTransaction, setRefundedTransaction] = useState(null);
   
   // Refund reason states
   const [selectedReason, setSelectedReason] = useState("");
@@ -162,6 +165,12 @@ const TransactionHistoryPage = () => {
         text: "text-red-800", 
         icon: X,
         label: "CANCELLED"
+      },
+      refunded: {
+        bg: "bg-orange-100",
+        text: "text-orange-800", 
+        icon: RotateCcw,
+        label: "REFUNDED"
       }
     };
 
@@ -178,8 +187,26 @@ const TransactionHistoryPage = () => {
 
   // Action Handlers
   const handleViewReceipt = (transaction) => {
-    setSelectedTransaction(transaction);
-    setShowReceipt(true);
+    console.log('🧾 [TransactionHistory] Opening receipt for transaction:', transaction.id);
+    console.log('🔍 [TransactionHistory] Transaction data:', transaction);
+    console.log('🏷️ [TransactionHistory] Transaction status:', transaction.status);
+    console.log('🔍 [TransactionHistory] Current showReceipt state:', showReceipt);
+    console.log('📋 [TransactionHistory] Current selectedTransaction:', selectedTransaction?.id);
+    try {
+      // Clear any existing selection first
+      setSelectedTransaction(null);
+      setShowReceipt(false);
+      
+      // Then set the new transaction
+      setTimeout(() => {
+        setSelectedTransaction(transaction);
+        setShowReceipt(true);
+        console.log('✅ [TransactionHistory] Receipt modal should now be open for:', transaction.id);
+      }, 100);
+    } catch (error) {
+      console.error('❌ [TransactionHistory] Error opening receipt:', error);
+      alert('Error opening receipt. Please try again.');
+    }
   };
 
   const handleRefundTransaction = (transaction) => {
@@ -316,13 +343,14 @@ const TransactionHistoryPage = () => {
                 <option value="completed">Completed</option>
                 <option value="pending">Pending</option>
                 <option value="cancelled">Cancelled</option>
+                <option value="refunded">Refunded</option>
               </select>
             </div>
           </div>
 
           {/* Summary Stats */}
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="bg-blue-50 rounded-lg p-4">
                 <div className="flex items-center">
                   <Package className="h-8 w-8 text-blue-600" />
@@ -352,6 +380,18 @@ const TransactionHistoryPage = () => {
                     <p className="text-sm text-yellow-600 font-medium">Pending</p>
                     <p className="text-2xl font-bold text-yellow-900">
                       {filteredTransactions.filter(t => t.status === 'pending').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-orange-50 rounded-lg p-4">
+                <div className="flex items-center">
+                  <RotateCcw className="h-8 w-8 text-orange-600" />
+                  <div className="ml-3">
+                    <p className="text-sm text-orange-600 font-medium">Refunded</p>
+                    <p className="text-2xl font-bold text-orange-900">
+                      {filteredTransactions.filter(t => t.status === 'refunded').length}
                     </p>
                   </div>
                 </div>
@@ -523,9 +563,17 @@ const TransactionHistoryPage = () => {
                         <td className="px-3 py-3 text-center">
                           <div className="flex items-center justify-center gap-0.5">
                             <button
-                              onClick={() => handleViewReceipt(transaction)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('👆 [TransactionHistory] View button clicked for:', transaction.id);
+                                console.log('🏷️ [TransactionHistory] Transaction status:', transaction.status);
+                                console.log('📋 [TransactionHistory] Transaction data keys:', Object.keys(transaction));
+                                handleViewReceipt(transaction);
+                              }}
                               className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 p-1.5 rounded-md transition-all duration-150"
                               title="View Receipt"
+                              type="button"
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </button>
@@ -607,8 +655,38 @@ const TransactionHistoryPage = () => {
       <SimpleReceipt 
         transaction={selectedTransaction} 
         isOpen={showReceipt} 
-        onClose={() => setShowReceipt(false)} 
+        onClose={() => {
+          console.log('🧾 [TransactionHistory] Closing receipt modal');
+          setShowReceipt(false);
+          setSelectedTransaction(null);
+        }} 
       />
+
+      {/* Debug: Show current modal state */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 right-4 bg-black/80 text-white p-3 rounded-lg text-xs z-[10000] max-w-xs">
+          <div className="font-bold mb-2">🐛 Debug Panel</div>
+          <div>Receipt: {showReceipt ? '✅ OPEN' : '❌ CLOSED'}</div>
+          <div>Transaction: {selectedTransaction?.id?.slice(-8) || 'NONE'}</div>
+          <div>Status: {selectedTransaction?.status || 'N/A'}</div>
+          <div>Success Modal: {showRefundSuccess ? '✅ OPEN' : '❌ CLOSED'}</div>
+          <div>Edit Modal: {showEditModal ? '✅ OPEN' : '❌ CLOSED'}</div>
+          <div className="mt-2 pt-2 border-t border-gray-600">
+            <button 
+              onClick={() => {
+                setShowReceipt(false);
+                setSelectedTransaction(null);
+                setShowRefundSuccess(false);
+                setShowEditModal(false);
+                console.log('🔄 [Debug] All modals reset');
+              }}
+              className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs"
+            >
+              Reset All Modals
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Refund Transaction Modal - Scrollable */}
       {showEditModal && editingTransaction && (
@@ -797,8 +875,19 @@ const TransactionHistoryPage = () => {
                       );
                       
                       if (result.success) {
-                        alert('✅ Refund processed successfully!');
-                        fetchTransactions();
+                        // Store refunded transaction for success modal
+                        setRefundedTransaction({
+                          ...editingTransaction,
+                          refund_reason: finalReason,
+                          refunded_at: new Date().toISOString(),
+                          status: 'refunded' // Ensure status is updated
+                        });
+                        setShowRefundSuccess(true);
+                        
+                        // Force refresh transactions to show updated status
+                        await fetchTransactions();
+                        
+                        console.log('✅ [TransactionHistory] Refund completed, data refreshed');
                       } else {
                         throw new Error(result.error || 'Refund processing failed');
                       }
@@ -840,21 +929,108 @@ const TransactionHistoryPage = () => {
         </div>
       )}
 
-      {/* Receipt Modal */}
-      {showReceipt && selectedTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Transaction Receipt</h3>
-              <button
-                onClick={() => setShowReceipt(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      {/* Refund Success Modal */}
+      {showRefundSuccess && refundedTransaction && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden border border-gray-200 animate-in fade-in-0 zoom-in-95 duration-300">
+            {/* Success Header */}
+            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6">
+              <div className="flex items-center justify-center space-x-3 mb-4">
+                <div className="bg-white/20 p-3 rounded-full">
+                  <CheckCircle className="h-8 w-8" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">Refund Successful!</h3>
+                  <p className="text-green-100 text-sm mt-1">Transaction has been refunded</p>
+                </div>
+              </div>
             </div>
-            <div className="p-4 overflow-y-auto">
-              <SimpleReceipt transaction={selectedTransaction} />
+
+            {/* Refund Details */}
+            <div className="p-6 space-y-4">
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <h4 className="font-semibold text-green-800 mb-3 flex items-center">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Refund Details
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Transaction ID:</span>
+                    <span className="font-mono text-green-700">#{refundedTransaction.id?.slice(-8)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Refund Amount:</span>
+                    <span className="font-bold text-green-700">{formatCurrency(refundedTransaction.total_amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Payment Method:</span>
+                    <span className="font-medium text-gray-700 capitalize">{refundedTransaction.payment_method}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Refund Reason:</span>
+                    <span className="font-medium text-gray-700">{refundedTransaction.refund_reason}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Processed At:</span>
+                    <span className="font-medium text-gray-700">{formatDate(refundedTransaction.refunded_at)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Restoration Notice */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-start space-x-2">
+                  <Package className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-blue-800">Stock Restored</p>
+                    <p className="text-blue-700 text-sm mt-1">
+                      All items from this transaction have been returned to inventory.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Info if available */}
+              {refundedTransaction.customer_name && (
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex items-start space-x-2">
+                    <User className="h-5 w-5 text-gray-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-gray-800">Customer Notified</p>
+                      <p className="text-gray-700 text-sm mt-1">
+                        {refundedTransaction.customer_name}
+                        {refundedTransaction.customer_phone && ` • ${refundedTransaction.customer_phone}`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowRefundSuccess(false);
+                    setRefundedTransaction(null);
+                    // Also open the receipt for the refunded transaction
+                    setSelectedTransaction(refundedTransaction);
+                    setShowReceipt(true);
+                  }}
+                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>View Receipt</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRefundSuccess(false);
+                    setRefundedTransaction(null);
+                  }}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

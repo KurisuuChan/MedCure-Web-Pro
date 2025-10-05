@@ -493,11 +493,26 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                       <td className="py-2">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {item.generic_name || item.name || 'Unknown Product'}
+                            {item.brand_name && item.generic_name 
+                              ? `${item.brand_name} (${item.generic_name})`
+                              : item.generic_name || item.brand_name || item.name || 'Unknown Product'}
                           </p>
+                          {item.dosage_strength && (
+                            <p className="text-sm text-blue-600 font-medium">
+                              {item.dosage_strength}
+                            </p>
+                          )}
                           {showDetails && (
                             <p className="text-xs text-gray-500">
                               {item.category} • {item.unitType}
+                              {item.brand_name && item.generic_name && (
+                                <>
+                                  <br />
+                                  <span className="text-gray-400">
+                                    Brand: {item.brand_name} | Generic: {item.generic_name}
+                                  </span>
+                                </>
+                              )}
                             </p>
                           )}
                         </div>

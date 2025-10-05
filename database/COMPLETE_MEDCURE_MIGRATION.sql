@@ -329,7 +329,7 @@ BEGIN
     
     -- Deduct stock for each item in the transaction
     FOR sale_item IN 
-        SELECT si.product_id, si.quantity, si.unit_type, p.pieces_per_sheet, p.sheets_per_box, p.name, p.stock_in_pieces
+        SELECT si.product_id, si.quantity, si.unit_type, p.pieces_per_sheet, p.sheets_per_box, p.brand_name, p.generic_name, p.stock_in_pieces
         FROM sale_items si
         JOIN products p ON si.product_id = p.id
         WHERE si.sale_id = p_transaction_id
@@ -345,7 +345,7 @@ BEGIN
         -- Final stock check
         IF sale_item.stock_in_pieces < pieces_needed THEN
             RAISE EXCEPTION 'Insufficient stock for %: needed %, available %', 
-                sale_item.name, pieces_needed, sale_item.stock_in_pieces;
+                COALESCE(sale_item.brand_name, sale_item.generic_name, 'Unknown Product'), pieces_needed, sale_item.stock_in_pieces;
         END IF;
         
         -- Deduct stock (SINGLE DEDUCTION)
@@ -413,7 +413,7 @@ BEGIN
     
     -- Restore stock for each item in the transaction
     FOR sale_item IN 
-        SELECT si.product_id, si.quantity, si.unit_type, p.pieces_per_sheet, p.sheets_per_box, p.name, p.stock_in_pieces
+        SELECT si.product_id, si.quantity, si.unit_type, p.pieces_per_sheet, p.sheets_per_box, p.brand_name, p.generic_name, p.stock_in_pieces
         FROM sale_items si
         JOIN products p ON si.product_id = p.id
         WHERE si.sale_id = p_transaction_id

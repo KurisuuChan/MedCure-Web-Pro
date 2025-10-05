@@ -34,7 +34,7 @@ class ReceiptService {
         receiptNumber: this.generateReceiptNumber(transaction),
         transactionId: transaction.id,
         timestamp: new Date(transaction.created_at || new Date()),
-        cashier: transaction.cashier_name || "System",
+        cashier: this.extractCashierName(transaction),
       },
 
       // Customer Information
@@ -90,6 +90,46 @@ class ReceiptService {
   }
 
   /**
+   * Extract cashier name from transaction data
+   */
+  extractCashierName(transaction) {
+    // Handle different cashier data formats
+    if (transaction.cashier_name) {
+      return transaction.cashier_name;
+    }
+    
+    // Handle when cashier is a user object (from join)
+    if (transaction.cashier && typeof transaction.cashier === 'object') {
+      const cashier = transaction.cashier;
+      if (cashier.first_name && cashier.last_name) {
+        return `${cashier.first_name} ${cashier.last_name}`;
+      }
+      if (cashier.first_name) {
+        return cashier.first_name;
+      }
+      if (cashier.email) {
+        return cashier.email;
+      }
+    }
+    
+    // Handle when cashier is just a string
+    if (typeof transaction.cashier === 'string') {
+      return transaction.cashier;
+    }
+    
+    // Handle edited_by user object (for edited transactions)
+    if (transaction.edited_by && typeof transaction.edited_by === 'object') {
+      const editor = transaction.edited_by;
+      if (editor.first_name && editor.last_name) {
+        return `${editor.first_name} ${editor.last_name} (Editor)`;
+      }
+    }
+    
+    // Fallback
+    return "System";
+  }
+
+  /**
    * Generate receipt number
    */
   generateReceiptNumber(transaction) {
@@ -106,16 +146,50 @@ class ReceiptService {
   formatReceiptItems(transaction) {
     const items = transaction.items || transaction.sale_items || [];
 
-    return items.map((item) => ({
-      id: item.product_id || item.id,
-      name: item.products?.name || item.name || "Unknown Item",
-      quantity: item.quantity || 1,
-      unitPrice: item.unit_price || item.pricePerUnit || 0,
-      totalPrice:
-        item.total_price || item.totalPrice || item.unit_price * item.quantity,
-      unitType: item.unit_type || "piece",
-      category: item.products?.category || item.category || "General",
-    }));
+    return items.map((item) => {
+      // Use new medicine structure: brand_name, generic_name, dosage_strength
+      const productData = item.products || item;
+      const brandName = productData.brand_name || productData.brandName || '';
+      const genericName = productData.generic_name || productData.genericName || '';
+      const dosageStrength = productData.dosage_strength || productData.dosageStrength || '';
+      
+      // Fallback to old structure for backward compatibility
+      const fallbackName = productData.name || item.name || "Unknown Item";
+      
+      // Create display name: "Brand Name (Generic Name) - Dosage"
+      let displayName = '';
+      if (brandName && genericName) {
+        displayName = `${brandName} (${genericName})`;
+        if (dosageStrength) {
+          displayName += ` - ${dosageStrength}`;
+        }
+      } else if (genericName) {
+        displayName = genericName;
+        if (dosageStrength) {
+          displayName += ` - ${dosageStrength}`;
+        }
+      } else if (brandName) {
+        displayName = brandName;
+        if (dosageStrength) {
+          displayName += ` - ${dosageStrength}`;
+        }
+      } else {
+        displayName = fallbackName;
+      }
+
+      return {
+        id: item.product_id || item.id,
+        name: displayName, // Use the formatted display name
+        brand_name: brandName,
+        generic_name: genericName,
+        dosage_strength: dosageStrength,
+        quantity: item.quantity || 1,
+        unitPrice: item.unit_price || item.pricePerUnit || 0,
+        totalPrice: item.total_price || item.totalPrice || (item.unit_price * item.quantity) || 0,
+        unitType: item.unit_type || "piece",
+        category: productData.category || item.category || "General",
+      };
+    });
   }
 
   /**
