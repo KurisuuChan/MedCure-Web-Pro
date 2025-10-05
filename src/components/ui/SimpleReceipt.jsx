@@ -38,7 +38,10 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
       setError(null);
 
       console.log("🧾 [SimpleReceipt] Processing transaction:", transaction);
-      console.log("🔍 [DEBUG] Customer ID in SimpleReceipt:", transaction.customer_id);
+      console.log(
+        "🔍 [DEBUG] Customer ID in SimpleReceipt:",
+        transaction.customer_id
+      );
 
       // Validate transaction data
       if (!transaction) {
@@ -404,21 +407,23 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </div>
                 )}
-                
+
                 {/* Customer Type Badge */}
                 <div className="flex items-center space-x-2">
                   <span className="text-gray-600">Type:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    receiptData.customer.type === 'New Customer' 
-                      ? 'bg-green-100 text-green-800' 
-                      : receiptData.customer.type === 'Returning Customer'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      receiptData.customer.type === "New Customer"
+                        ? "bg-green-100 text-green-800"
+                        : receiptData.customer.type === "Returning Customer"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
                     {receiptData.customer.type}
                   </span>
                 </div>
-                
+
                 {receiptData.customer.name && (
                   <p>
                     <span className="text-gray-600">Name:</span>{" "}
@@ -487,13 +492,17 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                 <tbody>
                   {receiptData.items.map((item) => (
                     <tr
-                      key={`${item.id}-${item.generic_name || item.name || 'unknown'}`}
+                      key={`${item.id}-${
+                        item.generic_name || item.name || "unknown"
+                      }`}
                       className="border-b border-gray-100"
                     >
                       <td className="py-2">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {item.generic_name || item.name || 'Unknown Product'}
+                            {item.generic_name ||
+                              item.name ||
+                              "Unknown Product"}
                           </p>
                           {showDetails && (
                             <p className="text-xs text-gray-500">
@@ -546,26 +555,36 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Taxable Amount:</span>
                     <span className="font-medium">
-                      {formatCurrency(receiptData.financial.vatDetails.taxableAmount)}
+                      {formatCurrency(
+                        receiptData.financial.vatDetails.taxableAmount
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">VAT ({receiptData.financial.vatDetails.vatRate}%):</span>
+                    <span className="text-gray-600">
+                      VAT ({receiptData.financial.vatDetails.vatRate}%):
+                    </span>
                     <span className="font-medium">
-                      {formatCurrency(receiptData.financial.vatDetails.vatAmount)}
+                      {formatCurrency(
+                        receiptData.financial.vatDetails.vatAmount
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Net Amount:</span>
                     <span className="font-medium">
-                      {formatCurrency(receiptData.financial.vatDetails.netAmount)}
+                      {formatCurrency(
+                        receiptData.financial.vatDetails.netAmount
+                      )}
                     </span>
                   </div>
                   {receiptData.financial.vatDetails.vatExempt > 0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">VAT Exempt:</span>
                       <span className="font-medium">
-                        {formatCurrency(receiptData.financial.vatDetails.vatExempt)}
+                        {formatCurrency(
+                          receiptData.financial.vatDetails.vatExempt
+                        )}
                       </span>
                     </div>
                   )}
@@ -622,7 +641,14 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     <strong>Reason:</strong> {receiptData.status.editReason}
                   </p>
                   <p className="text-yellow-700">
-                    <strong>Modified by:</strong> {receiptData.status.editedBy}{" "}
+                    <strong>Modified by:</strong>{" "}
+                    {typeof receiptData.status.editedBy === "object"
+                      ? `${receiptData.status.editedBy.first_name || ""} ${
+                          receiptData.status.editedBy.last_name || ""
+                        }`.trim() ||
+                        receiptData.status.editedBy.email ||
+                        "Unknown"
+                      : receiptData.status.editedBy || "Unknown"}{" "}
                     on {formatDate(receiptData.status.editedAt)}
                   </p>
                 </div>

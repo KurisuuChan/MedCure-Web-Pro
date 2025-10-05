@@ -887,9 +887,10 @@ class NotificationService {
       }
 
       // Filter products where stock_in_pieces <= reorder_level
-      const products = allProducts?.filter(
-        (p) => p.stock_in_pieces <= (p.reorder_level || 0)
-      ) || [];
+      const products =
+        allProducts?.filter(
+          (p) => p.stock_in_pieces <= (p.reorder_level || 0)
+        ) || [];
 
       if (error) {
         throw error;
