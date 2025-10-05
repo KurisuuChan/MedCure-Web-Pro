@@ -24,7 +24,6 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { ProductService } from '../services/domains/inventory/productService';
-import { EnhancedBatchService } from '../services/domains/inventory/enhancedBatchService';
 import { formatDate } from '../utils/dateTime';
 import { formatCurrency } from '../utils/formatting';
 import AddStockModal from '../components/modals/AddStockModal';
@@ -72,25 +71,33 @@ const BatchManagementPage = () => {
       const productsData = await ProductService.getProducts();
       setProducts(productsData);
       
-      // Try to load batches using enhanced service first, fallback to basic service
+      // Load batches using enhanced ProductService functions
       try {
-        const batchesData = await EnhancedBatchService.getAllBatches({
-          productId: selectedProduct || null,
-          status: statusFilter === 'all' ? null : statusFilter,
-          expiryFilter: expiryFilter,
-          limit: 200
-        });
+        const batchesData = await ProductService.getAllBatches(true); // Use enhanced mode
         setBatches(batchesData);
         
-        // Load analytics if enhanced service is available
-        const analyticsData = await EnhancedBatchService.getBatchAnalytics();
-        setAnalytics(analyticsData);
+        // Load analytics using enhanced service
+        try {
+          const analyticsData = await ProductService.getBatchAnalytics();
+          setAnalytics(analyticsData);
+        } catch (analyticsError) {
+          console.warn('⚠️ Batch analytics not available:', analyticsError);
+          // Calculate basic analytics from batch data
+          const basicAnalytics = {
+            totalBatches: batchesData.length,
+            activeBatches: batchesData.filter(b => b.status === 'active').length,
+            expiredBatches: batchesData.filter(b => b.status === 'expired').length,
+            expiringBatches: batchesData.filter(b => b.status === 'expiring' || b.status === 'critical').length,
+            totalValue: batchesData.reduce((sum, b) => sum + (b.total_value || 0), 0)
+          };
+          setAnalytics(basicAnalytics);
+        }
       } catch (enhancedError) {
         console.warn('⚠️ Enhanced batch service not available, using basic service:', enhancedError);
         
         // Fallback to basic service
         try {
-          const batchesData = await ProductService.getAllBatches();
+          const batchesData = await ProductService.getAllBatches(false); // Use basic mode
           setBatches(batchesData);
         } catch (basicError) {
           console.warn('⚠️ Basic batch functions not available yet:', basicError);
@@ -117,10 +124,20 @@ const BatchManagementPage = () => {
   const filteredBatches = useMemo(() => {
     let filtered = batches;
 
-    // Search filter
+    // Search filter with new medicine structure
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(batch =>
+        // Search in new medicine structure fields
+        batch.product_brand_name?.toLowerCase().includes(term) ||
+        batch.product_generic_name?.toLowerCase().includes(term) ||
+        batch.generic_name?.toLowerCase().includes(term) ||
+        batch.brand_name?.toLowerCase().includes(term) ||
+        batch.product_manufacturer?.toLowerCase().includes(term) ||
+        batch.manufacturer?.toLowerCase().includes(term) ||
+        batch.dosage_strength?.toLowerCase().includes(term) ||
+        batch.product_dosage_strength?.toLowerCase().includes(term) ||
+        // Keep existing search fields
         batch.product_name?.toLowerCase().includes(term) ||
         batch.batch_number?.toLowerCase().includes(term) ||
         batch.category_name?.toLowerCase().includes(term) ||

@@ -371,7 +371,11 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                 <User className="h-4 w-4 text-gray-500" />
                 <span className="text-gray-600">Cashier:</span>
                 <span className="font-medium">
-                  {receiptData.header.cashier}
+                  {typeof receiptData.header.cashier === 'string' 
+                    ? receiptData.header.cashier 
+                    : typeof receiptData.header.cashier === 'object' && receiptData.header.cashier
+                      ? `${receiptData.header.cashier.first_name || ''} ${receiptData.header.cashier.last_name || ''}`.trim() || 'Unknown'
+                      : 'Unknown'}
                 </span>
               </div>
               <div className="flex items-center space-x-2">
@@ -400,7 +404,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                   <div className="flex items-center space-x-2">
                     <span className="text-gray-600">Customer ID:</span>
                     <span className="font-medium font-mono text-blue-600">
-                      #{receiptData.customer.id.slice(-8)}
+                      #{typeof receiptData.customer.id === 'string' ? receiptData.customer.id.slice(-8) : 'N/A'}
                     </span>
                   </div>
                 )}
@@ -415,11 +419,11 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                       ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {receiptData.customer.type}
+                    {typeof receiptData.customer.type === 'string' ? receiptData.customer.type : 'Walk-in Customer'}
                   </span>
                 </div>
                 
-                {receiptData.customer.name && (
+                {receiptData.customer.name && typeof receiptData.customer.name === 'string' && (
                   <p>
                     <span className="text-gray-600">Name:</span>{" "}
                     <span className="font-medium">
@@ -427,7 +431,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </p>
                 )}
-                {receiptData.customer.phone && (
+                {receiptData.customer.phone && typeof receiptData.customer.phone === 'string' && (
                   <p>
                     <span className="text-gray-600">Phone:</span>{" "}
                     <span className="font-medium">
@@ -435,7 +439,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </p>
                 )}
-                {receiptData.customer.email && (
+                {receiptData.customer.email && typeof receiptData.customer.email === 'string' && (
                   <p>
                     <span className="text-gray-600">Email:</span>{" "}
                     <span className="font-medium">
@@ -443,7 +447,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </p>
                 )}
-                {receiptData.customer.address && (
+                {receiptData.customer.address && typeof receiptData.customer.address === 'string' && (
                   <p>
                     <span className="text-gray-600">Address:</span>{" "}
                     <span className="font-medium">
@@ -451,7 +455,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </p>
                 )}
-                {receiptData.customer.pwdSeniorId && (
+                {receiptData.customer.pwdSeniorId && typeof receiptData.customer.pwdSeniorId === 'string' && (
                   <p>
                     <span className="text-gray-600">PWD/Senior ID:</span>{" "}
                     <span className="font-medium">
@@ -485,27 +489,28 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {receiptData.items.map((item) => (
+                  {receiptData.items.map((item, index) => (
                     <tr
-                      key={`${item.id}-${item.generic_name || item.name || 'unknown'}`}
+                      key={`item-${index}-${item.id || 'unknown'}`}
                       className="border-b border-gray-100"
                     >
                       <td className="py-2">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {item.brand_name && item.generic_name 
-                              ? `${item.brand_name} (${item.generic_name})`
-                              : item.generic_name || item.brand_name || item.name || 'Unknown Product'}
+                            {typeof item.name === 'string' ? item.name : 
+                             typeof item.brand_name === 'string' ? item.brand_name :
+                             typeof item.generic_name === 'string' ? item.generic_name : 'Unknown Product'}
                           </p>
-                          {item.dosage_strength && (
+                          {item.dosage_strength && typeof item.dosage_strength === 'string' && (
                             <p className="text-sm text-blue-600 font-medium">
                               {item.dosage_strength}
                             </p>
                           )}
                           {showDetails && (
                             <p className="text-xs text-gray-500">
-                              {item.category} • {item.unitType}
-                              {item.brand_name && item.generic_name && (
+                              {typeof item.category === 'string' ? item.category : 'General'} • {typeof item.unitType === 'string' ? item.unitType : 'piece'}
+                              {item.brand_name && item.generic_name && 
+                               typeof item.brand_name === 'string' && typeof item.generic_name === 'string' && (
                                 <>
                                   <br />
                                   <span className="text-gray-400">
@@ -518,13 +523,13 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                         </div>
                       </td>
                       <td className="text-center py-2 text-gray-700">
-                        {item.quantity}
+                        {item.quantity || 0}
                       </td>
                       <td className="text-right py-2 text-gray-700">
-                        {formatCurrency(item.unitPrice)}
+                        {formatCurrency(item.unitPrice || 0)}
                       </td>
                       <td className="text-right py-2 font-medium text-gray-900">
-                        {formatCurrency(item.totalPrice)}
+                        {formatCurrency(item.totalPrice || 0)}
                       </td>
                     </tr>
                   ))}
@@ -637,7 +642,13 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     <strong>Reason:</strong> {receiptData.status.editReason}
                   </p>
                   <p className="text-yellow-700">
-                    <strong>Modified by:</strong> {receiptData.status.editedBy}{" "}
+                    <strong>Modified by:</strong> {
+                      typeof receiptData.status.editedBy === 'string' 
+                        ? receiptData.status.editedBy 
+                        : typeof receiptData.status.editedBy === 'object' && receiptData.status.editedBy
+                          ? `${receiptData.status.editedBy.first_name || ''} ${receiptData.status.editedBy.last_name || ''}`.trim() || 'Unknown'
+                          : 'Unknown'
+                    }{" "}
                     on {formatDate(receiptData.status.editedAt)}
                   </p>
                 </div>

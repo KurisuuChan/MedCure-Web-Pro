@@ -294,6 +294,7 @@ class UnifiedTransactionService {
 
   /**
    * Undo a completed transaction (restore stock, mark cancelled)
+   * Uses robust database function to handle missing products gracefully
    * @param {string} transactionId - Transaction ID
    * @param {string} reason - Reason for undo (optional)
    * @param {string} userId - User performing the undo (optional)
@@ -328,26 +329,76 @@ class UnifiedTransactionService {
         throw new Error("Cannot undo transactions older than 24 hours");
       }
 
-      // Implement proper stock restoration by reversing the sale items
-      console.log("🔄 Performing stock restoration for transaction undo...");
+      // Use the robust database function for undo operations
+      // This handles missing products gracefully without manual product lookups
+      console.log("🔄 Calling robust database undo function...");
+      
+      const { data: undoResult, error: undoError } = await supabase.rpc(
+        'undo_transaction_completely',
+        { p_transaction_id: transactionId }
+      );
 
-      // First, get all the sale items for this transaction
-      const { data: saleItems, error: itemsError } = await supabase
-        .from("sale_items")
-        .select("product_id, quantity")
-        .eq("sale_id", transactionId);
-
-      if (itemsError) throw itemsError;
-
-      if (!saleItems || saleItems.length === 0) {
-        console.warn("⚠️ No sale items found for transaction:", transactionId);
-        throw new Error("No sale items found to restore stock for");
+      if (undoError) {
+        console.error("❌ Database undo function failed:", undoError);
+        throw new Error(`Database undo failed: ${undoError.message}`);
       }
 
-      console.log("📦 Restoring stock for items:", saleItems);
+      if (!undoResult || !undoResult.success) {
+        const errorMessage = undoResult?.message || undoResult?.error || "Unknown error";
+        console.error("❌ Undo operation failed:", errorMessage);
+        throw new Error(`Undo failed: ${errorMessage}`);
+      }
 
-      // Track successful restorations for rollback if needed
-      const restoredProducts = [];
+      console.log("✅ Database undo function completed:", undoResult);
+
+      // Update the reason and user info if provided
+      if (reason && reason !== "Transaction undone") {
+        const { error: updateError } = await supabase
+          .from("sales")
+          .update({
+            edit_reason: reason,
+            edited_by: userId,
+          })
+          .eq("id", transactionId);
+
+        if (updateError) {
+          console.warn("⚠️ Could not update reason:", updateError);
+          // Don't fail the whole operation for this
+        }
+      }
+
+      // Prepare success response
+      const response = {
+        success: true,
+        data: {
+          transaction_id: transactionId,
+          status: "cancelled",
+          reason: reason,
+          undone_by: userId,
+          undone_at: new Date().toISOString(),
+          database_result: undoResult,
+        },
+        message: undoResult.message,
+      };
+
+      // Add warning if some products were missing
+      if (undoResult.products_not_found > 0) {
+        response.warning = `${undoResult.products_not_found} products were not found and could not have stock restored`;
+        response.data.missing_products = undoResult.missing_product_ids;
+        console.warn("⚠️ Some products were missing during undo:", undoResult.missing_product_ids);
+      }
+
+      console.log("✅ Transaction undone successfully:", response);
+      return response;
+
+    } catch (error) {
+      console.error("❌ Undo transaction failed:", error);
+      throw new Error(`Failed to undo transaction: ${error.message}`);
+    }
+  }
+
+  /**
+   * Edit a transaction (if edit function exists)
 
       try {
         // Restore stock for each item
