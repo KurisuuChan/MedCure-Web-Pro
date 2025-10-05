@@ -10,6 +10,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./providers/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
 import { notificationService } from "./services/notifications/NotificationService.js";
+import { supabase } from "./config/supabase.js";
 import { CustomerService } from "./services/CustomerService";
 import { GlobalSpinner } from "./components/common/GlobalSpinner";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
@@ -85,17 +86,48 @@ function AppContent() {
           // Initialize database-backed notification service
           await notificationService.initialize();
 
+          // ✅ IMPROVED: Health checks with duplicate prevention
+          // Only runs if 15+ minutes have passed (database checks this)
+          console.log("🔍 Checking if health checks needed...");
+          await notificationService.runHealthChecks();
+
           // Start health checks every 15 minutes
-          notificationService.runHealthChecks();
           const healthCheckInterval = setInterval(() => {
+            console.log("⏰ Scheduled health check triggered");
             notificationService.runHealthChecks();
           }, 15 * 60 * 1000); // 15 minutes
 
           // Make notification service available for debugging
           if (import.meta.env.DEV) {
             window.notificationService = notificationService;
-          }
 
+            // ✅ ADD: Debug helper to view last health check time
+            window.checkHealthStatus = async () => {
+              const { data, error } = await supabase
+                .from("notification_health_checks")
+                .select("*")
+                .eq("check_type", "all")
+                .single();
+
+              if (error) {
+                console.log(
+                  "ℹ️ Health check tracking not set up yet. Run the database script from NOTIFICATION_DUPLICATE_FIX.md"
+                );
+                return;
+              }
+
+              console.log("📊 Last health check:", {
+                lastRun: new Date(data.last_run_at).toLocaleString(),
+                nextRun: new Date(data.next_run_at).toLocaleString(),
+                status: data.status,
+                notificationsCreated: data.notifications_created,
+              });
+            };
+
+            console.log(
+              "💡 Debug helpers available: window.notificationService, window.checkHealthStatus()"
+            );
+          }
           console.log(
             "✅ Notification system initialized with database backend"
           );

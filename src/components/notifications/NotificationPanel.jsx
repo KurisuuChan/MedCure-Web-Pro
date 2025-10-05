@@ -49,6 +49,11 @@ const NotificationPanel = ({ userId, onClose }) => {
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
+  // Loading states for actions
+  const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
+  const [isDismissingAll, setIsDismissingAll] = useState(false);
+  const [processingItems, setProcessingItems] = useState(new Set());
+
   // Load notifications
   useEffect(() => {
     if (!userId) return;
@@ -68,24 +73,42 @@ const NotificationPanel = ({ userId, onClose }) => {
     loadNotifications();
   }, [userId, page]);
 
-  // Subscribe to real-time updates
+  // Subscribe to real-time updates with debouncing
   useEffect(() => {
     if (!userId) return;
 
-    const unsubscribe = notificationService.subscribeToNotifications(
-      userId,
-      async () => {
+    let debounceTimer = null;
+    let isSubscribed = true;
+
+    const debouncedReload = () => {
+      // Clear previous timer
+      if (debounceTimer) clearTimeout(debounceTimer);
+
+      // Set new timer
+      debounceTimer = setTimeout(async () => {
+        if (!isSubscribed) return;
+
         // Reload current page
         const result = await notificationService.getUserNotifications(userId, {
           limit: ITEMS_PER_PAGE,
           offset: (page - 1) * ITEMS_PER_PAGE,
         });
-        setNotifications(result.notifications);
-        setHasMore(result.hasMore);
-      }
+
+        if (isSubscribed) {
+          setNotifications(result.notifications);
+          setHasMore(result.hasMore);
+        }
+      }, 500); // 500ms debounce
+    };
+
+    const unsubscribe = notificationService.subscribeToNotifications(
+      userId,
+      debouncedReload
     );
 
     return () => {
+      isSubscribed = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
       unsubscribe();
     };
   }, [userId, page]);
@@ -93,39 +116,143 @@ const NotificationPanel = ({ userId, onClose }) => {
   // Handle mark as read
   const handleMarkAsRead = async (notificationId, e) => {
     e.stopPropagation();
-    const success = await notificationService.markAsRead(
-      notificationId,
-      userId
-    );
-    if (success) {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+
+    // Add to processing set
+    setProcessingItems((prev) => new Set([...prev, notificationId]));
+
+    try {
+      const result = await notificationService.markAsRead(
+        notificationId,
+        userId
       );
+
+      if (result.success) {
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notificationId ? { ...n, is_read: true } : n
+          )
+        );
+      } else {
+        console.error("Failed to mark as read:", result.error);
+        alert(`Failed to mark notification as read: ${result.error}`);
+      }
+    } finally {
+      // Remove from processing set
+      setProcessingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(notificationId);
+        return next;
+      });
     }
   };
 
   // Handle mark all as read
   const handleMarkAllAsRead = async () => {
-    const success = await notificationService.markAllAsRead(userId);
-    if (success) {
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setIsMarkingAllAsRead(true);
+
+    try {
+      const result = await notificationService.markAllAsRead(userId);
+
+      if (result.success) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+
+        // Show success feedback
+        if (result.count > 0) {
+          console.log(`✅ Marked ${result.count} notification(s) as read`);
+        }
+      } else {
+        console.error("Failed to mark all as read:", result.error);
+        alert(`Failed to mark all notifications as read: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Unexpected error marking all as read:", error);
+      alert(`Unexpected error: ${error.message}`);
+    } finally {
+      setIsMarkingAllAsRead(false);
     }
   };
 
   // Handle dismiss
   const handleDismiss = async (notificationId, e) => {
     e.stopPropagation();
-    const success = await notificationService.dismiss(notificationId, userId);
-    if (success) {
-      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+
+    // Add to processing set
+    setProcessingItems((prev) => new Set([...prev, notificationId]));
+
+    try {
+      const result = await notificationService.dismiss(notificationId, userId);
+
+      if (result.success) {
+        // Filter out dismissed notification
+        setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+
+        // Check if page is now empty
+        const remainingCount = notifications.length - 1;
+        if (remainingCount === 0 && page > 1) {
+          // Go to previous page if current page is empty
+          setPage((prev) => prev - 1);
+        } else if (remainingCount === 0 && page === 1) {
+          // Reload page 1 to check for more notifications
+          const reloadResult = await notificationService.getUserNotifications(
+            userId,
+            {
+              limit: ITEMS_PER_PAGE,
+              offset: 0,
+            }
+          );
+          setNotifications(reloadResult.notifications);
+          setHasMore(reloadResult.hasMore);
+        }
+      } else {
+        console.error("Failed to dismiss:", result.error);
+        alert(`Failed to dismiss notification: ${result.error}`);
+      }
+    } finally {
+      // Remove from processing set
+      setProcessingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(notificationId);
+        return next;
+      });
     }
   };
 
   // Handle dismiss all
   const handleDismissAll = async () => {
-    const success = await notificationService.dismissAll(userId);
-    if (success) {
-      setNotifications([]);
+    // Confirmation dialog
+    const count = notifications.length;
+    const confirmMessage =
+      count > 0
+        ? `Are you sure you want to clear all ${count} notification(s)? This action cannot be undone.`
+        : "Are you sure you want to clear all notifications?";
+
+    if (!window.confirm(confirmMessage)) {
+      return; // User canceled
+    }
+
+    setIsDismissingAll(true);
+
+    try {
+      const result = await notificationService.dismissAll(userId);
+
+      if (result.success) {
+        setNotifications([]);
+        setPage(1); // Reset to page 1
+        setHasMore(false);
+
+        // Show success feedback
+        if (result.count > 0) {
+          console.log(`✅ Cleared ${result.count} notification(s)`);
+        }
+      } else {
+        console.error("Failed to dismiss all:", result.error);
+        alert(`Failed to clear all notifications: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Unexpected error dismissing all:", error);
+      alert(`Unexpected error: ${error.message}`);
+    } finally {
+      setIsDismissingAll(false);
     }
   };
 
@@ -274,59 +401,71 @@ const NotificationPanel = ({ userId, onClose }) => {
         >
           <button
             onClick={handleMarkAllAsRead}
+            disabled={isMarkingAllAsRead}
             style={{
               flex: 1,
               padding: "8px 12px",
-              backgroundColor: "#f3f4f6",
+              backgroundColor: isMarkingAllAsRead ? "#e5e7eb" : "#f3f4f6",
               border: "none",
               borderRadius: "6px",
-              cursor: "pointer",
+              cursor: isMarkingAllAsRead ? "wait" : "pointer",
               fontSize: "13px",
               fontWeight: "500",
-              color: "#374151",
+              color: isMarkingAllAsRead ? "#9ca3af" : "#374151",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: "6px",
               transition: "background-color 0.2s",
+              opacity: isMarkingAllAsRead ? 0.6 : 1,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#e5e7eb";
+              if (!isMarkingAllAsRead) {
+                e.currentTarget.style.backgroundColor = "#e5e7eb";
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#f3f4f6";
+              if (!isMarkingAllAsRead) {
+                e.currentTarget.style.backgroundColor = "#f3f4f6";
+              }
             }}
           >
             <CheckCheck size={16} />
-            Mark all read
+            {isMarkingAllAsRead ? "Marking..." : "Mark all read"}
           </button>
           <button
             onClick={handleDismissAll}
+            disabled={isDismissingAll}
             style={{
               flex: 1,
               padding: "8px 12px",
-              backgroundColor: "#fef2f2",
+              backgroundColor: isDismissingAll ? "#fee2e2" : "#fef2f2",
               border: "none",
               borderRadius: "6px",
-              cursor: "pointer",
+              cursor: isDismissingAll ? "wait" : "pointer",
               fontSize: "13px",
               fontWeight: "500",
-              color: "#dc2626",
+              color: isDismissingAll ? "#fca5a5" : "#dc2626",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: "6px",
               transition: "background-color 0.2s",
+              opacity: isDismissingAll ? 0.6 : 1,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#fee2e2";
+              if (!isDismissingAll) {
+                e.currentTarget.style.backgroundColor = "#fee2e2";
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#fef2f2";
+              if (!isDismissingAll) {
+                e.currentTarget.style.backgroundColor = "#fef2f2";
+              }
             }}
           >
             <Trash2 size={16} />
-            Clear all
+            {isDismissingAll ? "Clearing..." : "Clear all"}
           </button>
         </div>
       )}
@@ -466,15 +605,19 @@ const NotificationPanel = ({ userId, onClose }) => {
                 {!notification.is_read && (
                   <button
                     onClick={(e) => handleMarkAsRead(notification.id, e)}
+                    disabled={processingItems.has(notification.id)}
                     style={{
                       background: "transparent",
                       border: "none",
-                      cursor: "pointer",
+                      cursor: processingItems.has(notification.id)
+                        ? "wait"
+                        : "pointer",
                       padding: "4px",
                       borderRadius: "4px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      opacity: processingItems.has(notification.id) ? 0.5 : 1,
                     }}
                     title="Mark as read"
                   >
@@ -483,15 +626,19 @@ const NotificationPanel = ({ userId, onClose }) => {
                 )}
                 <button
                   onClick={(e) => handleDismiss(notification.id, e)}
+                  disabled={processingItems.has(notification.id)}
                   style={{
                     background: "transparent",
                     border: "none",
-                    cursor: "pointer",
+                    cursor: processingItems.has(notification.id)
+                      ? "wait"
+                      : "pointer",
                     padding: "4px",
                     borderRadius: "4px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    opacity: processingItems.has(notification.id) ? 0.5 : 1,
                   }}
                   title="Dismiss"
                 >

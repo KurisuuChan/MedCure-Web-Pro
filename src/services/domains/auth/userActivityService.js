@@ -328,18 +328,34 @@ export class UserActivityService {
    */
   static async notifyAdministrators(alert) {
     try {
-      await notificationService.createNotification({
-        title: "Critical Security Alert",
-        message: alert.description,
-        type: "security",
-        priority: "high",
-        targetRoles: ["SUPER_ADMIN", "ADMIN"],
-        metadata: {
-          alertId: alert.id,
-          userId: alert.user_id,
-          riskLevel: alert.risk_level,
-        },
-      });
+      // Get admin users
+      const { data: admins } = await supabase
+        .from("users")
+        .select("id")
+        .in("role", ["SUPER_ADMIN", "ADMIN"])
+        .eq("is_active", true);
+
+      if (!admins || admins.length === 0) {
+        console.warn("⚠️ No admin users found to notify");
+        return;
+      }
+
+      // Create notification for each admin
+      for (const admin of admins) {
+        await notificationService.create({
+          userId: admin.id,
+          title: "Critical Security Alert",
+          message: alert.description,
+          type: "error",
+          priority: 1, // CRITICAL
+          category: "system",
+          metadata: {
+            alertId: alert.id,
+            userId: alert.user_id,
+            riskLevel: alert.risk_level,
+          },
+        });
+      }
     } catch (error) {
       console.error("Error notifying administrators:", error);
     }

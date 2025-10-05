@@ -216,31 +216,65 @@ class NotificationService {
 
   /**
    * Check if a similar notification was recently sent
+   * ✅ IMPROVED: Now checks database for recent notifications
    */
-  isDuplicate(userId, category, productId) {
+  async isDuplicate(userId, category, productId) {
     if (!productId) return false; // Only deduplicate product-related notifications
 
-    const key = `${userId}-${category}-${productId}`;
-    const lastSent = this.recentNotifications.get(key);
+    try {
+      // Check database for recent notifications (within last 24 hours)
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-    if (!lastSent) return false;
+      const { data, error } = await supabase
+        .from("user_notifications")
+        .select("id, created_at")
+        .eq("user_id", userId)
+        .eq("category", category)
+        .contains("metadata", { productId: productId })
+        .gte("created_at", oneDayAgo.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-    const timeSince = Date.now() - lastSent;
-    return timeSince < this.DEDUP_WINDOW;
+      if (error) {
+        console.error("❌ Deduplication check failed:", error);
+        return false; // On error, allow notification (fail open)
+      }
+
+      if (data && data.length > 0) {
+        const lastNotification = data[0];
+        const hoursSince =
+          (Date.now() - new Date(lastNotification.created_at).getTime()) /
+          (1000 * 60 * 60);
+
+        console.log(
+          `🔄 Found recent notification for product ${productId}: ${hoursSince.toFixed(
+            1
+          )} hours ago`
+        );
+
+        // Only prevent if within last 24 hours
+        return hoursSince < 24;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("❌ Deduplication check error:", error);
+      return false; // Fail open - allow notification on error
+    }
   }
 
   /**
    * Mark notification as recently sent
+   * ✅ NOTE: Database now handles deduplication tracking
    */
   markAsRecent(userId, category, productId) {
-    if (!productId) return;
-
-    const key = `${userId}-${category}-${productId}`;
-    this.recentNotifications.set(key, Date.now());
-
-    // Clean up old entries periodically
-    if (this.recentNotifications.size > 1000) {
-      this.cleanupDeduplicationCache();
+    // Database-backed deduplication handles this automatically
+    // No need to maintain in-memory cache
+    if (productId) {
+      console.log(
+        `✅ Notification recorded in database for deduplication tracking`
+      );
     }
   }
 
@@ -647,24 +681,26 @@ class NotificationService {
    */
   async markAsRead(notificationId, userId) {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("user_notifications")
         .update({
           is_read: true,
           read_at: new Date().toISOString(),
         })
         .eq("id", notificationId)
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .select()
+        .single();
 
       if (error) {
         throw error;
       }
 
       console.log("✅ Notification marked as read:", notificationId);
-      return true;
+      return { success: true, data };
     } catch (error) {
       console.error("❌ Failed to mark as read:", error);
-      return false;
+      return { success: false, error: error.message };
     }
   }
 
@@ -673,7 +709,7 @@ class NotificationService {
    */
   async markAllAsRead(userId) {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("user_notifications")
         .update({
           is_read: true,
@@ -681,17 +717,19 @@ class NotificationService {
         })
         .eq("user_id", userId)
         .eq("is_read", false)
-        .is("dismissed_at", null);
+        .is("dismissed_at", null)
+        .select();
 
       if (error) {
         throw error;
       }
 
-      console.log("✅ All notifications marked as read for user:", userId);
-      return true;
+      const count = data?.length || 0;
+      console.log(`✅ Marked ${count} notifications as read for user:`, userId);
+      return { success: true, count, data };
     } catch (error) {
       console.error("❌ Failed to mark all as read:", error);
-      return false;
+      return { success: false, error: error.message };
     }
   }
 
@@ -700,23 +738,25 @@ class NotificationService {
    */
   async dismiss(notificationId, userId) {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("user_notifications")
         .update({
           dismissed_at: new Date().toISOString(),
         })
         .eq("id", notificationId)
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .select()
+        .single();
 
       if (error) {
         throw error;
       }
 
       console.log("✅ Notification dismissed:", notificationId);
-      return true;
+      return { success: true, data };
     } catch (error) {
       console.error("❌ Failed to dismiss notification:", error);
-      return false;
+      return { success: false, error: error.message };
     }
   }
 
@@ -725,23 +765,25 @@ class NotificationService {
    */
   async dismissAll(userId) {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("user_notifications")
         .update({
           dismissed_at: new Date().toISOString(),
         })
         .eq("user_id", userId)
-        .is("dismissed_at", null);
+        .is("dismissed_at", null)
+        .select();
 
       if (error) {
         throw error;
       }
 
-      console.log("✅ All notifications dismissed for user:", userId);
-      return true;
+      const count = data?.length || 0;
+      console.log(`✅ Dismissed ${count} notifications for user:`, userId);
+      return { success: true, count, data };
     } catch (error) {
       console.error("❌ Failed to dismiss all:", error);
-      return false;
+      return { success: false, error: error.message };
     }
   }
 
@@ -807,11 +849,35 @@ class NotificationService {
   // ============================================================================
 
   /**
-   * Run automated health checks
-   * Call this periodically (e.g., every 15 minutes) or on app startup
+   * Run automated health checks (WITH DUPLICATE PREVENTION)
+   * Only runs if 15+ minutes have passed since last run
    */
   async runHealthChecks() {
     try {
+      // ✅ FIX: Check if enough time has passed since last run
+      const { data: shouldRunData, error: checkError } = await supabase.rpc(
+        "should_run_health_check",
+        {
+          p_check_type: "all",
+          p_interval_minutes: 15, // Don't run more than once per 15 minutes
+        }
+      );
+
+      // If function doesn't exist yet, allow the check (backward compatibility)
+      if (checkError && checkError.code === "42883") {
+        console.warn(
+          "⚠️ Health check scheduling not set up yet - running checks anyway"
+        );
+      } else if (checkError) {
+        console.error("❌ Failed to check health check schedule:", checkError);
+        return;
+      } else if (!shouldRunData) {
+        console.log(
+          "⏸️ Skipping health checks - ran recently (within last 15 minutes)"
+        );
+        return;
+      }
+
       console.log("🔍 Running notification health checks...");
 
       // Get all active users who should receive notifications
@@ -832,17 +898,59 @@ class NotificationService {
 
       console.log(`👥 Found ${users.length} users to check`);
 
-      // Run checks
+      // ✅ FIX: Only notify ONE admin user (not all users to prevent spam)
+      const primaryUser = users.find((u) => u.role === "admin") || users[0];
+      console.log(
+        `📧 Sending notifications to primary user: ${primaryUser.role}`
+      );
+
+      // Run checks (only for primary user)
       const [lowStockCount, expiringCount] = await Promise.all([
-        this.checkLowStock(users),
-        this.checkExpiringProducts(users),
+        this.checkLowStock([primaryUser]), // Only primary user
+        this.checkExpiringProducts([primaryUser]), // Only primary user
       ]);
 
+      const totalNotifications = lowStockCount + expiringCount;
+
+      // ✅ FIX: Record successful completion (if function exists)
+      try {
+        await supabase.rpc("record_health_check_run", {
+          p_check_type: "all",
+          p_notifications_created: totalNotifications,
+          p_error_message: null,
+        });
+      } catch (recordError) {
+        // Ignore if function doesn't exist (backward compatibility)
+        if (recordError.code !== "42883") {
+          console.warn(
+            "⚠️ Failed to record health check run:",
+            recordError.message
+          );
+        }
+      }
+
       console.log(
-        `✅ Health checks completed: ${lowStockCount} low stock, ${expiringCount} expiring products`
+        `✅ Health checks completed: ${lowStockCount} low stock, ${expiringCount} expiring products (${totalNotifications} total notifications)`
       );
     } catch (error) {
       console.error("❌ Health check failed:", error);
+
+      // ✅ FIX: Record failure (if function exists)
+      try {
+        await supabase.rpc("record_health_check_run", {
+          p_check_type: "all",
+          p_notifications_created: 0,
+          p_error_message: error.message,
+        });
+      } catch (recordError) {
+        // Ignore if function doesn't exist
+        if (recordError.code !== "42883") {
+          console.error(
+            "❌ Failed to record health check failure:",
+            recordError
+          );
+        }
+      }
 
       // Try to notify admins about the failure
       try {
