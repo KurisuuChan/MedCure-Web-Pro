@@ -9,8 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./providers/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
-import notificationSystem from "./services/NotificationSystem";
-import { NotificationMigration } from "./services/NotificationMigration";
+import { notificationService } from "./services/notifications/NotificationService.js";
 import { CustomerService } from "./services/CustomerService";
 import { GlobalSpinner } from "./components/common/GlobalSpinner";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
@@ -31,10 +30,10 @@ const UnauthorizedPage = React.lazy(() => import("./pages/UnauthorizedPage"));
 const UserManagementPage = React.lazy(() =>
   import("./pages/UserManagementPage")
 );
-const TransactionHistoryPage = React.lazy(() => 
+const TransactionHistoryPage = React.lazy(() =>
   import("./pages/TransactionHistoryPage")
 );
-const CustomerInformationPage = React.lazy(() => 
+const CustomerInformationPage = React.lazy(() =>
   import("./pages/CustomerInformationPage")
 );
 const BatchManagementPage = React.lazy(() =>
@@ -64,12 +63,14 @@ function AppContent() {
       try {
         const persistenceStatus = await CustomerService.ensurePersistence();
         if (persistenceStatus) {
-          console.log('✅ Customer data persistence initialized successfully');
+          console.log("✅ Customer data persistence initialized successfully");
         } else {
-          console.warn('⚠️ Customer data persistence may not be working properly');
+          console.warn(
+            "⚠️ Customer data persistence may not be working properly"
+          );
         }
       } catch (error) {
-        console.error('❌ Failed to initialize customer persistence:', error);
+        console.error("❌ Failed to initialize customer persistence:", error);
       }
     };
 
@@ -81,37 +82,48 @@ function AppContent() {
     const initializeNotifications = async () => {
       if (user) {
         try {
-          // Migrate from legacy system
-          await NotificationMigration.migrateFromLegacy();
-          
-          // Initialize new notification system
-          await notificationSystem.initialize();
-          
-          // Create legacy wrapper for backward compatibility
-          NotificationMigration.createLegacyWrapper();
-          
-          // Make notification system available for debugging
+          // Initialize database-backed notification service
+          await notificationService.initialize();
+
+          // Start health checks every 15 minutes
+          notificationService.runHealthChecks();
+          const healthCheckInterval = setInterval(() => {
+            notificationService.runHealthChecks();
+          }, 15 * 60 * 1000); // 15 minutes
+
+          // Make notification service available for debugging
           if (import.meta.env.DEV) {
-            window.notificationSystem = notificationSystem;
+            window.notificationService = notificationService;
           }
-          
-          console.log('✅ Notification system initialized');
+
+          console.log(
+            "✅ Notification system initialized with database backend"
+          );
+          console.log("✅ Health checks scheduled every 15 minutes");
+
+          // Cleanup function
+          return () => {
+            clearInterval(healthCheckInterval);
+          };
         } catch (error) {
-          console.error('❌ Failed to initialize notifications:', error);
+          console.error("❌ Failed to initialize notifications:", error);
         }
-      } else {
-        // Clean up when user logs out
-        notificationSystem.destroy();
       }
     };
 
-    initializeNotifications();
+    const cleanup = initializeNotifications();
+
+    return () => {
+      if (cleanup && typeof cleanup.then === "function") {
+        cleanup.then((cleanupFn) => cleanupFn && cleanupFn());
+      }
+    };
   }, [user]);
 
   // Cleanup notifications when app unmounts
   useEffect(() => {
     return () => {
-      // Legacy cleanup is now handled by the migration system
+      // Notification service will be cleaned up when user logs out
     };
   }, []);
 

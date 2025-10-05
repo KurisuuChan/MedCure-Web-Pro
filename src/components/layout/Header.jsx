@@ -1,34 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { Bell, Search, User, LogOut, Menu } from "lucide-react";
-import NotificationDropdownV2 from "./NotificationDropdownV2";
+import { Search, User, LogOut, Menu } from "lucide-react";
+import NotificationBell from "../notifications/NotificationBell.jsx";
 
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();
   const [showSearch, setShowSearch] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [permissionStatus, setPermissionStatus] = useState('default');
-  
-  // Debug wrapper for setUnreadCount
-  const handleCountChange = (count) => {
-    console.log(`🔢 [Header] Notification count updated: ${count}`);
-    setUnreadCount(count);
-  };
-
-  // Notification management - now handled by the global notification system
-  useEffect(() => {
-    // Notification system is initialized in App.jsx
-    // No additional setup needed here
-  }, []);
-
-  // NotificationDropdown now handles count updates via onNotificationCountChange
-
-  const handleNotificationClick = () => {
-    console.log(`🔔 [Header] Notification button clicked, current count: ${unreadCount}`);
-    setShowNotifications(!showNotifications);
-  };
 
   const handleSignOut = async () => {
     try {
@@ -78,27 +56,8 @@ export function Header({ onToggleSidebar }) {
               <Search className="h-5 w-5" />
             </button>
 
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={handleNotificationClick}
-                className="relative p-2 rounded-md text-red-600 hover:bg-red-50 transition-all duration-200"
-                title="View notifications"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-              
-              <NotificationDropdownV2 
-                isOpen={showNotifications}
-                onClose={() => setShowNotifications(false)}
-                onNotificationCountChange={handleCountChange}
-              />
-            </div>
+            {/* Notifications - New Database-Backed System */}
+            {user && <NotificationBell userId={user.id} />}
 
             {/* User menu */}
             <div className="relative">

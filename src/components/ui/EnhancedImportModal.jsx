@@ -15,7 +15,7 @@ import {
 import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
 import { CSVImportService } from "../../services/domains/inventory/csvImportService";
 import { useAuth } from "../../hooks/useAuth";
-import notificationSystem from "../../services/NotificationSystem";
+import notificationService from "../../services/notifications/NotificationService";
 import {
   parseFlexibleDate,
   isDateNotInPast,
@@ -119,7 +119,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       // Enhanced success feedback with detailed statistics
       const successCount = createResult.data?.length || 0;
       const skippedCount = approvedCategories.length - successCount;
-      
+
       let message = `Successfully processed ${approvedCategories.length} categories`;
       if (successCount > 0) {
         message += `\n• Created: ${successCount} new categories`;
@@ -133,15 +133,21 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
         message,
       });
 
-      console.log("✅ [EnhancedImportModal] Categories processed successfully:", {
-        approved: approvedCategories.length,
-        created: successCount,
-        skipped: skippedCount
-      });
+      console.log(
+        "✅ [EnhancedImportModal] Categories processed successfully:",
+        {
+          approved: approvedCategories.length,
+          created: successCount,
+          skipped: skippedCount,
+        }
+      );
 
       setStep("preview");
     } catch (error) {
-      console.error("❌ [EnhancedImportModal] Category creation failed:", error);
+      console.error(
+        "❌ [EnhancedImportModal] Category creation failed:",
+        error
+      );
       setErrors([`Failed to create categories: ${error.message}`]);
     } finally {
       setIsProcessing(false);
@@ -157,19 +163,24 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       const mappingResult = await UnifiedCategoryService.mapCategoriesToIds(
         previewData
       );
-      
+
       if (!mappingResult.success) {
         throw new Error(mappingResult.error);
       }
 
       // Log mapping statistics for transparency
       if (mappingResult.stats) {
-        console.log("📊 [EnhancedImportModal] Category Mapping Stats:", mappingResult.stats);
-        
+        console.log(
+          "📊 [EnhancedImportModal] Category Mapping Stats:",
+          mappingResult.stats
+        );
+
         // Show mapping feedback to user
         const { unmapped, total } = mappingResult.stats;
         if (unmapped > 0) {
-          console.warn(`⚠️ [EnhancedImportModal] ${unmapped} of ${total} products have unmapped categories`);
+          console.warn(
+            `⚠️ [EnhancedImportModal] ${unmapped} of ${total} products have unmapped categories`
+          );
         }
       }
 
@@ -178,18 +189,25 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
 
       // Enhanced success feedback
       const importedCount = mappingResult.data?.length || previewData.length;
-      console.log(`✅ [EnhancedImportModal] Successfully imported ${importedCount} products`);
-      
+      console.log(
+        `✅ [EnhancedImportModal] Successfully imported ${importedCount} products`
+      );
+
       // Trigger notification for successful import
       try {
-        notificationSystem.addNotification('INVENTORY_UPDATED', {
-          action: 'Products Imported',
-          count: importedCount,
-          details: `Successfully imported ${importedCount} product${importedCount > 1 ? 's' : ''} to inventory`
+        await notificationService.create({
+          userId: user?.id,
+          title: "Products Imported",
+          message: `Successfully imported ${importedCount} product${
+            importedCount > 1 ? "s" : ""
+          } to inventory`,
+          type: "success",
+          priority: 2,
+          category: "inventory",
         });
-        console.log('✅ Import notification added');
+        console.log("✅ Import notification added");
       } catch (error) {
-        console.warn('⚠️ Failed to add import notification:', error);
+        console.warn("⚠️ Failed to add import notification:", error);
       }
 
       setTimeout(() => {
@@ -229,7 +247,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
   };
 
   const downloadTemplate = () => {
-    CSVImportService.downloadTemplate('medcure_pharmacy_import_template.csv');
+    CSVImportService.downloadTemplate("medcure_pharmacy_import_template.csv");
   };
 
   if (!isOpen) return null;
@@ -428,24 +446,28 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
                             <div>
-                              <span className="font-medium">generic_name</span> -
-                              Generic medicine name (required)
+                              <span className="font-medium">generic_name</span>{" "}
+                              - Generic medicine name (required)
                             </div>
                             <div>
-                              <span className="font-medium">category_name</span> -
-                              Product category (required)
+                              <span className="font-medium">category_name</span>{" "}
+                              - Product category (required)
                             </div>
                             <div>
-                              <span className="font-medium">price_per_piece</span> - 
-                              Unit price in PHP (required, number)
+                              <span className="font-medium">
+                                price_per_piece
+                              </span>{" "}
+                              - Unit price in PHP (required, number)
                             </div>
                             <div>
                               <span className="font-medium">brand_name</span> -
                               Brand name (optional)
                             </div>
                             <div>
-                              <span className="font-medium">dosage_strength</span> -
-                              e.g., 500mg, 10ml (optional)
+                              <span className="font-medium">
+                                dosage_strength
+                              </span>{" "}
+                              - e.g., 500mg, 10ml (optional)
                             </div>
                             <div>
                               <span className="font-medium">dosage_form</span> -
@@ -475,7 +497,9 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                           <div className="text-xs text-gray-600 space-y-1">
                             <div>• Auto-creates missing categories</div>
                             <div>• Validates medicine data and pricing</div>
-                            <div>• Handles dosage forms and classifications</div>
+                            <div>
+                              • Handles dosage forms and classifications
+                            </div>
                             <div>• Smart batch number generation</div>
                             <div>• Flexible date format detection</div>
                             <div>• Intelligent error prevention</div>
