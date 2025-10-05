@@ -2,7 +2,7 @@
  * ============================================================================
  * NotificationPanel - Dropdown Notification List Panel
  * ============================================================================
- * 
+ *
  * A React component that displays:
  * - List of notifications with icons, titles, messages, timestamps
  * - Actions: Mark as read, dismiss individual, mark all as read, dismiss all
@@ -10,16 +10,16 @@
  * - Pagination for large notification lists
  * - Real-time updates via Supabase
  * - Empty state when no notifications
- * 
+ *
  * Usage:
  *   <NotificationPanel userId={currentUser.id} onClose={() => setOpen(false)} />
- * 
+ *
  * @version 1.0.0
  * @date 2025-10-05
  */
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   X,
   Check,
@@ -33,13 +33,13 @@ import {
   Calendar,
   ShoppingCart,
   Settings,
-  ChevronDown
-} from 'lucide-react';
+  ChevronDown,
+} from "lucide-react";
 import {
   notificationService,
   NOTIFICATION_TYPE,
-  NOTIFICATION_CATEGORY
-} from '../../services/notifications/NotificationService.js';
+  NOTIFICATION_CATEGORY,
+} from "../../services/notifications/NotificationService.js";
 
 const NotificationPanel = ({ userId, onClose }) => {
   const navigate = useNavigate();
@@ -57,7 +57,7 @@ const NotificationPanel = ({ userId, onClose }) => {
       setIsLoading(true);
       const result = await notificationService.getUserNotifications(userId, {
         limit: ITEMS_PER_PAGE,
-        offset: (page - 1) * ITEMS_PER_PAGE
+        offset: (page - 1) * ITEMS_PER_PAGE,
       });
 
       setNotifications(result.notifications);
@@ -78,7 +78,7 @@ const NotificationPanel = ({ userId, onClose }) => {
         // Reload current page
         const result = await notificationService.getUserNotifications(userId, {
           limit: ITEMS_PER_PAGE,
-          offset: (page - 1) * ITEMS_PER_PAGE
+          offset: (page - 1) * ITEMS_PER_PAGE,
         });
         setNotifications(result.notifications);
         setHasMore(result.hasMore);
@@ -93,12 +93,13 @@ const NotificationPanel = ({ userId, onClose }) => {
   // Handle mark as read
   const handleMarkAsRead = async (notificationId, e) => {
     e.stopPropagation();
-    const success = await notificationService.markAsRead(notificationId, userId);
+    const success = await notificationService.markAsRead(
+      notificationId,
+      userId
+    );
     if (success) {
       setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        )
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
     }
   };
@@ -107,9 +108,7 @@ const NotificationPanel = ({ userId, onClose }) => {
   const handleMarkAllAsRead = async () => {
     const success = await notificationService.markAllAsRead(userId);
     if (success) {
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, is_read: true }))
-      );
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     }
   };
 
@@ -118,9 +117,7 @@ const NotificationPanel = ({ userId, onClose }) => {
     e.stopPropagation();
     const success = await notificationService.dismiss(notificationId, userId);
     if (success) {
-      setNotifications((prev) =>
-        prev.filter((n) => n.id !== notificationId)
-      );
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
     }
   };
 
@@ -185,69 +182,79 @@ const NotificationPanel = ({ userId, onClose }) => {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
-    
-    return notifDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: notifDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60)
+      return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+
+    return notifDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year:
+        notifDate.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
     });
   };
 
   // Get priority badge color
   const getPriorityColor = (priority) => {
-    if (priority <= 1) return '#ef4444'; // Critical
-    if (priority === 2) return '#f59e0b'; // High
-    if (priority === 3) return '#2563eb'; // Medium
-    return '#6b7280'; // Low/Info
+    if (priority <= 1) return "#ef4444"; // Critical
+    if (priority === 2) return "#f59e0b"; // High
+    if (priority === 3) return "#2563eb"; // Medium
+    return "#6b7280"; // Low/Info
   };
 
   return (
     <div
       className="notification-panel"
       style={{
-        position: 'absolute',
-        top: 'calc(100% + 8px)',
+        position: "absolute",
+        top: "calc(100% + 8px)",
         right: 0,
-        width: '420px',
-        maxHeight: '600px',
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 1000
+        width: "420px",
+        maxHeight: "600px",
+        backgroundColor: "white",
+        borderRadius: "12px",
+        boxShadow: "0 10px 40px rgba(0, 0, 0, 0.15)",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 1000,
       }}
     >
       {/* Header */}
       <div
         style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f9fafb'
+          padding: "16px 20px",
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: "#f9fafb",
         }}
       >
-        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#111827' }}>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: "18px",
+            fontWeight: "600",
+            color: "#111827",
+          }}
+        >
           Notifications
         </h3>
         <button
           onClick={onClose}
           style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '4px',
-            borderRadius: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: "4px",
+            borderRadius: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           aria-label="Close"
         >
@@ -259,35 +266,35 @@ const NotificationPanel = ({ userId, onClose }) => {
       {notifications.length > 0 && (
         <div
           style={{
-            padding: '12px 20px',
-            borderBottom: '1px solid #e5e7eb',
-            display: 'flex',
-            gap: '8px'
+            padding: "12px 20px",
+            borderBottom: "1px solid #e5e7eb",
+            display: "flex",
+            gap: "8px",
           }}
         >
           <button
             onClick={handleMarkAllAsRead}
             style={{
               flex: 1,
-              padding: '8px 12px',
-              backgroundColor: '#f3f4f6',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: '500',
-              color: '#374151',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'background-color 0.2s'
+              padding: "8px 12px",
+              backgroundColor: "#f3f4f6",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: "500",
+              color: "#374151",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              transition: "background-color 0.2s",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#e5e7eb';
+              e.currentTarget.style.backgroundColor = "#e5e7eb";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#f3f4f6';
+              e.currentTarget.style.backgroundColor = "#f3f4f6";
             }}
           >
             <CheckCheck size={16} />
@@ -297,25 +304,25 @@ const NotificationPanel = ({ userId, onClose }) => {
             onClick={handleDismissAll}
             style={{
               flex: 1,
-              padding: '8px 12px',
-              backgroundColor: '#fef2f2',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: '500',
-              color: '#dc2626',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'background-color 0.2s'
+              padding: "8px 12px",
+              backgroundColor: "#fef2f2",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: "500",
+              color: "#dc2626",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              transition: "background-color 0.2s",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#fee2e2';
+              e.currentTarget.style.backgroundColor = "#fee2e2";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#fef2f2';
+              e.currentTarget.style.backgroundColor = "#fef2f2";
             }}
           >
             <Trash2 size={16} />
@@ -328,21 +335,21 @@ const NotificationPanel = ({ userId, onClose }) => {
       <div
         style={{
           flex: 1,
-          overflowY: 'auto',
-          maxHeight: '450px'
+          overflowY: "auto",
+          maxHeight: "450px",
         }}
       >
         {isLoading ? (
-          <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
             <div
               style={{
-                display: 'inline-block',
-                width: '32px',
-                height: '32px',
-                border: '3px solid #e5e7eb',
-                borderTop: '3px solid #2563eb',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
+                display: "inline-block",
+                width: "32px",
+                height: "32px",
+                border: "3px solid #e5e7eb",
+                borderTop: "3px solid #2563eb",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
               }}
             />
             <style>{`
@@ -355,16 +362,16 @@ const NotificationPanel = ({ userId, onClose }) => {
         ) : notifications.length === 0 ? (
           <div
             style={{
-              padding: '60px 20px',
-              textAlign: 'center',
-              color: '#6b7280'
+              padding: "60px 20px",
+              textAlign: "center",
+              color: "#6b7280",
             }}
           >
-            <Info size={48} color="#d1d5db" style={{ marginBottom: '16px' }} />
-            <p style={{ margin: 0, fontSize: '15px', fontWeight: '500' }}>
+            <Info size={48} color="#d1d5db" style={{ marginBottom: "16px" }} />
+            <p style={{ margin: 0, fontSize: "15px", fontWeight: "500" }}>
               No notifications
             </p>
-            <p style={{ margin: '8px 0 0', fontSize: '13px' }}>
+            <p style={{ margin: "8px 0 0", fontSize: "13px" }}>
               You're all caught up!
             </p>
           </div>
@@ -374,42 +381,44 @@ const NotificationPanel = ({ userId, onClose }) => {
               key={notification.id}
               onClick={() => handleNotificationClick(notification)}
               style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid #f3f4f6',
-                cursor: notification.metadata?.actionUrl ? 'pointer' : 'default',
-                backgroundColor: notification.is_read ? 'white' : '#f0f9ff',
-                transition: 'background-color 0.2s',
-                position: 'relative',
-                display: 'flex',
-                gap: '12px'
+                padding: "16px 20px",
+                borderBottom: "1px solid #f3f4f6",
+                cursor: notification.metadata?.actionUrl
+                  ? "pointer"
+                  : "default",
+                backgroundColor: notification.is_read ? "white" : "#f0f9ff",
+                transition: "background-color 0.2s",
+                position: "relative",
+                display: "flex",
+                gap: "12px",
               }}
               onMouseEnter={(e) => {
                 if (notification.metadata?.actionUrl) {
                   e.currentTarget.style.backgroundColor = notification.is_read
-                    ? '#f9fafb'
-                    : '#e0f2fe';
+                    ? "#f9fafb"
+                    : "#e0f2fe";
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = notification.is_read
-                  ? 'white'
-                  : '#f0f9ff';
+                  ? "white"
+                  : "#f0f9ff";
               }}
             >
               {/* Priority Indicator */}
               <div
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   left: 0,
                   top: 0,
                   bottom: 0,
-                  width: '4px',
-                  backgroundColor: getPriorityColor(notification.priority)
+                  width: "4px",
+                  backgroundColor: getPriorityColor(notification.priority),
                 }}
               />
 
               {/* Icon */}
-              <div style={{ flexShrink: 0, marginTop: '2px' }}>
+              <div style={{ flexShrink: 0, marginTop: "2px" }}>
                 {getNotificationIcon(notification)}
               </div>
 
@@ -417,28 +426,28 @@ const NotificationPanel = ({ userId, onClose }) => {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
-                    fontSize: '14px',
-                    fontWeight: notification.is_read ? '500' : '600',
-                    color: '#111827',
-                    marginBottom: '4px'
+                    fontSize: "14px",
+                    fontWeight: notification.is_read ? "500" : "600",
+                    color: "#111827",
+                    marginBottom: "4px",
                   }}
                 >
                   {notification.title}
                 </div>
                 <div
                   style={{
-                    fontSize: '13px',
-                    color: '#6b7280',
-                    lineHeight: '1.5',
-                    marginBottom: '6px'
+                    fontSize: "13px",
+                    color: "#6b7280",
+                    lineHeight: "1.5",
+                    marginBottom: "6px",
                   }}
                 >
                   {notification.message}
                 </div>
                 <div
                   style={{
-                    fontSize: '12px',
-                    color: '#9ca3af'
+                    fontSize: "12px",
+                    color: "#9ca3af",
                   }}
                 >
                   {formatTimestamp(notification.created_at)}
@@ -448,24 +457,24 @@ const NotificationPanel = ({ userId, onClose }) => {
               {/* Actions */}
               <div
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px',
-                  flexShrink: 0
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px",
+                  flexShrink: 0,
                 }}
               >
                 {!notification.is_read && (
                   <button
                     onClick={(e) => handleMarkAsRead(notification.id, e)}
                     style={{
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      borderRadius: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "4px",
+                      borderRadius: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                     title="Mark as read"
                   >
@@ -475,14 +484,14 @@ const NotificationPanel = ({ userId, onClose }) => {
                 <button
                   onClick={(e) => handleDismiss(notification.id, e)}
                   style={{
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '4px',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "4px",
+                    borderRadius: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                   title="Dismiss"
                 >
@@ -498,52 +507,52 @@ const NotificationPanel = ({ userId, onClose }) => {
       {(page > 1 || hasMore) && (
         <div
           style={{
-            padding: '12px 20px',
-            borderTop: '1px solid #e5e7eb',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            backgroundColor: '#f9fafb'
+            padding: "12px 20px",
+            borderTop: "1px solid #e5e7eb",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            backgroundColor: "#f9fafb",
           }}
         >
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
             style={{
-              padding: '6px 12px',
-              backgroundColor: page === 1 ? '#f3f4f6' : '#2563eb',
-              color: page === 1 ? '#9ca3af' : 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: page === 1 ? 'not-allowed' : 'pointer',
-              fontSize: '13px',
-              fontWeight: '500'
+              padding: "6px 12px",
+              backgroundColor: page === 1 ? "#f3f4f6" : "#2563eb",
+              color: page === 1 ? "#9ca3af" : "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: page === 1 ? "not-allowed" : "pointer",
+              fontSize: "13px",
+              fontWeight: "500",
             }}
           >
             Previous
           </button>
-          <span style={{ fontSize: '13px', color: '#6b7280' }}>
+          <span style={{ fontSize: "13px", color: "#6b7280" }}>
             Page {page}
           </span>
           <button
             onClick={() => setPage((p) => p + 1)}
             disabled={!hasMore}
             style={{
-              padding: '6px 12px',
-              backgroundColor: !hasMore ? '#f3f4f6' : '#2563eb',
-              color: !hasMore ? '#9ca3af' : 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: !hasMore ? 'not-allowed' : 'pointer',
-              fontSize: '13px',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
+              padding: "6px 12px",
+              backgroundColor: !hasMore ? "#f3f4f6" : "#2563eb",
+              color: !hasMore ? "#9ca3af" : "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: !hasMore ? "not-allowed" : "pointer",
+              fontSize: "13px",
+              fontWeight: "500",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
             }}
           >
             Next
-            <ChevronDown size={14} style={{ transform: 'rotate(-90deg)' }} />
+            <ChevronDown size={14} style={{ transform: "rotate(-90deg)" }} />
           </button>
         </div>
       )}

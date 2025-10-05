@@ -61,8 +61,13 @@ export default function POSPage() {
   });
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
   const [showOldCustomerModal, setShowOldCustomerModal] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', address: '' });
-  const [customerSearch, setCustomerSearch] = useState('');
+  const [newCustomer, setNewCustomer] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+  });
+  const [customerSearch, setCustomerSearch] = useState("");
   const [discount, setDiscount] = useState({
     type: "none",
     percentage: 0,
@@ -126,7 +131,7 @@ export default function POSPage() {
       }
 
       // Ensure we have user authentication for the cashier ID
-            const paymentDataWithCashier = {
+      const paymentDataWithCashier = {
         ...paymentData,
         cashier_name: user?.first_name || "Unknown",
         customer_name: discount.customerName || paymentData.customer_name,
@@ -144,40 +149,44 @@ export default function POSPage() {
         customer_phone: paymentDataWithCashier.customer_phone,
         customer_address: paymentDataWithCashier.customer_address,
         customer_email: paymentDataWithCashier.customer_email,
-        customerType: paymentDataWithCashier.customerType
+        customerType: paymentDataWithCashier.customerType,
       });
 
       const transaction = await processPayment(paymentDataWithCashier);
-      
+
       // Trigger sale notification
       try {
         const finalTotal = cartSummary.total - discount.amount;
-        notificationSystem.addNotification('SALE_COMPLETED', {
+        notificationSystem.addNotification("SALE_COMPLETED", {
           amount: finalTotal,
-          itemCount: cart.length,
-          customerName: paymentData.customer_name || 'Walk-in Customer',
-          transactionId: transaction?.id || 'N/A'
+          itemCount: cartItems.length,
+          customerName: paymentData.customer_name || "Walk-in Customer",
+          transactionId: transaction?.id || "N/A",
         });
-        console.log('✅ Sale notification added');
+        console.log("✅ Sale notification added");
       } catch (error) {
-        console.warn('⚠️ Failed to add sale notification:', error);
+        console.warn("⚠️ Failed to add sale notification:", error);
       }
-      
+
       // Update customer purchase history in localStorage for persistence
-      if (paymentData.customerType !== null && paymentData.customerType !== 'guest' && paymentData.customer_phone) {
+      if (
+        paymentData.customerType !== null &&
+        paymentData.customerType !== "guest" &&
+        paymentData.customer_phone
+      ) {
         try {
           const finalTotal = cartSummary.total - discount.amount;
           await CustomerService.updateCustomerPurchaseStats(
             paymentData.customer_phone,
             finalTotal
           );
-          console.log('✅ Customer purchase history updated in localStorage');
+          console.log("✅ Customer purchase history updated in localStorage");
         } catch (error) {
-          console.warn('⚠️ Failed to update customer purchase stats:', error);
+          console.warn("⚠️ Failed to update customer purchase stats:", error);
           // Don't fail the transaction if customer stats update fails
         }
       }
-      
+
       setLastTransaction(transaction);
       setShowCheckout(false);
       setShowReceipt(true);
@@ -226,8 +235,6 @@ export default function POSPage() {
         console.error("⚠️ Error generating notifications:", notificationError);
         // Don't fail the sale if notifications fail
       }
-
-
     } catch (error) {
       console.error("❌ Payment processing error:", error);
       // Error is handled in the hook
@@ -264,7 +271,7 @@ export default function POSPage() {
           <div className="flex items-center space-x-3">
             {/* Transaction History Button */}
             <button
-              onClick={() => navigate('/transaction-history')}
+              onClick={() => navigate("/transaction-history")}
               className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
             >
               <History className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
@@ -273,7 +280,7 @@ export default function POSPage() {
 
             {/* Customer Information Button */}
             <button
-              onClick={() => navigate('/customers')}
+              onClick={() => navigate("/customers")}
               className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-all duration-200"
             >
               <Users className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
@@ -321,7 +328,8 @@ export default function POSPage() {
                   <div className="flex items-center space-x-3">
                     <div className="bg-blue-800 px-2 py-1 rounded-full">
                       <span className="text-sm font-medium">
-                        {cartItems.length} item{cartItems.length !== 1 ? 's' : ''}
+                        {cartItems.length} item
+                        {cartItems.length !== 1 ? "s" : ""}
                       </span>
                     </div>
                     {cartItems.length > 0 && (
@@ -358,7 +366,9 @@ export default function POSPage() {
                       </div>
                       <div className="flex justify-between font-bold text-lg text-green-800 border-t border-green-200 pt-2 mt-2">
                         <span>Final Total:</span>
-                        <span>{formatCurrency(cartSummary.total - discount.amount)}</span>
+                        <span>
+                          {formatCurrency(cartSummary.total - discount.amount)}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -371,7 +381,7 @@ export default function POSPage() {
                     <CreditCard className="h-5 w-5" />
                     <span>Checkout</span>
                   </button>
-                  
+
                   {discount.amount > 0 && (
                     <p className="text-center text-sm text-green-600 font-medium mt-2">
                       💰 You save {formatCurrency(discount.amount)}!
@@ -422,7 +432,9 @@ export default function POSPage() {
 
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between py-1">
-                      <span className="text-gray-600">Subtotal (Before VAT)</span>
+                      <span className="text-gray-600">
+                        Subtotal (Before VAT)
+                      </span>
                       <span className="font-medium">
                         {formatCurrency(cartSummary.subtotal)}
                       </span>
@@ -434,7 +446,9 @@ export default function POSPage() {
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-t border-gray-200">
-                      <span className="text-gray-700 font-medium">Total (Inc. VAT)</span>
+                      <span className="text-gray-700 font-medium">
+                        Total (Inc. VAT)
+                      </span>
                       <span className="font-semibold">
                         {formatCurrency(cartSummary.total)}
                       </span>
@@ -519,19 +533,19 @@ export default function POSPage() {
                     <input
                       id="amount-received"
                       type="number"
-                      value={paymentData.amount === 0 ? '' : paymentData.amount}
+                      value={paymentData.amount === 0 ? "" : paymentData.amount}
                       onChange={(e) => {
                         const inputValue = e.target.value;
-                        
+
                         // Handle empty input
-                        if (inputValue === '' || inputValue === null) {
+                        if (inputValue === "" || inputValue === null) {
                           setPaymentData((prev) => ({
                             ...prev,
                             amount: 0,
                           }));
                           return;
                         }
-                        
+
                         const value = parseFloat(inputValue);
                         // Allow unlimited payment amounts for professional use
                         if (!isNaN(value) && value >= 0 && value <= 999999.99) {
@@ -593,15 +607,19 @@ export default function POSPage() {
                   {/* Enhanced Payment Status Messages */}
                   {paymentData.amount > 0 && (
                     <div className="mt-3 space-y-2">
-                      {paymentData.amount < cartSummary.total - discount.amount ? (
+                      {paymentData.amount <
+                      cartSummary.total - discount.amount ? (
                         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                           <div className="text-center">
                             <p className="text-red-800 font-medium flex items-center justify-center gap-2">
                               ⚠️ Insufficient Payment
                             </p>
                             <p className="text-red-600 text-sm mt-1">
-                              Short by: {formatCurrency(
-                                (cartSummary.total - discount.amount) - paymentData.amount
+                              Short by:{" "}
+                              {formatCurrency(
+                                cartSummary.total -
+                                  discount.amount -
+                                  paymentData.amount
                               )}
                             </p>
                           </div>
@@ -613,8 +631,10 @@ export default function POSPage() {
                               ✅ Payment Complete
                             </p>
                             <p className="text-green-600 text-sm mt-1">
-                              Change: {formatCurrency(
-                                paymentData.amount - (cartSummary.total - discount.amount)
+                              Change:{" "}
+                              {formatCurrency(
+                                paymentData.amount -
+                                  (cartSummary.total - discount.amount)
                               )}
                             </p>
                           </div>
@@ -622,7 +642,7 @@ export default function POSPage() {
                       )}
                     </div>
                   )}
-                  
+
                   {/* Additional validation message */}
                   {paymentData.amount <= 0 && (
                     <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -641,47 +661,84 @@ export default function POSPage() {
                   <div className="flex gap-3 mb-2">
                     <button
                       type="button"
-                      className={`flex-1 px-3 py-2 rounded-lg border border-gray-300 font-medium transition-colors ${paymentData.customerType === 'guest' ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
-                      onClick={() => setPaymentData((prev) => ({ ...prev, customerType: 'guest', customer_name: 'Walk-in Customer', customer_phone: '', customer_address: '', customer_id: '' }))}
+                      className={`flex-1 px-3 py-2 rounded-lg border border-gray-300 font-medium transition-colors ${
+                        paymentData.customerType === "guest"
+                          ? "bg-green-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                      }`}
+                      onClick={() =>
+                        setPaymentData((prev) => ({
+                          ...prev,
+                          customerType: "guest",
+                          customer_name: "Walk-in Customer",
+                          customer_phone: "",
+                          customer_address: "",
+                          customer_id: "",
+                        }))
+                      }
                     >
                       Guest
                     </button>
                     <button
                       type="button"
-                      className={`flex-1 px-3 py-2 rounded-lg border border-gray-300 font-medium transition-colors ${paymentData.customerType === 'new' ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
+                      className={`flex-1 px-3 py-2 rounded-lg border border-gray-300 font-medium transition-colors ${
+                        paymentData.customerType === "new"
+                          ? "bg-green-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                      }`}
                       onClick={() => setShowNewCustomerModal(true)}
                     >
                       New Customer
                     </button>
                     <button
                       type="button"
-                      className={`flex-1 px-3 py-2 rounded-lg border border-gray-300 font-medium transition-colors ${paymentData.customerType === 'old' ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
+                      className={`flex-1 px-3 py-2 rounded-lg border border-gray-300 font-medium transition-colors ${
+                        paymentData.customerType === "old"
+                          ? "bg-green-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100"
+                      }`}
                       onClick={() => setShowOldCustomerModal(true)}
                     >
                       Old Customer
                     </button>
                   </div>
                   {/* Show selected customer info if not guest */}
-                  {paymentData.customerType && paymentData.customerType !== null && (
-                    <div className="bg-gray-100 rounded p-3 mt-2">
-                      <div className="text-sm text-gray-700 font-medium">Selected Customer:</div>
-                      <div className="text-base font-semibold">{paymentData.customer_name}</div>
-                      <div className="text-sm">{paymentData.customer_phone}</div>
-                      <div className="text-sm">{paymentData.customer_address}</div>
-                    </div>
-                  )}
+                  {paymentData.customerType &&
+                    paymentData.customerType !== null && (
+                      <div className="bg-gray-100 rounded p-3 mt-2">
+                        <div className="text-sm text-gray-700 font-medium">
+                          Selected Customer:
+                        </div>
+                        <div className="text-base font-semibold">
+                          {paymentData.customer_name}
+                        </div>
+                        <div className="text-sm">
+                          {paymentData.customer_phone}
+                        </div>
+                        <div className="text-sm">
+                          {paymentData.customer_address}
+                        </div>
+                      </div>
+                    )}
                 </div>
 
                 {/* New Customer Modal */}
                 {showNewCustomerModal && (
                   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
-                      <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => setShowNewCustomerModal(false)}><span aria-hidden>×</span></button>
-                      
+                      <button
+                        className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+                        onClick={() => setShowNewCustomerModal(false)}
+                      >
+                        <span aria-hidden>×</span>
+                      </button>
+
                       {/* Customer Error Display - Over Modal */}
                       {customerError && (
                         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex justify-between items-center">
-                          <span className="text-sm font-medium">❌ {customerError}</span>
+                          <span className="text-sm font-medium">
+                            ❌ {customerError}
+                          </span>
                           <button
                             onClick={clearCustomerError}
                             className="text-red-500 hover:text-red-700 ml-2"
@@ -690,36 +747,58 @@ export default function POSPage() {
                           </button>
                         </div>
                       )}
-                      
-                      <h3 className="text-lg font-semibold mb-4">New Customer</h3>
+
+                      <h3 className="text-lg font-semibold mb-4">
+                        New Customer
+                      </h3>
                       <div className="space-y-3">
                         <input
                           type="text"
                           placeholder="Full Name"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                           value={newCustomer.name}
-                          onChange={e => setNewCustomer((prev) => ({ ...prev, name: e.target.value }))}
+                          onChange={(e) =>
+                            setNewCustomer((prev) => ({
+                              ...prev,
+                              name: e.target.value,
+                            }))
+                          }
                         />
                         <input
                           type="tel"
                           placeholder="Phone Number"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                           value={newCustomer.phone}
-                          onChange={e => setNewCustomer((prev) => ({ ...prev, phone: e.target.value }))}
+                          onChange={(e) =>
+                            setNewCustomer((prev) => ({
+                              ...prev,
+                              phone: e.target.value,
+                            }))
+                          }
                         />
                         <input
                           type="email"
                           placeholder="Email (Optional)"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                           value={newCustomer.email}
-                          onChange={e => setNewCustomer((prev) => ({ ...prev, email: e.target.value }))}
+                          onChange={(e) =>
+                            setNewCustomer((prev) => ({
+                              ...prev,
+                              email: e.target.value,
+                            }))
+                          }
                         />
                         <input
                           type="text"
                           placeholder="Address"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                           value={newCustomer.address}
-                          onChange={e => setNewCustomer((prev) => ({ ...prev, address: e.target.value }))}
+                          onChange={(e) =>
+                            setNewCustomer((prev) => ({
+                              ...prev,
+                              address: e.target.value,
+                            }))
+                          }
                         />
                       </div>
                       <button
@@ -732,23 +811,32 @@ export default function POSPage() {
                               email: newCustomer.email,
                               address: newCustomer.address,
                             });
-                            
+
                             setPaymentData((prev) => ({
                               ...prev,
-                              customerType: 'new',
+                              customerType: "new",
                               customer_name: savedCustomer.customer_name,
                               customer_phone: savedCustomer.phone,
                               customer_address: savedCustomer.address,
                               customer_id: savedCustomer.id,
                             }));
                             setShowNewCustomerModal(false);
-                            setNewCustomer({ name: '', phone: '', email: '', address: '' });
+                            setNewCustomer({
+                              name: "",
+                              phone: "",
+                              email: "",
+                              address: "",
+                            });
                           } catch (error) {
-                            console.error('Failed to create customer:', error);
+                            console.error("Failed to create customer:", error);
                             // You might want to show a toast notification here
                           }
                         }}
-                        disabled={!newCustomer.name || !newCustomer.phone || !newCustomer.address}
+                        disabled={
+                          !newCustomer.name ||
+                          !newCustomer.phone ||
+                          !newCustomer.address
+                        }
                       >
                         Save Customer
                       </button>
@@ -760,15 +848,22 @@ export default function POSPage() {
                 {showOldCustomerModal && (
                   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative max-h-[80vh] overflow-y-auto">
-                      <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => {
-                        setShowOldCustomerModal(false);
-                        setCustomerSearch('');
-                      }}><span aria-hidden>×</span></button>
+                      <button
+                        className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+                        onClick={() => {
+                          setShowOldCustomerModal(false);
+                          setCustomerSearch("");
+                        }}
+                      >
+                        <span aria-hidden>×</span>
+                      </button>
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Select Customer</h3>
+                        <h3 className="text-lg font-semibold">
+                          Select Customer
+                        </h3>
                         <button
                           onClick={() => {
-                            console.log('🔄 Refreshing customers...');
+                            console.log("🔄 Refreshing customers...");
                             fetchCustomers();
                           }}
                           className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
@@ -776,7 +871,7 @@ export default function POSPage() {
                           Refresh ({customers.length})
                         </button>
                       </div>
-                      
+
                       {/* Search Box */}
                       <div className="mb-4">
                         <input
@@ -784,40 +879,56 @@ export default function POSPage() {
                           placeholder="Search customers by name or phone..."
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                           value={customerSearch}
-                          onChange={e => setCustomerSearch(e.target.value)}
+                          onChange={(e) => setCustomerSearch(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
                         {customersLoading ? (
-                          <div className="text-center py-4 text-gray-500">Loading customers...</div>
+                          <div className="text-center py-4 text-gray-500">
+                            Loading customers...
+                          </div>
                         ) : customers.length === 0 ? (
                           <div className="text-center py-4 space-y-2">
-                            <div className="text-gray-500">No customers found.</div>
+                            <div className="text-gray-500">
+                              No customers found.
+                            </div>
                             <div className="text-xs text-gray-400">
                               Debug: customers array length = {customers.length}
                             </div>
                             <div className="flex gap-2 justify-center">
-                              <button 
+                              <button
                                 onClick={() => {
-                                  console.log('🔍 Debug customers data from database:', customers);
-                                  console.log('🔍 Debug customers count:', customers.length);
+                                  console.log(
+                                    "🔍 Debug customers data from database:",
+                                    customers
+                                  );
+                                  console.log(
+                                    "🔍 Debug customers count:",
+                                    customers.length
+                                  );
                                 }}
                                 className="text-xs text-blue-500 underline"
                               >
                                 Debug Console
                               </button>
-                              <button 
+                              <button
                                 onClick={async () => {
                                   try {
                                     const testCustomer = await createCustomer({
-                                      customer_name: 'Test Customer',
-                                      phone: '09123456789',
-                                      email: 'test@test.com',
-                                      address: 'Test Address'
+                                      customer_name: "Test Customer",
+                                      phone: "09123456789",
+                                      email: "test@test.com",
+                                      address: "Test Address",
                                     });
-                                    console.log('✅ Created test customer:', testCustomer);
+                                    console.log(
+                                      "✅ Created test customer:",
+                                      testCustomer
+                                    );
                                   } catch (error) {
-                                    console.error('❌ Error creating test customer:', error);
+                                    console.error(
+                                      "❌ Error creating test customer:",
+                                      error
+                                    );
                                   }
                                 }}
                                 className="text-xs text-green-500 underline"
@@ -828,54 +939,64 @@ export default function POSPage() {
                           </div>
                         ) : (
                           customers
-                            .filter(customer => 
-                              !customerSearch || 
-                              customer.customer_name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                              (customer.phone && customer.phone.includes(customerSearch))
+                            .filter(
+                              (customer) =>
+                                !customerSearch ||
+                                customer.customer_name
+                                  .toLowerCase()
+                                  .includes(customerSearch.toLowerCase()) ||
+                                (customer.phone &&
+                                  customer.phone.includes(customerSearch))
                             )
                             .map((customer) => (
-                            <button
-                              key={customer.id}
-                              className="w-full text-left px-3 py-2 rounded hover:bg-green-100 border border-gray-200 mb-1"
-                              onClick={() => {
-                                setPaymentData((prev) => ({
-                                  ...prev,
-                                  customerType: 'old',
-                                  customer_name: customer.customer_name,
-                                  customer_phone: customer.phone,
-                                  customer_address: customer.address,
-                                  customer_id: customer.id,
-                                }));
-                                setShowOldCustomerModal(false);
-                                setCustomerSearch('');
-                              }}
-                            >
-                              <div className="font-medium">{customer.customer_name}</div>
-                              <div className="text-sm text-gray-600">
-                                📞 {customer.phone || 'No phone'}
-                              </div>
-                              {customer.email && (
+                              <button
+                                key={customer.id}
+                                className="w-full text-left px-3 py-2 rounded hover:bg-green-100 border border-gray-200 mb-1"
+                                onClick={() => {
+                                  setPaymentData((prev) => ({
+                                    ...prev,
+                                    customerType: "old",
+                                    customer_name: customer.customer_name,
+                                    customer_phone: customer.phone,
+                                    customer_address: customer.address,
+                                    customer_id: customer.id,
+                                  }));
+                                  setShowOldCustomerModal(false);
+                                  setCustomerSearch("");
+                                }}
+                              >
+                                <div className="font-medium">
+                                  {customer.customer_name}
+                                </div>
                                 <div className="text-sm text-gray-600">
-                                  ✉️ {customer.email}
+                                  📞 {customer.phone || "No phone"}
                                 </div>
-                              )}
-                              {customer.address && (
-                                <div className="text-sm text-gray-600">
-                                  📍 {customer.address}
-                                </div>
-                              )}
-                              {customer.total_purchases > 0 && (
-                                <div className="text-xs text-green-600 font-medium">
-                                  Total Purchases: ₱{customer.total_purchases.toLocaleString()}
-                                </div>
-                              )}
-                              {customer.last_purchase_date && (
-                                <div className="text-xs text-gray-400">
-                                  Last purchase: {new Date(customer.last_purchase_date).toLocaleDateString()}
-                                </div>
-                              )}
-                            </button>
-                          ))
+                                {customer.email && (
+                                  <div className="text-sm text-gray-600">
+                                    ✉️ {customer.email}
+                                  </div>
+                                )}
+                                {customer.address && (
+                                  <div className="text-sm text-gray-600">
+                                    📍 {customer.address}
+                                  </div>
+                                )}
+                                {customer.total_purchases > 0 && (
+                                  <div className="text-xs text-green-600 font-medium">
+                                    Total Purchases: ₱
+                                    {customer.total_purchases.toLocaleString()}
+                                  </div>
+                                )}
+                                {customer.last_purchase_date && (
+                                  <div className="text-xs text-gray-400">
+                                    Last purchase:{" "}
+                                    {new Date(
+                                      customer.last_purchase_date
+                                    ).toLocaleDateString()}
+                                  </div>
+                                )}
+                              </button>
+                            ))
                         )}
                       </div>
                     </div>
@@ -927,8 +1048,6 @@ export default function POSPage() {
         isOpen={showReceipt}
         onClose={closeReceipt}
       />
-
-
     </div>
   );
 }

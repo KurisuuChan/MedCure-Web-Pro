@@ -103,6 +103,10 @@ CREATE POLICY "Admins manage all notifications"
 -- STEP 4: Create helper functions
 -- ============================================================================
 
+-- Drop existing function if it exists (handles function overloading conflicts)
+DROP FUNCTION IF EXISTS get_unread_notification_count(uuid);
+DROP FUNCTION IF EXISTS get_unread_notification_count();
+
 -- Function: Get unread notification count for a user
 CREATE OR REPLACE FUNCTION get_unread_notification_count(p_user_id uuid)
 RETURNS bigint
@@ -118,6 +122,10 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION get_unread_notification_count IS 'Fast count of unread notifications for a user';
+
+-- Drop existing cleanup function if it exists (handles function overloading conflicts)
+DROP FUNCTION IF EXISTS cleanup_old_notifications(integer);
+DROP FUNCTION IF EXISTS cleanup_old_notifications();
 
 -- Function: Clean up old dismissed notifications (run periodically)
 CREATE OR REPLACE FUNCTION cleanup_old_notifications(days_old integer DEFAULT 30)

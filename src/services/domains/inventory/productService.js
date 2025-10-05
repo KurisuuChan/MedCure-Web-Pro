@@ -9,38 +9,58 @@ import { EnhancedProductSearchService } from "./enhancedProductSearchService.js"
 
 export class ProductService {
   // Enhanced search methods
-  static async searchProducts(searchTerm = '') {
+  static async searchProducts(searchTerm = "") {
     try {
-      console.log('🔍 ProductService.searchProducts() called with term:', searchTerm);
-      const result = await EnhancedProductSearchService.searchProducts(searchTerm);
-      
+      console.log(
+        "🔍 ProductService.searchProducts() called with term:",
+        searchTerm
+      );
+      const result = await EnhancedProductSearchService.searchProducts(
+        searchTerm
+      );
+
       if (result.success) {
         console.log(`✅ Search returned ${result.data.length} products`);
         return result.data;
       } else {
-        console.warn('⚠️ Search failed, falling back to regular getProducts');
+        console.warn("⚠️ Search failed, falling back to regular getProducts");
         return await this.getProducts();
       }
     } catch (error) {
-      console.error('❌ Search error, falling back to regular getProducts:', error);
+      console.error(
+        "❌ Search error, falling back to regular getProducts:",
+        error
+      );
       return await this.getProducts();
     }
   }
 
   static async searchProductsFiltered(filters = {}) {
     try {
-      console.log('🔍 ProductService.searchProductsFiltered() called with filters:', filters);
-      const result = await EnhancedProductSearchService.searchProductsFiltered(filters);
-      
+      console.log(
+        "🔍 ProductService.searchProductsFiltered() called with filters:",
+        filters
+      );
+      const result = await EnhancedProductSearchService.searchProductsFiltered(
+        filters
+      );
+
       if (result.success) {
-        console.log(`✅ Filtered search returned ${result.data.length} products`);
+        console.log(
+          `✅ Filtered search returned ${result.data.length} products`
+        );
         return result.data;
       } else {
-        console.warn('⚠️ Filtered search failed, falling back to regular getProducts');
+        console.warn(
+          "⚠️ Filtered search failed, falling back to regular getProducts"
+        );
         return await this.getProducts();
       }
     } catch (error) {
-      console.error('❌ Filtered search error, falling back to regular getProducts:', error);
+      console.error(
+        "❌ Filtered search error, falling back to regular getProducts:",
+        error
+      );
       return await this.getProducts();
     }
   }
@@ -48,10 +68,22 @@ export class ProductService {
   static async getFilterOptions() {
     try {
       const result = await EnhancedProductSearchService.getFilterOptions();
-      return result.success ? result.data : { drugClassifications: [], categories: [], dosageStrengths: [], dosageForms: [] };
+      return result.success
+        ? result.data
+        : {
+            drugClassifications: [],
+            categories: [],
+            dosageStrengths: [],
+            dosageForms: [],
+          };
     } catch (error) {
-      console.error('❌ Error getting filter options:', error);
-      return { drugClassifications: [], categories: [], dosageStrengths: [], dosageForms: [] };
+      console.error("❌ Error getting filter options:", error);
+      return {
+        drugClassifications: [],
+        categories: [],
+        dosageStrengths: [],
+        dosageForms: [],
+      };
     }
   }
 
@@ -69,7 +101,8 @@ export class ProductService {
 
       const { data, error } = await supabase
         .from("products")
-        .select(`
+        .select(
+          `
           id,
           generic_name,
           brand_name,
@@ -110,14 +143,15 @@ export class ProductService {
           unit_type,
           price,
           supplier_id
-        `)
+        `
+        )
         .order("generic_name");
 
       // Also check total count without filters for debugging
       const { count } = await supabase
         .from("products")
         .select("*", { count: "exact", head: true });
-      
+
       console.log("📊 Total products in database (including inactive):", count);
 
       if (error) {
@@ -135,7 +169,7 @@ export class ProductService {
         `✅ Successfully fetched ${data?.length || 0} products from database`
       );
       console.log("🔍 Raw database response:", { data, error });
-      
+
       if (data && data.length > 0) {
         console.log("📦 Sample product:", data[0]);
         // Log low stock items
@@ -149,7 +183,9 @@ export class ProductService {
         );
         lowStockItems.forEach((product) => {
           console.log(
-            `• ${product.generic_name || product.name}: ${product.stock_in_pieces}/${product.reorder_level}`
+            `• ${product.generic_name || product.name}: ${
+              product.stock_in_pieces
+            }/${product.reorder_level}`
           );
         });
       }
@@ -176,7 +212,8 @@ export class ProductService {
 
       const { data, error } = await supabase
         .from("products")
-        .select(`
+        .select(
+          `
           id,
           generic_name,
           brand_name,
@@ -217,7 +254,8 @@ export class ProductService {
           unit_type,
           price,
           supplier_id
-        `)
+        `
+        )
         .eq("id", id)
         .single();
 
@@ -237,7 +275,7 @@ export class ProductService {
       // Ensure proper data structure for updates
       const updateData = {
         ...updates,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       // Validate critical medicine fields if they're being updated
@@ -256,7 +294,10 @@ export class ProductService {
 
       if (error) throw error;
 
-      logDebug("Successfully updated product with new medicine schema", data[0]);
+      logDebug(
+        "Successfully updated product with new medicine schema",
+        data[0]
+      );
       return data[0];
     } catch (error) {
       console.error("❌ ProductService.updateProduct() failed:", error);
@@ -292,13 +333,14 @@ export class ProductService {
         drug_classification: product.drug_classification || null,
         // Set defaults
         is_active: product.is_active !== undefined ? product.is_active : true,
-        is_archived: product.is_archived !== undefined ? product.is_archived : false,
+        is_archived:
+          product.is_archived !== undefined ? product.is_archived : false,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       // Clean up undefined fields to avoid sending them to database
-      Object.keys(productData).forEach(key => {
+      Object.keys(productData).forEach((key) => {
         if (productData[key] === undefined) {
           delete productData[key];
         }
@@ -599,33 +641,36 @@ export class ProductService {
    */
   static async addProductBatch(batchData) {
     try {
-      logDebug('Adding new product batch:', batchData);
+      logDebug("Adding new product batch:", batchData);
 
       const { productId, quantity, batchNumber, expiryDate } = batchData;
 
       // Validate required fields
       if (!productId || !quantity || quantity <= 0) {
-        throw new Error('Product ID and positive quantity are required');
+        throw new Error("Product ID and positive quantity are required");
       }
 
-      const { data, error } = await supabase.rpc('add_product_batch', {
+      const { data, error } = await supabase.rpc("add_product_batch", {
         p_product_id: productId,
         p_quantity: parseInt(quantity),
-        p_expiry_date: expiryDate || null
+        p_expiry_date: expiryDate || null,
       });
 
       if (error) {
-        console.error('❌ ProductService.addProductBatch() Supabase error:', error);
+        console.error(
+          "❌ ProductService.addProductBatch() Supabase error:",
+          error
+        );
         throw error;
       }
 
-      console.log('✅ Successfully added product batch:', data);
-      logDebug('Batch addition result:', data);
-      
+      console.log("✅ Successfully added product batch:", data);
+      logDebug("Batch addition result:", data);
+
       return data;
     } catch (error) {
-      console.error('❌ ProductService.addProductBatch() failed:', error);
-      handleError(error, 'Add product batch');
+      console.error("❌ ProductService.addProductBatch() failed:", error);
+      handleError(error, "Add product batch");
       throw error;
     }
   }
@@ -637,28 +682,35 @@ export class ProductService {
    */
   static async getBatchesForProduct(productId) {
     try {
-      logDebug('Fetching batches for product:', productId);
+      logDebug("Fetching batches for product:", productId);
 
       if (!productId) {
-        throw new Error('Product ID is required');
+        throw new Error("Product ID is required");
       }
 
-      const { data, error } = await supabase.rpc('get_batches_for_product', {
-        p_product_id: productId
+      const { data, error } = await supabase.rpc("get_batches_for_product", {
+        p_product_id: productId,
       });
 
       if (error) {
-        console.error('❌ ProductService.getBatchesForProduct() Supabase error:', error);
+        console.error(
+          "❌ ProductService.getBatchesForProduct() Supabase error:",
+          error
+        );
         throw error;
       }
 
-      console.log(`✅ Successfully fetched ${data?.length || 0} batches for product ${productId}`);
-      logDebug('Product batches:', data);
-      
+      console.log(
+        `✅ Successfully fetched ${
+          data?.length || 0
+        } batches for product ${productId}`
+      );
+      logDebug("Product batches:", data);
+
       return data || [];
     } catch (error) {
-      console.error('❌ ProductService.getBatchesForProduct() failed:', error);
-      handleError(error, 'Get product batches');
+      console.error("❌ ProductService.getBatchesForProduct() failed:", error);
+      handleError(error, "Get product batches");
       return [];
     }
   }
@@ -669,22 +721,25 @@ export class ProductService {
    */
   static async getAllBatches() {
     try {
-      logDebug('Fetching all product batches');
+      logDebug("Fetching all product batches");
 
-      const { data, error } = await supabase.rpc('get_all_batches');
+      const { data, error } = await supabase.rpc("get_all_batches");
 
       if (error) {
-        console.error('❌ ProductService.getAllBatches() Supabase error:', error);
+        console.error(
+          "❌ ProductService.getAllBatches() Supabase error:",
+          error
+        );
         throw error;
       }
 
       console.log(`✅ Successfully fetched ${data?.length || 0} total batches`);
-      logDebug('All batches:', data);
-      
+      logDebug("All batches:", data);
+
       return data || [];
     } catch (error) {
-      console.error('❌ ProductService.getAllBatches() failed:', error);
-      handleError(error, 'Get all batches');
+      console.error("❌ ProductService.getAllBatches() failed:", error);
+      handleError(error, "Get all batches");
       return [];
     }
   }
@@ -696,32 +751,41 @@ export class ProductService {
    * @param {string} reason - Reason for the adjustment
    * @returns {Promise<Object>} Result of the batch update
    */
-  static async updateBatchQuantity(batchId, newQuantity, reason = 'Manual adjustment') {
+  static async updateBatchQuantity(
+    batchId,
+    newQuantity,
+    reason = "Manual adjustment"
+  ) {
     try {
-      logDebug('Updating batch quantity:', { batchId, newQuantity, reason });
+      logDebug("Updating batch quantity:", { batchId, newQuantity, reason });
 
       if (!batchId || newQuantity < 0) {
-        throw new Error('Valid batch ID and non-negative quantity are required');
+        throw new Error(
+          "Valid batch ID and non-negative quantity are required"
+        );
       }
 
-      const { data, error } = await supabase.rpc('update_batch_quantity', {
+      const { data, error } = await supabase.rpc("update_batch_quantity", {
         p_batch_id: batchId,
         p_new_quantity: parseInt(newQuantity),
-        p_reason: reason
+        p_reason: reason,
       });
 
       if (error) {
-        console.error('❌ ProductService.updateBatchQuantity() Supabase error:', error);
+        console.error(
+          "❌ ProductService.updateBatchQuantity() Supabase error:",
+          error
+        );
         throw error;
       }
 
-      console.log('✅ Successfully updated batch quantity:', data);
-      logDebug('Batch update result:', data);
-      
+      console.log("✅ Successfully updated batch quantity:", data);
+      logDebug("Batch update result:", data);
+
       return data;
     } catch (error) {
-      console.error('❌ ProductService.updateBatchQuantity() failed:', error);
-      handleError(error, 'Update batch quantity');
+      console.error("❌ ProductService.updateBatchQuantity() failed:", error);
+      handleError(error, "Update batch quantity");
       throw error;
     }
   }
@@ -734,39 +798,81 @@ export class ProductService {
    */
   static async getInventoryLogs(productId = null, limit = 100) {
     try {
-      logDebug('Fetching inventory logs:', { productId, limit });
+      logDebug("Fetching inventory logs:", { productId, limit });
 
       let query = supabase
-        .from('inventory_logs')
-        .select(`
+        .from("inventory_logs")
+        .select(
+          `
           *,
           products:product_id (
             name,
             category
           )
-        `)
-        .order('created_at', { ascending: false })
+        `
+        )
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       if (productId) {
-        query = query.eq('product_id', productId);
+        query = query.eq("product_id", productId);
       }
 
       const { data, error } = await query;
 
       if (error) {
-        console.error('❌ ProductService.getInventoryLogs() Supabase error:', error);
+        console.error(
+          "❌ ProductService.getInventoryLogs() Supabase error:",
+          error
+        );
         throw error;
       }
 
-      console.log(`✅ Successfully fetched ${data?.length || 0} inventory logs`);
-      logDebug('Inventory logs:', data);
-      
+      console.log(
+        `✅ Successfully fetched ${data?.length || 0} inventory logs`
+      );
+      logDebug("Inventory logs:", data);
+
       return data || [];
     } catch (error) {
-      console.error('❌ ProductService.getInventoryLogs() failed:', error);
-      handleError(error, 'Get inventory logs');
+      console.error("❌ ProductService.getInventoryLogs() failed:", error);
+      handleError(error, "Get inventory logs");
       return [];
+    }
+  }
+
+  // 👤 **USER OPERATIONS**
+  static async getCurrentUser() {
+    try {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error) throw error;
+
+      if (!user) {
+        console.warn("⚠️ No authenticated user found");
+        return null;
+      }
+
+      // Get additional user details from users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (userError) {
+        console.warn("⚠️ Could not fetch user details, using auth data only");
+        return user;
+      }
+
+      return userData || user;
+    } catch (error) {
+      console.error("❌ ProductService.getCurrentUser() failed:", error);
+      handleError(error, "Get current user");
+      return null;
     }
   }
 }

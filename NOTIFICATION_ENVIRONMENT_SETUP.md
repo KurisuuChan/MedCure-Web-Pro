@@ -1,11 +1,13 @@
 # Notification System - Environment Configuration Guide
 
 ## Overview
+
 This guide explains how to configure the MedCure Pharmacy notification system for production deployment. The system supports email notifications via **SendGrid** or **Resend** providers.
 
 ---
 
 ## 📋 Table of Contents
+
 1. [Email Provider Setup](#email-provider-setup)
 2. [Environment Variables](#environment-variables)
 3. [Database Migration](#database-migration)
@@ -20,6 +22,7 @@ This guide explains how to configure the MedCure Pharmacy notification system fo
 ### Option 1: SendGrid (Recommended)
 
 **Why SendGrid?**
+
 - Industry-leading email delivery service
 - Free tier: 100 emails/day
 - Excellent deliverability rates
@@ -28,15 +31,18 @@ This guide explains how to configure the MedCure Pharmacy notification system fo
 **Setup Steps:**
 
 1. **Create SendGrid Account**
+
    - Visit: https://signup.sendgrid.com/
    - Sign up for a free account
 
 2. **Verify Sender Identity**
+
    - Go to Settings → Sender Authentication
    - Verify your domain (recommended) or single sender email
    - Follow SendGrid's verification process
 
 3. **Create API Key**
+
    - Go to Settings → API Keys
    - Click "Create API Key"
    - Name: `MedCure Notifications`
@@ -55,6 +61,7 @@ This guide explains how to configure the MedCure Pharmacy notification system fo
 ### Option 2: Resend (Modern Alternative)
 
 **Why Resend?**
+
 - Modern, developer-friendly API
 - Free tier: 100 emails/day, 3,000/month
 - Simple setup process
@@ -63,15 +70,18 @@ This guide explains how to configure the MedCure Pharmacy notification system fo
 **Setup Steps:**
 
 1. **Create Resend Account**
+
    - Visit: https://resend.com/signup
    - Sign up with GitHub or email
 
 2. **Verify Domain**
+
    - Go to Domains → Add Domain
    - Add your domain and verify DNS records
    - Or use Resend's test domain for development
 
 3. **Create API Key**
+
    - Go to API Keys → Create API Key
    - Name: `MedCure Notifications`
    - Copy the API key
@@ -153,6 +163,7 @@ database/migrations/notification_system_migration.sql
 ```
 
 **What it does:**
+
 - ✅ Adds new columns to `user_notifications` table (priority, category, dismissed_at, email_sent)
 - ✅ Creates 5 performance indexes
 - ✅ Sets up Row Level Security (RLS) policies
@@ -166,11 +177,11 @@ Run this query to verify:
 
 ```sql
 -- Check if migration was successful
-SELECT 
-  column_name, 
-  data_type 
-FROM information_schema.columns 
-WHERE table_name = 'user_notifications' 
+SELECT
+  column_name,
+  data_type
+FROM information_schema.columns
+WHERE table_name = 'user_notifications'
   AND column_name IN ('priority', 'category', 'dismissed_at', 'email_sent', 'email_sent_at');
 
 -- Expected: 5 rows returned
@@ -194,10 +205,10 @@ SELECT cleanup_old_notifications(30);
 
 ```javascript
 // In browser console or test file
-import { emailService } from './src/services/notifications/EmailService.js';
+import { emailService } from "./src/services/notifications/EmailService.js";
 
 const status = emailService.getStatus();
-console.log('Email Service Status:', status);
+console.log("Email Service Status:", status);
 
 // Expected output:
 // {
@@ -213,8 +224,8 @@ console.log('Email Service Status:', status);
 
 ```javascript
 // Send a test email to verify configuration
-const result = await emailService.testConfiguration('your-email@example.com');
-console.log('Test Result:', result);
+const result = await emailService.testConfiguration("your-email@example.com");
+console.log("Test Result:", result);
 
 // Expected output (success):
 // {
@@ -226,22 +237,22 @@ console.log('Test Result:', result);
 ### Test 3: Create Test Notification
 
 ```javascript
-import { notificationService } from './src/services/notifications/NotificationService.js';
+import { notificationService } from "./src/services/notifications/NotificationService.js";
 
 // Initialize service
 await notificationService.initialize();
 
 // Create a test notification
 const notification = await notificationService.create({
-  userId: 'your-user-id',
-  title: '🧪 Test Notification',
-  message: 'This is a test notification to verify the system is working.',
-  type: 'info',
+  userId: "your-user-id",
+  title: "🧪 Test Notification",
+  message: "This is a test notification to verify the system is working.",
+  type: "info",
   priority: 3, // Medium priority (in-app only)
-  category: 'general'
+  category: "general",
 });
 
-console.log('Created notification:', notification);
+console.log("Created notification:", notification);
 
 // Check if it appears in the UI
 ```
@@ -251,13 +262,13 @@ console.log('Created notification:', notification);
 ```javascript
 // Create a critical notification (priority 1 or 2 sends email)
 const criticalNotif = await notificationService.notifyCriticalStock(
-  'product-123',
-  'Paracetamol 500mg',
+  "product-123",
+  "Paracetamol 500mg",
   5, // Only 5 pieces left
-  'your-user-id'
+  "your-user-id"
 );
 
-console.log('Critical notification created:', criticalNotif);
+console.log("Critical notification created:", criticalNotif);
 // Check your email inbox for the notification
 ```
 
@@ -269,8 +280,8 @@ console.log('Critical notification created:', criticalNotif);
 
 ```jsx
 // In your navigation/header component (e.g., src/components/layout/Header.jsx)
-import NotificationBell from '../components/notifications/NotificationBell.jsx';
-import { useAuth } from '../hooks/useAuth';
+import NotificationBell from "../components/notifications/NotificationBell.jsx";
+import { useAuth } from "../hooks/useAuth";
 
 function Header() {
   const { user } = useAuth();
@@ -279,7 +290,7 @@ function Header() {
     <header>
       <nav>
         {/* Your navigation items */}
-        
+
         {/* Add notification bell */}
         {user && <NotificationBell userId={user.id} />}
       </nav>
@@ -292,17 +303,17 @@ function Header() {
 
 ```jsx
 // In your main App.jsx or index.jsx
-import { useEffect } from 'react';
-import { notificationService } from './services/notifications/NotificationService.js';
-import { useAuth } from './hooks/useAuth';
+import { useEffect } from "react";
+import { notificationService } from "./services/notifications/NotificationService.js";
+import { useAuth } from "./hooks/useAuth";
 
 function App() {
   const { user } = useAuth();
 
   useEffect(() => {
     // Initialize notification service when app starts
-    notificationService.initialize().catch(err => {
-      console.error('Failed to initialize notifications:', err);
+    notificationService.initialize().catch((err) => {
+      console.error("Failed to initialize notifications:", err);
     });
   }, []);
 
@@ -317,27 +328,25 @@ function App() {
     return () => clearInterval(interval);
   }, [user]);
 
-  return (
-    <div className="App">
-      {/* Your app content */}
-    </div>
-  );
+  return <div className="App">{/* Your app content */}</div>;
 }
 ```
 
 ### Step 3: Replace Old Notification Calls
 
 **Before (old code):**
+
 ```javascript
-import { SimpleNotificationService } from '../services/domains/notifications/simpleNotificationService';
+import { SimpleNotificationService } from "../services/domains/notifications/simpleNotificationService";
 
 SimpleNotificationService.showSaleComplete(amount, itemCount);
 ```
 
 **After (new code):**
+
 ```javascript
-import { notificationService } from '../services/notifications/NotificationService.js';
-import { useAuth } from '../hooks/useAuth';
+import { notificationService } from "../services/notifications/NotificationService.js";
+import { useAuth } from "../hooks/useAuth";
 
 const { user } = useAuth();
 
@@ -352,6 +361,7 @@ await notificationService.notifySaleCompleted(
 ### Step 4: Trigger Notifications in Your Code
 
 **Example: Low Stock Alert**
+
 ```javascript
 // After updating product inventory
 if (product.stock_in_pieces <= product.reorder_level) {
@@ -366,6 +376,7 @@ if (product.stock_in_pieces <= product.reorder_level) {
 ```
 
 **Example: Sale Completed**
+
 ```javascript
 // After successful payment
 const notification = await notificationService.notifySaleCompleted(
@@ -377,6 +388,7 @@ const notification = await notificationService.notifySaleCompleted(
 ```
 
 **Example: Product Expiring**
+
 ```javascript
 // In automated health check or manual trigger
 await notificationService.notifyExpiringSoon(
@@ -395,10 +407,12 @@ await notificationService.notifyExpiringSoon(
 ### Issue: "Email service not configured"
 
 **Symptoms:**
+
 - Console warning: `⚠️ EmailService: No email provider configured`
 - Emails not being sent
 
 **Solution:**
+
 1. Check `.env.local` file exists in project root
 2. Verify environment variable names are correct (must start with `VITE_`)
 3. Restart dev server after adding environment variables
@@ -409,10 +423,12 @@ await notificationService.notifyExpiringSoon(
 ### Issue: "Database connection failed"
 
 **Symptoms:**
+
 - Error: `Database connection failed: [error message]`
 - Notifications not saving
 
 **Solution:**
+
 1. Check Supabase URL and anon key in `.env.local`
 2. Verify database migration was executed successfully
 3. Check Supabase dashboard for service status
@@ -423,18 +439,21 @@ await notificationService.notifyExpiringSoon(
 ### Issue: Emails not sending (no error)
 
 **Symptoms:**
+
 - Notification created successfully
 - No email received
 - No error in console
 
 **Possible Causes:**
+
 1. **Priority too low** - Only priority 1-2 send emails
    - Solution: Use `notifyCriticalStock()` or `notifyExpiringSoon()` helpers
-   
 2. **Email provider not verified**
+
    - Solution: Verify sender domain/email in SendGrid/Resend dashboard
 
 3. **Email in spam folder**
+
    - Solution: Check spam/junk folder, configure SPF/DKIM records
 
 4. **API key missing permissions**
@@ -445,10 +464,12 @@ await notificationService.notifyExpiringSoon(
 ### Issue: Duplicate notifications
 
 **Symptoms:**
+
 - Same notification appears multiple times
 - Spam notifications for same product
 
 **Solution:**
+
 - The system has automatic deduplication (24-hour window)
 - If still occurring, check that `productId` is being passed in metadata
 - Verify database doesn't have duplicate entries
@@ -458,10 +479,12 @@ await notificationService.notifyExpiringSoon(
 ### Issue: Real-time updates not working
 
 **Symptoms:**
+
 - Bell icon count doesn't update automatically
 - Need to refresh page to see new notifications
 
 **Solution:**
+
 1. Check Supabase real-time is enabled for project
 2. Verify RLS policies allow SELECT for current user
 3. Check browser console for Supabase subscription errors

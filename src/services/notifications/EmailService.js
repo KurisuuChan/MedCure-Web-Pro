@@ -2,18 +2,18 @@
  * ============================================================================
  * EmailService - Email Provider Abstraction Layer
  * ============================================================================
- * 
+ *
  * A flexible email service that supports multiple providers:
  * - SendGrid (recommended for production)
  * - Resend (modern alternative)
  * - SMTP (fallback option)
- * 
+ *
  * Features:
  * - Automatic provider selection based on environment variables
  * - Configuration validation
  * - Error handling with detailed logging
  * - Graceful degradation when email is unavailable
- * 
+ *
  * @version 1.0.0
  * @date 2025-10-05
  */
@@ -22,10 +22,10 @@
  * Supported email providers
  */
 const EMAIL_PROVIDER = {
-  SENDGRID: 'sendgrid',
-  RESEND: 'resend',
-  SMTP: 'smtp',
-  NONE: 'none'
+  SENDGRID: "sendgrid",
+  RESEND: "resend",
+  SMTP: "smtp",
+  NONE: "none",
 };
 
 class EmailService {
@@ -33,7 +33,7 @@ class EmailService {
     this.provider = null;
     this.apiKey = null;
     this.fromEmail = null;
-    this.fromName = 'MedCure Pharmacy';
+    this.fromName = "MedCure Pharmacy";
     this.isConfigured = false;
 
     // Initialize provider
@@ -49,10 +49,12 @@ class EmailService {
       if (import.meta.env.VITE_SENDGRID_API_KEY) {
         this.provider = EMAIL_PROVIDER.SENDGRID;
         this.apiKey = import.meta.env.VITE_SENDGRID_API_KEY;
-        this.fromEmail = import.meta.env.VITE_SENDGRID_FROM_EMAIL || 'no-reply@medcure.com';
-        this.fromName = import.meta.env.VITE_SENDGRID_FROM_NAME || this.fromName;
+        this.fromEmail =
+          import.meta.env.VITE_SENDGRID_FROM_EMAIL || "no-reply@medcure.com";
+        this.fromName =
+          import.meta.env.VITE_SENDGRID_FROM_NAME || this.fromName;
         this.isConfigured = true;
-        console.log('✅ EmailService configured with SendGrid');
+        console.log("✅ EmailService configured with SendGrid");
         return;
       }
 
@@ -60,23 +62,25 @@ class EmailService {
       if (import.meta.env.VITE_RESEND_API_KEY) {
         this.provider = EMAIL_PROVIDER.RESEND;
         this.apiKey = import.meta.env.VITE_RESEND_API_KEY;
-        this.fromEmail = import.meta.env.VITE_RESEND_FROM_EMAIL || 'no-reply@medcure.com';
+        this.fromEmail =
+          import.meta.env.VITE_RESEND_FROM_EMAIL || "no-reply@medcure.com";
         this.fromName = import.meta.env.VITE_RESEND_FROM_NAME || this.fromName;
         this.isConfigured = true;
-        console.log('✅ EmailService configured with Resend');
+        console.log("✅ EmailService configured with Resend");
         return;
       }
 
       // No provider configured
       this.provider = EMAIL_PROVIDER.NONE;
       this.isConfigured = false;
-      console.warn('⚠️ EmailService: No email provider configured. Emails will not be sent.');
-      console.warn('⚠️ To enable emails, set one of:');
-      console.warn('   - VITE_SENDGRID_API_KEY & VITE_SENDGRID_FROM_EMAIL');
-      console.warn('   - VITE_RESEND_API_KEY & VITE_RESEND_FROM_EMAIL');
-
+      console.warn(
+        "⚠️ EmailService: No email provider configured. Emails will not be sent."
+      );
+      console.warn("⚠️ To enable emails, set one of:");
+      console.warn("   - VITE_SENDGRID_API_KEY & VITE_SENDGRID_FROM_EMAIL");
+      console.warn("   - VITE_RESEND_API_KEY & VITE_RESEND_FROM_EMAIL");
     } catch (error) {
-      console.error('❌ Failed to initialize EmailService:', error);
+      console.error("❌ Failed to initialize EmailService:", error);
       this.provider = EMAIL_PROVIDER.NONE;
       this.isConfigured = false;
     }
@@ -84,7 +88,7 @@ class EmailService {
 
   /**
    * Check if email service is configured
-   * 
+   *
    * @returns {boolean} True if configured
    */
   isReady() {
@@ -93,7 +97,7 @@ class EmailService {
 
   /**
    * Get current provider name
-   * 
+   *
    * @returns {string} Provider name
    */
   getProvider() {
@@ -102,7 +106,7 @@ class EmailService {
 
   /**
    * Send email using configured provider
-   * 
+   *
    * @param {Object} params - Email parameters
    * @param {string} params.to - Recipient email address
    * @param {string} params.subject - Email subject
@@ -114,7 +118,7 @@ class EmailService {
     try {
       // Validate inputs
       if (!to || !subject || !html) {
-        throw new Error('Missing required email parameters: to, subject, html');
+        throw new Error("Missing required email parameters: to, subject, html");
       }
 
       if (!this.isEmailValid(to)) {
@@ -123,11 +127,11 @@ class EmailService {
 
       // Check if configured
       if (!this.isReady()) {
-        console.warn('⚠️ Email service not configured, email not sent');
+        console.warn("⚠️ Email service not configured, email not sent");
         return {
           success: false,
-          reason: 'not_configured',
-          message: 'Email service is not configured'
+          reason: "not_configured",
+          message: "Email service is not configured",
         };
       }
 
@@ -142,17 +146,16 @@ class EmailService {
         default:
           return {
             success: false,
-            reason: 'no_provider',
-            message: 'No email provider configured'
+            reason: "no_provider",
+            message: "No email provider configured",
           };
       }
-
     } catch (error) {
-      console.error('❌ Failed to send email:', error);
+      console.error("❌ Failed to send email:", error);
       return {
         success: false,
-        reason: 'error',
-        error: error.message
+        reason: "error",
+        error: error.message,
       };
     }
   }
@@ -163,59 +166,70 @@ class EmailService {
    */
   async sendViaSendGrid({ to, subject, html, text }) {
     try {
-      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
+      const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          personalizations: [{
-            to: [{ email: to }]
-          }],
+          personalizations: [
+            {
+              to: [{ email: to }],
+            },
+          ],
           from: {
             email: this.fromEmail,
-            name: this.fromName
+            name: this.fromName,
           },
           subject,
           content: [
             {
-              type: 'text/html',
-              value: html
+              type: "text/html",
+              value: html,
             },
-            ...(text ? [{
-              type: 'text/plain',
-              value: text
-            }] : [])
-          ]
-        })
+            ...(text
+              ? [
+                  {
+                    type: "text/plain",
+                    value: text,
+                  },
+                ]
+              : []),
+          ],
+        }),
       });
 
       if (!response.ok) {
         const errorBody = await response.text();
         let errorDetails;
-        
+
         try {
           errorDetails = JSON.parse(errorBody);
         } catch {
           errorDetails = { message: errorBody };
         }
 
-        throw new Error(`SendGrid error (${response.status}): ${errorDetails?.errors?.[0]?.message || errorDetails.message || 'Unknown error'}`);
+        throw new Error(
+          `SendGrid error (${response.status}): ${
+            errorDetails?.errors?.[0]?.message ||
+            errorDetails.message ||
+            "Unknown error"
+          }`
+        );
       }
 
-      console.log('✅ Email sent successfully via SendGrid to:', to);
+      console.log("✅ Email sent successfully via SendGrid to:", to);
       return {
         success: true,
-        provider: 'sendgrid'
+        provider: "sendgrid",
       };
-
     } catch (error) {
-      console.error('❌ SendGrid send failed:', error);
+      console.error("❌ SendGrid send failed:", error);
       return {
         success: false,
-        reason: 'sendgrid_error',
-        error: error.message
+        reason: "sendgrid_error",
+        error: error.message,
       };
     }
   }
@@ -226,49 +240,58 @@ class EmailService {
    */
   async sendViaResend({ to, subject, html, text }) {
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           from: `${this.fromName} <${this.fromEmail}>`,
           to: [to],
           subject,
           html,
-          ...(text ? { text } : {})
-        })
+          ...(text ? { text } : {}),
+        }),
       });
 
       if (!response.ok) {
         const errorBody = await response.text();
         let errorDetails;
-        
+
         try {
           errorDetails = JSON.parse(errorBody);
         } catch {
           errorDetails = { message: errorBody };
         }
 
-        throw new Error(`Resend error (${response.status}): ${errorDetails?.message || 'Unknown error'}`);
+        throw new Error(
+          `Resend error (${response.status}): ${
+            errorDetails?.message || "Unknown error"
+          }`
+        );
       }
 
       const data = await response.json();
-      console.log('✅ Email sent successfully via Resend to:', to, '(ID:', data.id, ')');
-      
+      console.log(
+        "✅ Email sent successfully via Resend to:",
+        to,
+        "(ID:",
+        data.id,
+        ")"
+      );
+
       return {
         success: true,
-        provider: 'resend',
-        emailId: data.id
+        provider: "resend",
+        emailId: data.id,
       };
-
     } catch (error) {
-      console.error('❌ Resend send failed:', error);
+      console.error("❌ Resend send failed:", error);
       return {
         success: false,
-        reason: 'resend_error',
-        error: error.message
+        reason: "resend_error",
+        error: error.message,
       };
     }
   }
@@ -285,7 +308,7 @@ class EmailService {
   /**
    * Test email configuration
    * Sends a test email to verify setup
-   * 
+   *
    * @param {string} testEmail - Email address to send test to
    * @returns {Promise<Object>} Result object
    */
@@ -293,13 +316,14 @@ class EmailService {
     if (!this.isReady()) {
       return {
         success: false,
-        message: 'Email service is not configured. Check your environment variables.'
+        message:
+          "Email service is not configured. Check your environment variables.",
       };
     }
 
     const testResult = await this.send({
       to: testEmail,
-      subject: '[MedCure] Email Configuration Test',
+      subject: "[MedCure] Email Configuration Test",
       html: `
         <!DOCTYPE html>
         <html lang="en">
@@ -334,7 +358,9 @@ class EmailService {
               
               <div class="details">
                 <strong>Provider:</strong> ${this.provider}<br>
-                <strong>From:</strong> ${this.fromName} &lt;${this.fromEmail}&gt;<br>
+                <strong>From:</strong> ${this.fromName} &lt;${
+        this.fromEmail
+      }&gt;<br>
                 <strong>Time:</strong> ${new Date().toLocaleString()}
               </div>
             </div>
@@ -347,25 +373,31 @@ class EmailService {
         </body>
         </html>
       `,
-      text: `Email Configuration Test\n\nSuccess! Your email configuration is working correctly.\n\nProvider: ${this.provider}\nFrom: ${this.fromName} <${this.fromEmail}>\nTime: ${new Date().toLocaleString()}`
+      text: `Email Configuration Test\n\nSuccess! Your email configuration is working correctly.\n\nProvider: ${
+        this.provider
+      }\nFrom: ${this.fromName} <${
+        this.fromEmail
+      }>\nTime: ${new Date().toLocaleString()}`,
     });
 
     if (testResult.success) {
       return {
         success: true,
-        message: `Test email sent successfully via ${this.provider} to ${testEmail}`
+        message: `Test email sent successfully via ${this.provider} to ${testEmail}`,
       };
     } else {
       return {
         success: false,
-        message: `Failed to send test email: ${testResult.error || testResult.reason}`
+        message: `Failed to send test email: ${
+          testResult.error || testResult.reason
+        }`,
       };
     }
   }
 
   /**
    * Get configuration status
-   * 
+   *
    * @returns {Object} Configuration details
    */
   getStatus() {
@@ -374,7 +406,7 @@ class EmailService {
       provider: this.provider,
       fromEmail: this.fromEmail,
       fromName: this.fromName,
-      ready: this.isReady()
+      ready: this.isReady(),
     };
   }
 }

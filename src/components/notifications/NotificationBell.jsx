@@ -2,24 +2,24 @@
  * ============================================================================
  * NotificationBell - Real-time Notification Bell Icon Component
  * ============================================================================
- * 
+ *
  * A React component that displays:
  * - Bell icon in the navigation bar
  * - Unread notification count badge
  * - Real-time updates via Supabase subscriptions
  * - Click to open NotificationPanel
- * 
+ *
  * Usage:
  *   <NotificationBell userId={currentUser.id} />
- * 
+ *
  * @version 1.0.0
  * @date 2025-10-05
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Bell } from 'lucide-react';
-import { notificationService } from '../../services/notifications/NotificationService.js';
-import NotificationPanel from './NotificationPanel.jsx';
+import React, { useState, useEffect, useRef } from "react";
+import { Bell } from "lucide-react";
+import { notificationService } from "../../services/notifications/NotificationService.js";
+import NotificationPanel from "./NotificationPanel.jsx";
 
 const NotificationBell = ({ userId }) => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -71,9 +71,9 @@ const NotificationBell = ({ userId }) => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isPanelOpen]);
 
@@ -82,7 +82,10 @@ const NotificationBell = ({ userId }) => {
   };
 
   return (
-    <div className="notification-bell-container" style={{ position: 'relative' }}>
+    <div
+      className="notification-bell-container"
+      style={{ position: "relative" }}
+    >
       {/* Bell Icon Button */}
       <button
         ref={bellRef}
@@ -90,57 +93,57 @@ const NotificationBell = ({ userId }) => {
         className="notification-bell-button"
         aria-label="Notifications"
         style={{
-          position: 'relative',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '8px',
-          borderRadius: '8px',
-          transition: 'background-color 0.2s',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+          position: "relative",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: "8px",
+          borderRadius: "8px",
+          transition: "background-color 0.2s",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+          e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.05)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.backgroundColor = "transparent";
         }}
       >
         <Bell
           size={20}
-          color={unreadCount > 0 ? '#2563eb' : '#6b7280'}
+          color={unreadCount > 0 ? "#2563eb" : "#6b7280"}
           strokeWidth={2}
           style={{
-            transition: 'color 0.2s'
+            transition: "color 0.2s",
           }}
         />
-        
+
         {/* Unread Count Badge */}
         {unreadCount > 0 && (
           <span
             className="notification-badge"
             style={{
-              position: 'absolute',
-              top: '4px',
-              right: '4px',
-              backgroundColor: '#ef4444',
-              color: 'white',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              borderRadius: '10px',
-              minWidth: '18px',
-              height: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4px',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
-              animation: unreadCount > 0 ? 'pulse-badge 2s infinite' : 'none'
+              position: "absolute",
+              top: "4px",
+              right: "4px",
+              backgroundColor: "#ef4444",
+              color: "white",
+              fontSize: "11px",
+              fontWeight: "bold",
+              borderRadius: "10px",
+              minWidth: "18px",
+              height: "18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 4px",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+              animation: unreadCount > 0 ? "pulse-badge 2s infinite" : "none",
             }}
           >
-            {unreadCount > 99 ? '99+' : unreadCount}
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>

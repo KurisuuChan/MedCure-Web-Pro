@@ -69,41 +69,62 @@ class UnifiedTransactionService {
     try {
       // Handle customer creation/lookup first
       let customerId = null;
-      
+
       // Create customer only if we have BOTH name and phone (real customers)
       // Walk-in customers will be saved in sales record but not in customers table
-      if (saleData.customer_name && saleData.customer_phone && saleData.customer_phone.trim() !== '') {
+      if (
+        saleData.customer_name &&
+        saleData.customer_phone &&
+        saleData.customer_phone.trim() !== ""
+      ) {
         try {
           console.log("👤 Creating/finding customer for transaction");
-          console.log("🔍 [DEBUG] Customer data being sent to CustomerService:", {
-            customer_name: saleData.customer_name,
-            phone: saleData.customer_phone,
-            email: saleData.customer_email || null,
-            address: saleData.customer_address || null
-          });
-          
+          console.log(
+            "🔍 [DEBUG] Customer data being sent to CustomerService:",
+            {
+              customer_name: saleData.customer_name,
+              phone: saleData.customer_phone,
+              email: saleData.customer_email || null,
+              address: saleData.customer_address || null,
+            }
+          );
+
           const customer = await CustomerService.createCustomer({
             customer_name: saleData.customer_name,
             phone: saleData.customer_phone,
             email: saleData.customer_email || null,
-            address: saleData.customer_address || null
+            address: saleData.customer_address || null,
           });
-          
+
           customerId = customer.id;
-          console.log("✅ Customer processed for transaction:", { customerId, customerName: customer.customer_name });
-          console.log("🔍 [DEBUG] Customer ID being passed to database:", customerId);
+          console.log("✅ Customer processed for transaction:", {
+            customerId,
+            customerName: customer.customer_name,
+          });
+          console.log(
+            "🔍 [DEBUG] Customer ID being passed to database:",
+            customerId
+          );
           console.log("🔍 [DEBUG] Full customer object returned:", customer);
         } catch (customerError) {
-          console.warn("⚠️ Customer creation failed, proceeding without customer_id:", customerError.message);
-          console.error("🔍 [DEBUG] Customer creation error details:", customerError);
+          console.warn(
+            "⚠️ Customer creation failed, proceeding without customer_id:",
+            customerError.message
+          );
+          console.error(
+            "🔍 [DEBUG] Customer creation error details:",
+            customerError
+          );
         }
       } else {
-        console.log("📋 Walk-in customer - saving customer info in sales record only");
+        console.log(
+          "📋 Walk-in customer - saving customer info in sales record only"
+        );
         console.log("🔍 [DEBUG] Customer data for sales record:", {
-          customer_name: saleData.customer_name || 'Walk-in Customer',
+          customer_name: saleData.customer_name || "Walk-in Customer",
           customer_phone: saleData.customer_phone || null,
           customer_email: saleData.customer_email || null,
-          customer_address: saleData.customer_address || null
+          customer_address: saleData.customer_address || null,
         });
       }
 
@@ -144,6 +165,38 @@ class UnifiedTransactionService {
 
       console.log("📦 Mapped items:", mappedItems);
 
+      // 🔍 VALIDATE: Check if all products exist in database before attempting transaction
+      console.log("🔍 Validating products exist in database...");
+      const productIds = mappedItems.map((item) => item.product_id);
+      const { data: existingProducts, error: productCheckError } =
+        await supabase
+          .from("products")
+          .select("id, brand_name, generic_name")
+          .in("id", productIds);
+
+      if (productCheckError) {
+        console.error("❌ Error checking products:", productCheckError);
+        throw new Error(
+          `Failed to validate products: ${productCheckError.message}`
+        );
+      }
+
+      const existingProductIds = new Set(existingProducts.map((p) => p.id));
+      const missingProducts = mappedItems.filter(
+        (item) => !existingProductIds.has(item.product_id)
+      );
+
+      if (missingProducts.length > 0) {
+        console.error("❌ Products not found in database:", missingProducts);
+        const missingIds = missingProducts.map((p) => p.product_id).join(", ");
+        throw new Error(
+          `The following products no longer exist in the database: ${missingIds}. ` +
+            `Please refresh the product list and try again.`
+        );
+      }
+
+      console.log("✅ All products validated successfully");
+
       // Validate constraint before sending to database
       const constraintViolations = mappedItems.filter((item) => {
         const calculatedTotal = item.quantity * item.unit_price;
@@ -175,7 +228,7 @@ class UnifiedTransactionService {
           customer_phone: saleData.customer_phone || null,
           customer_email: saleData.customer_email || null,
           customer_address: saleData.customer_address || null,
-          customer_type: saleData.customer_type || 'guest',
+          customer_type: saleData.customer_type || "guest",
           notes: saleData.notes || null,
           discount_type: saleData.discount_type || "none",
           discount_percentage: saleData.discount_percentage || 0,
@@ -192,7 +245,10 @@ class UnifiedTransactionService {
       if (error) throw error;
 
       console.log("✅ Transaction created successfully:", data);
-      console.log("🔍 [DEBUG] Transaction data returned from DB:", { customer_id: data.customer_id, customer_name: data.customer_name });
+      console.log("🔍 [DEBUG] Transaction data returned from DB:", {
+        customer_id: data.customer_id,
+        customer_name: data.customer_name,
+      });
       return {
         success: true,
         data: data,
@@ -373,7 +429,10 @@ class UnifiedTransactionService {
           restoredProducts.push({
             product_id: item.product_id,
             quantity_restored: item.quantity,
-            product_name: productCheck.generic_name || productCheck.brand_name || 'Unknown Product',
+            product_name:
+              productCheck.generic_name ||
+              productCheck.brand_name ||
+              "Unknown Product",
             previous_stock: productCheck.stock_in_pieces,
             new_stock: newStockLevel,
             verified: updatedProduct
@@ -644,7 +703,10 @@ class UnifiedTransactionService {
 
           stockMovements.push({
             product_id: adjustment.product_id,
-            product_name: currentStock.generic_name || currentStock.brand_name || 'Unknown Product',
+            product_name:
+              currentStock.generic_name ||
+              currentStock.brand_name ||
+              "Unknown Product",
             change: adjustment.change,
             stock_before: stockBefore,
             stock_after: stockAfter,
@@ -1019,7 +1081,10 @@ class UnifiedTransactionService {
    * @returns {Promise<Object>} Complete workflow result
    */
   async processCompletePayment(saleData) {
-    console.log("🎯 Processing complete payment (original simple method):", saleData);
+    console.log(
+      "🎯 Processing complete payment (original simple method):",
+      saleData
+    );
 
     try {
       // Simple direct transaction creation - database handles completion and stock deduction
@@ -1029,15 +1094,17 @@ class UnifiedTransactionService {
         throw new Error("Failed to complete payment");
       }
 
-      console.log("✅ Payment completed successfully - transaction created as completed:", result);
+      console.log(
+        "✅ Payment completed successfully - transaction created as completed:",
+        result
+      );
 
       return {
         success: true,
         transaction_id: result.transaction_id,
         create_result: result.data,
-        status: result.status // Will be "completed" from database
+        status: result.status, // Will be "completed" from database
       };
-
     } catch (error) {
       console.error("❌ Payment failed:", error);
       throw new Error(`Complete payment failed: ${error.message}`);
@@ -1130,11 +1197,11 @@ class UnifiedTransactionService {
             total_price,
             products (
               id,
-              name, 
+              generic_name,
+              brand_name,
               description, 
               category,
-              brand,
-              price
+              price_per_piece
             )
           ),
           users!sales_user_id_fkey (
@@ -1262,7 +1329,10 @@ class UnifiedTransactionService {
           items: items.map((item) => ({
             ...item,
             // Enhanced item data
-            product_name: item.products?.generic_name || item.products?.brand_name || "Unknown Product",
+            product_name:
+              item.products?.generic_name ||
+              item.products?.brand_name ||
+              "Unknown Product",
             product_brand: item.products?.brand || "",
             product_category: item.products?.category || "",
             unit_display: this.formatUnitDisplay(item.unit_type, item.quantity),
@@ -1774,7 +1844,8 @@ if (typeof window !== "undefined") {
             (i) => i.product_id === before.id
           );
           return {
-            product_name: before.generic_name || before.brand_name || 'Unknown Product',
+            product_name:
+              before.generic_name || before.brand_name || "Unknown Product",
             product_id: before.id,
             quantity_sold: item ? item.quantity : 0,
             stock_before: before.stock_in_pieces,
