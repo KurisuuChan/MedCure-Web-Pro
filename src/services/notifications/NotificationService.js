@@ -21,7 +21,7 @@
  */
 
 import { supabase } from "../../config/supabase.js";
-import { EmailService } from "./EmailService.js";
+import emailService from "./EmailService.js";
 
 /**
  * Notification priority levels
@@ -61,7 +61,7 @@ export const NOTIFICATION_TYPE = {
  */
 class NotificationService {
   constructor() {
-    this.emailService = new EmailService();
+    this.emailService = emailService; // Use the singleton instance
     this.realtimeSubscription = null;
     this.isInitialized = false;
 
@@ -875,12 +875,21 @@ class NotificationService {
    */
   async checkLowStock(users) {
     try {
-      const { data: products, error } = await supabase
+      // Fetch all active products and filter in JavaScript
+      const { data: allProducts, error } = await supabase
         .from("products")
         .select("id, brand_name, generic_name, stock_in_pieces, reorder_level")
-        .lte("stock_in_pieces", supabase.raw("reorder_level"))
         .gt("stock_in_pieces", 0)
         .eq("is_active", true);
+
+      if (error) {
+        throw error;
+      }
+
+      // Filter products where stock_in_pieces <= reorder_level
+      const products = allProducts?.filter(
+        (p) => p.stock_in_pieces <= (p.reorder_level || 0)
+      ) || [];
 
       if (error) {
         throw error;

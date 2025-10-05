@@ -466,25 +466,44 @@ const EnhancedInventoryDashboard = () => {
     try {
       console.log("💾 Saving enhanced inventory settings:", newSettings);
       setDashboardSettings(newSettings);
-      
+
       // Apply settings immediately
-      if (newSettings.dashboard?.refreshInterval && newSettings.dashboard.refreshInterval > 0) {
+      if (
+        newSettings.dashboard?.refreshInterval &&
+        newSettings.dashboard.refreshInterval > 0
+      ) {
         // Set up automatic refresh based on settings
         const interval = newSettings.dashboard.refreshInterval * 1000;
         const intervalId = setInterval(loadDashboardData, interval);
-        
+
         // Clean up previous interval
         return () => clearInterval(intervalId);
       }
-      
+
       // Show success notification
-      if (window.SimpleNotificationService) {
-        window.SimpleNotificationService.showSystemAlert("Enhanced settings applied successfully!");
+      if (window.notificationService) {
+        const user = await window.notificationService.getCurrentUser();
+        await window.notificationService.create({
+          userId: user?.id,
+          title: "Settings Updated",
+          message: "Enhanced settings applied successfully!",
+          type: "success",
+          priority: 2,
+          category: "system",
+        });
       }
     } catch (error) {
       console.error("❌ Error applying settings:", error);
-      if (window.SimpleNotificationService) {
-        window.SimpleNotificationService.showSystemAlert("Failed to apply settings", true);
+      if (window.notificationService) {
+        const user = await window.notificationService.getCurrentUser();
+        await window.notificationService.create({
+          userId: user?.id,
+          title: "Settings Error",
+          message: "Failed to apply settings",
+          type: "error",
+          priority: 2,
+          category: "system",
+        });
       }
     }
   };

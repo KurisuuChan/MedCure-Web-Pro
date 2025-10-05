@@ -1,28 +1,45 @@
 import React, { useState, useEffect } from "react";
 import { Bell, Check, X, AlertTriangle, Info } from "lucide-react";
-import { SimpleNotificationService } from "../../services/domains/notifications/simpleNotificationService";
+import notificationService from "../../services/notifications/NotificationService";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function NotificationSettings() {
+  const { user } = useAuth();
   const [permissionStatus, setPermissionStatus] = useState("default");
   const [isSupported, setIsSupported] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
 
   useEffect(() => {
-    setIsSupported(SimpleNotificationService.isSupported());
-    setPermissionStatus(SimpleNotificationService.getPermissionStatus());
+    setIsSupported("Notification" in window);
+    setPermissionStatus(
+      "Notification" in window ? Notification.permission : "unsupported"
+    );
   }, []);
 
   const handleRequestPermission = async () => {
     setIsRequesting(true);
     try {
-      const permission = await SimpleNotificationService.requestPermission();
+      const permission = await Notification.requestPermission();
       setPermissionStatus(permission);
 
       if (permission === "granted") {
-        // Show a test notification
-        SimpleNotificationService.showSystemAlert(
-          "Notifications enabled successfully!"
-        );
+        // Show a test browser notification
+        new Notification("Notifications enabled successfully!", {
+          body: "You will now receive important pharmacy alerts",
+          icon: "/notification-icon.png",
+        });
+
+        // Create database notification
+        if (user?.id) {
+          await notificationService.create({
+            userId: user.id,
+            title: "Notifications Enabled",
+            message: "You will now receive important pharmacy alerts",
+            type: "success",
+            priority: 2,
+            category: "system",
+          });
+        }
       }
     } catch (error) {
       console.error("Error requesting notification permission:", error);
@@ -31,17 +48,30 @@ export default function NotificationSettings() {
     }
   };
 
-  const handleTestNotification = () => {
+  const handleTestNotification = async () => {
     if (permissionStatus === "granted") {
-      SimpleNotificationService.showSystemAlert(
-        "This is a test notification from MedCure Pro"
-      );
+      new Notification("This is a test notification from MedCure Pro", {
+        body: "Your notification system is working correctly",
+        icon: "/notification-icon.png",
+      });
+
+      if (user?.id) {
+        await notificationService.create({
+          userId: user.id,
+          title: "Test Notification",
+          message: "Your notification system is working correctly",
+          type: "info",
+          priority: 2,
+          category: "system",
+        });
+      }
     }
   };
 
   const handleRunChecks = async () => {
     if (permissionStatus === "granted") {
-      await SimpleNotificationService.runDailyChecks();
+      await notificationService.checkHealth();
+      console.log("✅ Health check completed");
     }
   };
 
