@@ -44,17 +44,17 @@ const navigationItems = [
     category: "main",
   },
   {
-    name: "Pharmacy Management",
-    href: "/management",
-    icon: Users,
-    roles: ["admin"],
-    category: "admin",
-  },
-  {
     name: "Staff Management",
     href: "/user-management",
     icon: UserCheck,
     roles: ["super_admin", "admin"],
+    category: "admin",
+  },
+  {
+    name: "System Settings",
+    href: "/system-settings",
+    icon: Settings,
+    roles: ["admin"],
     category: "admin",
   },
 ];
@@ -121,7 +121,6 @@ export function Sidebar({ isOpen, onClose }) {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 lg:px-6 lg:py-6">
-
             {/* Main Functions */}
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">
@@ -147,7 +146,13 @@ export function Sidebar({ isOpen, onClose }) {
                           }
                         `}
                       >
-                        <Icon className={`h-5 w-5 transition-colors ${isActive ? "text-white" : "text-gray-500 group-hover:text-blue-600"}`} />
+                        <Icon
+                          className={`h-5 w-5 transition-colors ${
+                            isActive
+                              ? "text-white"
+                              : "text-gray-500 group-hover:text-blue-600"
+                          }`}
+                        />
                         <span className="font-medium">{item.name}</span>
                         {isActive && (
                           <div className="ml-auto w-2 h-2 bg-white rounded-full opacity-75"></div>
@@ -189,7 +194,9 @@ export function Sidebar({ isOpen, onClose }) {
                         >
                           <Icon
                             className={`h-5 w-5 transition-colors ${
-                              isActive ? "text-white" : "text-gray-500 group-hover:text-green-600"
+                              isActive
+                                ? "text-white"
+                                : "text-gray-500 group-hover:text-green-600"
                             }`}
                           />
                           <span className="font-medium">{item.name}</span>
@@ -232,7 +239,9 @@ export function Sidebar({ isOpen, onClose }) {
                         >
                           <Icon
                             className={`h-5 w-5 transition-colors ${
-                              isActive ? "text-white" : "text-gray-500 group-hover:text-purple-600"
+                              isActive
+                                ? "text-white"
+                                : "text-gray-500 group-hover:text-purple-600"
                             }`}
                           />
                           <span className="font-medium">{item.name}</span>
@@ -248,30 +257,21 @@ export function Sidebar({ isOpen, onClose }) {
 
             {/* Bottom section */}
             <div className="mt-auto pt-6">
-              <div className="border-t border-gray-200 pt-6">
-                <Link
-                  to="/settings"
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-900 transition-all duration-200 group"
-                >
-                  <Settings className="h-5 w-5 text-gray-500 group-hover:text-gray-700 transition-colors" />
-                  <span className="font-medium">Settings</span>
-                </Link>
-              </div>
-
               {/* User info */}
-              <div className="mt-6 p-4 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-xl border border-blue-100 shadow-sm">
+              <div className="p-4 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-xl border border-blue-100 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white">
                     <span className="text-sm font-bold text-white">
-                      {user?.first_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                      {user?.first_name?.[0]?.toUpperCase() ||
+                        user?.email?.[0]?.toUpperCase() ||
+                        "U"}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">
-                      {user?.first_name 
-                        ? `${user.first_name} ${user.last_name || ''}`.trim()
-                        : user?.email || "User"
-                      }
+                      {user?.first_name
+                        ? `${user.first_name} ${user.last_name || ""}`.trim()
+                        : user?.email || "User"}
                     </p>
                     <p className="text-xs text-blue-600 capitalize font-medium bg-blue-100 px-2 py-0.5 rounded-full inline-block">
                       {role || "cashier"}

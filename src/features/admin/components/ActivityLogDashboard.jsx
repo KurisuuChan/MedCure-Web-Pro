@@ -43,13 +43,13 @@ const ActivityLogDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Load real activity logs from backend
       const filters = {
         userId: selectedUserId,
         actionType: filterType,
       };
-      
+
       // Apply date range filter
       if (dateRange !== "all") {
         const now = new Date();
@@ -65,10 +65,13 @@ const ActivityLogDashboard = () => {
           ).toISOString();
         }
       }
-      
-      const activityData = await UserManagementService.getAllActivityLogs(100, filters);
+
+      const activityData = await UserManagementService.getAllActivityLogs(
+        100,
+        filters
+      );
       setActivities(activityData || []);
-      
+
       console.log("✅ Loaded activity logs:", activityData?.length || 0);
     } catch (error) {
       setError("Failed to load activity logs");

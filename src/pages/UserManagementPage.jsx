@@ -24,13 +24,13 @@ const UserManagementPage = () => {
     },
     {
       id: "roles",
-      name: "Access Control",
+      name: "Roles & Permissions",
       icon: Shield,
       description: "Configure roles and system permissions",
     },
     {
       id: "activity",
-      name: "Activity Monitor",
+      name: "Activity Logs",
       icon: Activity,
       description: "Track user activities and system events",
     },
