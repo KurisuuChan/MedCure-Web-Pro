@@ -672,7 +672,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                             {item.category}
                           </td>
                           <td className="py-3 px-4 text-right font-medium">
-                            ${item.price_per_piece}
+                            ₱{item.price_per_piece}
                           </td>
                           <td className="py-3 px-4 text-right">
                             {item.stock_in_pieces}
