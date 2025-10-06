@@ -233,7 +233,7 @@ export class EnhancedBatchService {
     try {
       logDebug('Fetching batch analytics');
 
-      // Get analytics data
+      // Get analytics data using your schema (generic_name, brand_name)
       const { data: analytics, error } = await supabase
         .from('product_batches')
         .select(`
@@ -242,7 +242,7 @@ export class EnhancedBatchService {
           quantity,
           original_quantity,
           cost_per_unit,
-          products!inner(name, category_id)
+          products!inner(generic_name, brand_name, category)
         `);
 
       if (error) throw error;

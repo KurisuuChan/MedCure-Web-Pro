@@ -31,11 +31,14 @@ const ProductSelectionCard = ({ product, onAddStock }) => {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900 text-lg leading-tight mb-1">
-                {product.name}
+                {product.brand_name || product.brand || 'Unknown Brand'}
               </h3>
-              {product.brand && (
-                <p className="text-sm text-gray-500">
-                  {product.brand}
+              <p className="text-sm text-gray-600 font-medium">
+                {product.generic_name || product.name || 'Unknown Generic'}
+              </p>
+              {product.dosage_strength && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {product.dosage_strength}
                 </p>
               )}
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import StandardizedProductDisplay from "../components/ui/StandardizedProductDisplay";
+import ProfessionalPagination, { PaginatedCardGrid, usePagination } from '../components/ui/ProfessionalPagination';
 import {
   Box,
   Search,
@@ -49,15 +50,27 @@ const BatchManagementPage = () => {
   const [expiryFilter, setExpiryFilter] = useState('all'); // all, expiring, expired
   const [statusFilter, setStatusFilter] = useState('all'); // all, active, expired, depleted
   
+  // Enhanced Filter States
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [sortBy, setSortBy] = useState('expiry_date'); // expiry_date, created_at, quantity, product_name
+  const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
+  const [quantityFilter, setQuantityFilter] = useState('all'); // all, low_stock, out_of_stock
+  const [dateRangeFilter, setDateRangeFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
+  
   // Modal States
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [selectedProductForStock, setSelectedProductForStock] = useState(null);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   // Product Grid Search State
   const [productSearchTerm, setProductSearchTerm] = useState('');
-
+  
   // Load initial data
   useEffect(() => {
     loadData();
@@ -81,6 +94,20 @@ const BatchManagementPage = () => {
           limit: 200
         });
         setBatches(batchesData);
+        
+        // Debug: Log the first batch to see what data structure we're getting
+        if (batchesData && batchesData.length > 0) {
+          console.log("🔍 Sample batch data structure:", {
+            firstBatch: batchesData[0],
+            hasNames: {
+              product_brand_name: !!batchesData[0].product_brand_name,
+              product_generic_name: !!batchesData[0].product_generic_name,
+              product_name: !!batchesData[0].product_name
+            }
+          });
+        } else {
+          console.log("⚠️ No batch data returned from EnhancedBatchService");
+        }
         
         // Load analytics if enhanced service is available
         const analyticsData = await EnhancedBatchService.getBatchAnalytics();
@@ -113,18 +140,22 @@ const BatchManagementPage = () => {
     setRefreshing(false);
   };
 
-  // Filter and search logic
+  // Comprehensive filter and search logic
   const filteredBatches = useMemo(() => {
     let filtered = batches;
 
-    // Search filter
+    // Text search filter (searches across multiple fields)
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(batch =>
         batch.product_name?.toLowerCase().includes(term) ||
+        batch.product_brand_name?.toLowerCase().includes(term) ||
+        batch.product_generic_name?.toLowerCase().includes(term) ||
         batch.batch_number?.toLowerCase().includes(term) ||
         batch.category_name?.toLowerCase().includes(term) ||
-        batch.supplier_name?.toLowerCase().includes(term)
+        batch.supplier_name?.toLowerCase().includes(term) ||
+        batch.product_manufacturer?.toLowerCase().includes(term) ||
+        batch.product_drug_classification?.toLowerCase().includes(term)
       );
     }
 
@@ -133,12 +164,41 @@ const BatchManagementPage = () => {
       filtered = filtered.filter(batch => batch.product_id === selectedProduct);
     }
 
-    // Status filter (enhanced)
+    // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(batch => batch.status === statusFilter);
     }
 
-    // Expiry filter (enhanced)
+    // Supplier filter
+    if (supplierFilter) {
+      filtered = filtered.filter(batch => 
+        batch.supplier_name?.toLowerCase().includes(supplierFilter.toLowerCase())
+      );
+    }
+
+    // Category filter
+    if (categoryFilter) {
+      filtered = filtered.filter(batch => 
+        batch.category_name?.toLowerCase().includes(categoryFilter.toLowerCase())
+      );
+    }
+
+    // Quantity filter
+    if (quantityFilter !== 'all') {
+      filtered = filtered.filter(batch => {
+        const quantity = batch.quantity || 0;
+        switch (quantityFilter) {
+          case 'out_of_stock':
+            return quantity === 0;
+          case 'low_stock':
+            return quantity > 0 && quantity <= 50; // Adjustable threshold
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Expiry filter
     if (expiryFilter !== 'all') {
       const today = new Date();
       const thirtyDaysFromNow = new Date();
@@ -154,14 +214,120 @@ const BatchManagementPage = () => {
             return expiryDate < today;
           case 'expiring':
             return expiryDate >= today && expiryDate <= thirtyDaysFromNow;
+          case 'valid':
+            return expiryDate > thirtyDaysFromNow;
           default:
             return true;
         }
       });
     }
 
+    // Date range filter
+    if (dateRangeFilter.startDate || dateRangeFilter.endDate) {
+      filtered = filtered.filter(batch => {
+        const createdDate = new Date(batch.created_at);
+        const startDate = dateRangeFilter.startDate ? new Date(dateRangeFilter.startDate) : new Date('1900-01-01');
+        const endDate = dateRangeFilter.endDate ? new Date(dateRangeFilter.endDate) : new Date();
+        
+        return createdDate >= startDate && createdDate <= endDate;
+      });
+    }
+
+    // Sorting
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'expiry_date':
+          aValue = a.expiry_date ? new Date(a.expiry_date) : new Date('9999-12-31');
+          bValue = b.expiry_date ? new Date(b.expiry_date) : new Date('9999-12-31');
+          break;
+        case 'created_at':
+          aValue = new Date(a.created_at);
+          bValue = new Date(b.created_at);
+          break;
+        case 'quantity':
+          aValue = a.quantity || 0;
+          bValue = b.quantity || 0;
+          break;
+        case 'product_name':
+          aValue = (a.product_brand_name || a.product_name || '').toLowerCase();
+          bValue = (b.product_brand_name || b.product_name || '').toLowerCase();
+          break;
+        case 'total_value':
+          aValue = a.total_value || 0;
+          bValue = b.total_value || 0;
+          break;
+        default:
+          aValue = a[sortBy] || '';
+          bValue = b[sortBy] || '';
+      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     return filtered;
-  }, [batches, searchTerm, selectedProduct, statusFilter, expiryFilter]);
+  }, [
+    batches, 
+    searchTerm, 
+    selectedProduct, 
+    statusFilter, 
+    supplierFilter,
+    categoryFilter,
+    quantityFilter,
+    expiryFilter, 
+    dateRangeFilter,
+    sortBy,
+    sortOrder
+  ]);
+
+  // Pagination for batch table (ensuring safe access to filteredBatches)
+  const batchPagination = usePagination({
+    totalItems: filteredBatches?.length || 0,
+    itemsPerPage: 20
+  });
+
+  // Get current page batches (with safe access)
+  const currentBatches = useMemo(() => {
+    if (!filteredBatches || filteredBatches.length === 0) return [];
+    return filteredBatches.slice(
+      batchPagination.startIndex,
+      batchPagination.endIndex
+    );
+  }, [filteredBatches, batchPagination.startIndex, batchPagination.endIndex]);
+
+  // Get unique values for filter dropdowns
+  const uniqueSuppliers = useMemo(() => {
+    const suppliers = batches
+      .map(batch => batch.supplier_name)
+      .filter(Boolean)
+      .filter((supplier, index, arr) => arr.indexOf(supplier) === index);
+    return suppliers.sort();
+  }, [batches]);
+
+  const uniqueCategories = useMemo(() => {
+    const categories = batches
+      .map(batch => batch.category_name)
+      .filter(Boolean)
+      .filter((category, index, arr) => arr.indexOf(category) === index);
+    return categories.sort();
+  }, [batches]);
+
+  // Clear all filters function
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setSelectedProduct('');
+    setStatusFilter('all');
+    setSupplierFilter('');
+    setCategoryFilter('');
+    setQuantityFilter('all');
+    setExpiryFilter('all');
+    setDateRangeFilter({ startDate: '', endDate: '' });
+    setSortBy('expiry_date');
+    setSortOrder('asc');
+  };
 
   // Get enhanced expiry status with more granular information
   const getExpiryStatus = (expiryDate, daysUntilExpiry) => {
@@ -255,6 +421,8 @@ const BatchManagementPage = () => {
     const term = productSearchTerm.toLowerCase();
     return products.filter(product => 
       product.name?.toLowerCase().includes(term) ||
+      product.brand_name?.toLowerCase().includes(term) ||
+      product.generic_name?.toLowerCase().includes(term) ||
       product.brand?.toLowerCase().includes(term) ||
       product.category?.toLowerCase().includes(term)
     );
@@ -429,15 +597,26 @@ const BatchManagementPage = () => {
             )}
           </div>
 
-          {/* Product Cards Grid */}
-          <div className="p-6">
-            {filteredProducts.length === 0 ? (
+          {/* Product Cards Grid with Pagination */}
+          <PaginatedCardGrid
+            items={filteredProducts}
+            renderItem={(product) => (
+              <ProductSelectionCard
+                key={product.id}
+                product={product}
+                onAddStock={handleCardAddStock}
+              />
+            )}
+            itemsPerPage={12}
+            gridCols="grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            gap="gap-6"
+            emptyState={
               <div className="text-center py-12">
                 <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   {productSearchTerm ? 'No products found' : 'No products available'}
                 </h3>
-                <p className="text-gray-500">
+                <p className="text-gray-500 mb-4">
                   {productSearchTerm 
                     ? `No products match "${productSearchTerm}". Try adjusting your search.`
                     : 'Please add products to your inventory first.'
@@ -446,24 +625,27 @@ const BatchManagementPage = () => {
                 {productSearchTerm && (
                   <button
                     onClick={() => setProductSearchTerm('')}
-                    className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Clear search
                   </button>
                 )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
-                  <ProductSelectionCard
-                    key={product.id}
-                    product={product}
-                    onAddStock={handleCardAddStock}
-                  />
-                ))}
+            }
+            loading={loading}
+            loadingComponent={
+              <div className="flex items-center justify-center p-12">
+                <LoadingSpinner size="lg" />
               </div>
-            )}
-          </div>
+            }
+            paginationProps={{
+              showPageSizeSelect: true,
+              pageSizeOptions: [8, 12, 24, 48],
+              variant: 'default',
+              size: 'medium'
+            }}
+            className="p-6"
+          />
           
           {error && (
             <div className="mx-6 mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
@@ -475,25 +657,45 @@ const BatchManagementPage = () => {
           )}
         </div>
 
-        {/* Batch Table Filters and Search */}
+        {/* Enhanced Batch Filters and Search */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Existing Batches</h3>
-            <div className="text-sm text-gray-500">
-              {filteredBatches.length} of {batches.length} batches shown
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Batch Management & Filters</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {filteredBatches?.length || 0} of {batches.length} batches shown
+              </p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="inline-flex items-center px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
+              </button>
+              {(searchTerm || selectedProduct || statusFilter !== 'all' || supplierFilter || categoryFilter || quantityFilter !== 'all' || expiryFilter !== 'all' || dateRangeFilter.startDate || dateRangeFilter.endDate) && (
+                <button
+                  onClick={clearAllFilters}
+                  className="inline-flex items-center px-3 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                >
+                  Clear All Filters
+                </button>
+              )}
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search Existing Batches */}
+          {/* Primary Filters Row */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search existing batches..."
+                placeholder="Search batches, products, suppliers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
@@ -501,7 +703,7 @@ const BatchManagementPage = () => {
             <select
               value={selectedProduct}
               onChange={(e) => setSelectedProduct(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Products</option>
               {products.map(product => (
@@ -515,7 +717,7 @@ const BatchManagementPage = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -528,13 +730,112 @@ const BatchManagementPage = () => {
             <select
               value={expiryFilter}
               onChange={(e) => setExpiryFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="all">All Batches</option>
-              <option value="expiring">Expiring (≤30 days)</option>
+              <option value="all">All Expiry Status</option>
               <option value="expired">Expired</option>
+              <option value="expiring">Expiring (≤30 days)</option>
+              <option value="valid">Valid (&gt;30 days)</option>
             </select>
           </div>
+
+          {/* Advanced Filters Section */}
+          {showAdvancedFilters && (
+            <div className="border-t border-gray-200 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                {/* Supplier Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                  <select
+                    value={supplierFilter}
+                    onChange={(e) => setSupplierFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Suppliers</option>
+                    {uniqueSuppliers.map(supplier => (
+                      <option key={supplier} value={supplier}>{supplier}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Categories</option>
+                    {uniqueCategories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quantity Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock Level</label>
+                  <select
+                    value={quantityFilter}
+                    onChange={(e) => setQuantityFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">All Stock Levels</option>
+                    <option value="out_of_stock">Out of Stock (0)</option>
+                    <option value="low_stock">Low Stock (≤50)</option>
+                  </select>
+                </div>
+
+                {/* Sort By */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                  <div className="flex space-x-2">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="expiry_date">Expiry Date</option>
+                      <option value="created_at">Created Date</option>
+                      <option value="product_name">Product Name</option>
+                      <option value="quantity">Quantity</option>
+                      <option value="total_value">Total Value</option>
+                    </select>
+                    <button
+                      onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                      className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 transition-colors"
+                      title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+                    >
+                      {sortOrder === 'asc' ? '↑' : '↓'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Date Range Filter */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Created Date From</label>
+                  <input
+                    type="date"
+                    value={dateRangeFilter.startDate}
+                    onChange={(e) => setDateRangeFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Created Date To</label>
+                  <input
+                    type="date"
+                    value={dateRangeFilter.endDate}
+                    onChange={(e) => setDateRangeFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Batches Table */}
@@ -547,7 +848,7 @@ const BatchManagementPage = () => {
                     Product
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Batch Details
+                    Batch Number
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Quantity & Status
@@ -556,15 +857,12 @@ const BatchManagementPage = () => {
                     Expiry Status
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Value & Supplier
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredBatches.length === 0 ? (
+                {currentBatches.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center space-y-4">
@@ -591,7 +889,7 @@ const BatchManagementPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredBatches.map((batch) => {
+                  currentBatches.map((batch) => {
                     const expiryStatus = getExpiryStatus(batch.expiry_date, batch.days_until_expiry);
                     
                     return (
@@ -600,13 +898,13 @@ const BatchManagementPage = () => {
                           {/* Standardized Product Display - Compact Version */}
                           <StandardizedProductDisplay
                             product={{
-                              brand_name: batch.product_brand_name || batch.product_name,
-                              generic_name: batch.product_generic_name || batch.product_name,
-                              dosage_strength: batch.product_dosage_strength,
-                              dosage_form: batch.product_dosage_form,
-                              category: batch.category_name,
-                              manufacturer: batch.product_manufacturer,
-                              drug_classification: batch.product_drug_classification
+                              brand_name: batch.product_brand_name || batch.brand_name || batch.product_name || 'Unknown Brand',
+                              generic_name: batch.product_generic_name || batch.generic_name || batch.product_name || 'Unknown Generic',
+                              dosage_strength: batch.product_dosage_strength || batch.dosage_strength,
+                              dosage_form: batch.product_dosage_form || batch.dosage_form,
+                              category: batch.category_name || batch.category,
+                              manufacturer: batch.product_manufacturer || batch.manufacturer,
+                              drug_classification: batch.product_drug_classification || batch.drug_classification
                             }}
                             size="compact"
                             showPrice={false}
@@ -619,13 +917,8 @@ const BatchManagementPage = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
-                              Batch #{batch.batch_id}
+                              {batch.batch_number || `BT${new Date().toISOString().slice(5,7)}${new Date().toISOString().slice(8,10)}${new Date().toISOString().slice(2,4)}-${String(batch.batch_id || 1).padStart(3, '0')}`}
                             </div>
-                            {batch.batch_number && (
-                              <div className="text-sm text-gray-500">
-                                {batch.batch_number}
-                              </div>
-                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -673,25 +966,6 @@ const BatchManagementPage = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            {batch.cost_per_unit > 0 && (
-                              <div className="text-sm font-medium text-gray-900">
-                                {formatCurrency(batch.quantity * batch.cost_per_unit)}
-                              </div>
-                            )}
-                            {batch.cost_per_unit > 0 && (
-                              <div className="text-xs text-gray-500">
-                                @ {formatCurrency(batch.cost_per_unit)}/piece
-                              </div>
-                            )}
-                            {batch.supplier_name && (
-                              <div className="text-xs text-blue-600 mt-1">
-                                {batch.supplier_name}
-                              </div>
-                            )}
-                          </div>
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(batch.created_at)}
                         </td>
@@ -702,6 +976,24 @@ const BatchManagementPage = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Batch Table Pagination */}
+          {filteredBatches && filteredBatches.length > 0 && (
+            <div className="border-t border-gray-200">
+              <ProfessionalPagination
+                currentPage={batchPagination.currentPage}
+                totalPages={batchPagination.totalPages}
+                totalItems={batchPagination.totalItems}
+                itemsPerPage={batchPagination.itemsPerPage}
+                onPageChange={batchPagination.goToPage}
+                onPageSizeChange={batchPagination.changePageSize}
+                showPageSizeSelect={true}
+                pageSizeOptions={[10, 20, 50, 100]}
+                variant="default"
+                size="medium"
+              />
+            </div>
+          )}
         </div>
       </div>
 
