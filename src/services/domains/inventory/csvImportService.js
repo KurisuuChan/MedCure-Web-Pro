@@ -55,13 +55,13 @@ export class CSVImportService {
   // Required fields for validation
   static REQUIRED_FIELDS = [
     { name: 'generic_name', required: true },
-    { name: 'category_name', required: true },
-    { name: 'price_per_piece', required: true, type: 'number', min: 0 },
   ];
 
   // Optional fields with validation rules
   static OPTIONAL_FIELDS = [
     { name: 'brand_name', required: false },
+    { name: 'category_name', required: false },
+    { name: 'price_per_piece', required: false, type: 'number', min: 0 },
     { name: 'dosage_strength', required: false },
     { name: 'dosage_form', required: false, enum: 'dosage_form', auto_create: true },
     { name: 'drug_classification', required: false, enum: 'drug_classification', auto_create: true },
@@ -360,7 +360,7 @@ export class CSVImportService {
       generic_name: row.generic_name.trim(),
       brand_name: row.brand_name ? row.brand_name.trim() : '',
       description: row.description ? row.description.trim() : '',
-      category: row.category_name.trim(),
+      category: row.category_name ? row.category_name.trim() : 'General',
       
       // Medicine-specific fields
       dosage_form: row.dosage_form || null,
@@ -368,7 +368,7 @@ export class CSVImportService {
       drug_classification: row.drug_classification || null,
       
       // Pricing fields
-      price_per_piece: parseFloat(row.price_per_piece),
+      price_per_piece: row.price_per_piece ? parseFloat(row.price_per_piece) : 0.00,
       cost_price: row.cost_price ? parseFloat(row.cost_price) : null,
       base_price: row.base_price ? parseFloat(row.base_price) : null,
       
