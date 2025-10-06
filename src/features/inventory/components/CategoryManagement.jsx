@@ -27,10 +27,20 @@ export default function CategoryManagement({ onClose, onCategoriesChange }) {
       });
 
       if (result.success) {
+        console.log(
+          `📦 [CategoryManagement] Fetched ${
+            result.data?.length || 0
+          } categories`
+        );
+
         // Fetch product counts for each category
         const categoriesWithCounts = await Promise.all(
           (result.data || []).map(async (category) => {
             try {
+              console.log(
+                `🔍 [CategoryManagement] Counting products for "${category.name}"`
+              );
+
               // Query products table to count products in this category
               // Use case-insensitive matching with ilike
               const { count, error } = await supabase
@@ -47,40 +57,60 @@ export default function CategoryManagement({ onClose, onCategoriesChange }) {
                 return { ...category, product_count: 0 };
               }
 
-              // Also try to fetch a sample product to verify the match
+              console.log(
+                `📊 Category "${category.name}" has ${count || 0} products`
+              );
+
+              // Also try to fetch a sample product to verify the match if count is 0
               if (count === 0) {
-                const { data: sampleProducts } = await supabase
-                  .from("products")
-                  .select("category")
-                  .eq("is_archived", false)
-                  .limit(100);
+                console.warn(
+                  `⚠️ Category "${category.name}" has 0 products - checking for similar matches`
+                );
 
-                // Check if there are products with similar category names
-                const similarCount =
-                  sampleProducts?.filter(
-                    (p) =>
-                      p.category
-                        ?.toLowerCase()
-                        .includes(category.name.toLowerCase()) ||
-                      category.name
-                        .toLowerCase()
-                        .includes(p.category?.toLowerCase() || "")
-                  ).length || 0;
+                const { data: sampleProducts, error: sampleError } =
+                  await supabase
+                    .from("products")
+                    .select("category")
+                    .eq("is_archived", false)
+                    .limit(100);
 
-                if (similarCount > 0) {
-                  console.warn(
-                    `⚠️ Category "${category.name}" has 0 exact matches but ${similarCount} similar matches. ` +
-                      `Sample categories: ${sampleProducts
-                        ?.slice(0, 5)
-                        .map((p) => p.category)
-                        .join(", ")}`
+                if (sampleError) {
+                  console.error(
+                    `❌ Error fetching sample products:`,
+                    sampleError
                   );
+                } else if (sampleProducts && sampleProducts.length > 0) {
+                  // Check if there are products with similar category names
+                  const similarProducts = sampleProducts.filter(
+                    (p) =>
+                      p.category &&
+                      (p.category
+                        .toLowerCase()
+                        .includes(category.name.toLowerCase()) ||
+                        category.name
+                          .toLowerCase()
+                          .includes(p.category.toLowerCase()))
+                  );
+
+                  if (similarProducts.length > 0) {
+                    console.warn(
+                      `⚠️ Category "${category.name}" has 0 exact matches but ${similarProducts.length} similar matches.`,
+                      `Sample product categories:`,
+                      similarProducts.slice(0, 5).map((p) => p.category)
+                    );
+                  } else {
+                    console.log(
+                      `ℹ️ No similar category names found. Available categories in products:`,
+                      [
+                        ...new Set(
+                          sampleProducts.map((p) => p.category).filter(Boolean)
+                        ),
+                      ].slice(0, 10)
+                    );
+                  }
                 }
               }
 
-              console.log(
-                `📊 Category "${category.name}" has ${count} products`
-              );
               return { ...category, product_count: count || 0 };
             } catch (err) {
               console.error(`❌ Error for category "${category.name}":`, err);
@@ -91,7 +121,11 @@ export default function CategoryManagement({ onClose, onCategoriesChange }) {
 
         setCategories(categoriesWithCounts);
         console.log(
-          `✅ [CategoryManagement] Loaded ${categoriesWithCounts.length} categories with product counts`
+          `✅ [CategoryManagement] Loaded ${categoriesWithCounts.length} categories with product counts`,
+          categoriesWithCounts.map((c) => ({
+            name: c.name,
+            count: c.product_count,
+          }))
         );
       } else {
         console.error(
@@ -270,7 +304,7 @@ export default function CategoryManagement({ onClose, onCategoriesChange }) {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -291,34 +325,18 @@ export default function CategoryManagement({ onClose, onCategoriesChange }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-green-700">
-                  Active Categories
+                  Categories with Products
                 </p>
                 <p className="text-2xl font-bold text-green-900 mt-1">
-                  {categories.length}
-                </p>
-              </div>
-              <div className="bg-green-200 p-3 rounded-xl">
-                <Package className="h-6 w-6 text-green-700" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-700">
-                  Quick Actions
-                </p>
-                <p className="text-sm text-purple-600 mt-1">
-                  Manage & organize
+                  {categories.filter((cat) => cat.product_count > 0).length}
                 </p>
               </div>
               <button
                 onClick={loadCategories}
-                className="bg-purple-200 p-3 rounded-xl hover:bg-purple-300 transition-colors"
+                className="bg-green-200 p-3 rounded-xl hover:bg-green-300 transition-colors"
                 title="Refresh Categories"
               >
-                <RefreshCw className="h-6 w-6 text-purple-700" />
+                <RefreshCw className="h-6 w-6 text-green-700" />
               </button>
             </div>
           </div>
