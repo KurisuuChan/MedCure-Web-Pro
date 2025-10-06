@@ -451,13 +451,13 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                             </div>
                             <div>
                               <span className="font-medium">category_name</span>{" "}
-                              - Product category (required)
+                              - Product category (optional, defaults to "General")
                             </div>
                             <div>
                               <span className="font-medium">
                                 price_per_piece
                               </span>{" "}
-                              - Unit price in PHP (required, number)
+                              - Unit price in PHP (optional, defaults to 0.00)
                             </div>
                             <div>
                               <span className="font-medium">brand_name</span> -
@@ -526,6 +526,30 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                     Our AI found {pendingCategories.length} new categories.
                     Review and approve them below.
                   </p>
+                </div>
+
+                {/* Select All/None Controls */}
+                <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-blue-600" />
+                    <span className="font-medium text-gray-700">
+                      {approvedCategories.length} of {pendingCategories.length} selected
+                    </span>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setApprovedCategories([...pendingCategories])}
+                      className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setApprovedCategories([])}
+                      className="px-3 py-1 text-sm bg-gray-600 text-white hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                      Select None
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
