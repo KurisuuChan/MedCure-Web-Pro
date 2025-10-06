@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Package,
   Pill,
@@ -10,63 +10,63 @@ import {
   X,
   AlertTriangle,
   Check,
-  Info
-} from 'lucide-react';
+  Info,
+} from "lucide-react";
 
 const DOSAGE_FORMS = [
-  'Tablet',
-  'Capsule', 
-  'Syrup',
-  'Injection',
-  'Ointment',
-  'Drops',
-  'Inhaler'
+  "Tablet",
+  "Capsule",
+  "Syrup",
+  "Injection",
+  "Ointment",
+  "Drops",
+  "Inhaler",
 ];
 
 const DRUG_CLASSIFICATIONS = [
-  'Prescription (Rx)',
-  'Over-the-Counter (OTC)',
-  'Controlled Substance'
+  "Prescription (Rx)",
+  "Over-the-Counter (OTC)",
+  "Controlled Substance",
 ];
 
-export default function EnhancedProductForm({ 
-  product = null, 
-  onSave, 
-  onCancel, 
+export default function EnhancedProductForm({
+  product = null,
+  onSave,
+  onCancel,
   isOpen = false,
   categories = [],
-  suppliers = []
+  suppliers = [],
 }) {
   const [formData, setFormData] = useState({
     // Basic Information
-    generic_name: '',
-    brand_name: '',
-    category: '',
-    description: '',
-    
+    generic_name: "",
+    brand_name: "",
+    category: "",
+    description: "",
+
     // Medicine-Specific Details
-    dosage_strength: '',
-    dosage_form: '',
-    drug_classification: '',
-    pharmacologic_category: '',
-    manufacturer: '',
-    storage_conditions: '',
-    registration_number: '',
-    
+    dosage_strength: "",
+    dosage_form: "",
+    drug_classification: "",
+    pharmacologic_category: "",
+    manufacturer: "",
+    storage_conditions: "",
+    registration_number: "",
+
     // Pricing and Stock
-    price_per_piece: '',
-    cost_price: '',
+    price_per_piece: "",
+    cost_price: "",
     pieces_per_sheet: 1,
     sheets_per_box: 1,
     reorder_level: 0,
-    
+
     // Supplier Information
-    supplier: '',
+    supplier: "",
     supplier_lead_time_days: 7,
-    
+
     // Additional Fields
     is_critical_medicine: false,
-    sku: ''
+    sku: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -76,50 +76,50 @@ export default function EnhancedProductForm({
   useEffect(() => {
     if (product) {
       setFormData({
-        generic_name: product.generic_name || product.name || '',
-        brand_name: product.brand_name || product.brand || '',
-        category: product.category || '',
-        description: product.description || '',
-        dosage_strength: product.dosage_strength || '',
-        dosage_form: product.dosage_form || '',
-        drug_classification: product.drug_classification || '',
-        pharmacologic_category: product.pharmacologic_category || '',
-        manufacturer: product.manufacturer || '',
-        storage_conditions: product.storage_conditions || '',
-        registration_number: product.registration_number || '',
-        price_per_piece: product.price_per_piece || '',
-        cost_price: product.cost_price || '',
+        generic_name: product.generic_name || product.name || "",
+        brand_name: product.brand_name || product.brand || "",
+        category: product.category || "",
+        description: product.description || "",
+        dosage_strength: product.dosage_strength || "",
+        dosage_form: product.dosage_form || "",
+        drug_classification: product.drug_classification || "",
+        pharmacologic_category: product.pharmacologic_category || "",
+        manufacturer: product.manufacturer || "",
+        storage_conditions: product.storage_conditions || "",
+        registration_number: product.registration_number || "",
+        price_per_piece: product.price_per_piece || "",
+        cost_price: product.cost_price || "",
         pieces_per_sheet: product.pieces_per_sheet || 1,
         sheets_per_box: product.sheets_per_box || 1,
         reorder_level: product.reorder_level || 0,
-        supplier: product.supplier || '',
+        supplier: product.supplier || "",
         supplier_lead_time_days: product.supplier_lead_time_days || 7,
         is_critical_medicine: product.is_critical_medicine || false,
-        sku: product.sku || ''
+        sku: product.sku || "",
       });
     } else {
       // Reset form for new product
       setFormData({
-        generic_name: '',
-        brand_name: '',
-        category: '',
-        description: '',
-        dosage_strength: '',
-        dosage_form: '',
-        drug_classification: '',
-        pharmacologic_category: '',
-        manufacturer: '',
-        storage_conditions: '',
-        registration_number: '',
-        price_per_piece: '',
-        cost_price: '',
+        generic_name: "",
+        brand_name: "",
+        category: "",
+        description: "",
+        dosage_strength: "",
+        dosage_form: "",
+        drug_classification: "",
+        pharmacologic_category: "",
+        manufacturer: "",
+        storage_conditions: "",
+        registration_number: "",
+        price_per_piece: "",
+        cost_price: "",
         pieces_per_sheet: 1,
         sheets_per_box: 1,
         reorder_level: 0,
-        supplier: '',
+        supplier: "",
         supplier_lead_time_days: 7,
         is_critical_medicine: false,
-        sku: ''
+        sku: "",
       });
     }
     setErrors({});
@@ -130,27 +130,34 @@ export default function EnhancedProductForm({
 
     // Required fields
     if (!formData.generic_name.trim()) {
-      newErrors.generic_name = 'Generic name is required';
+      newErrors.generic_name = "Generic name is required";
     }
     if (!formData.brand_name.trim()) {
-      newErrors.brand_name = 'Brand name is required';
+      newErrors.brand_name = "Brand name is required";
     }
     if (!formData.category.trim()) {
-      newErrors.category = 'Category is required';
+      newErrors.category = "Category is required";
     }
-    if (!formData.price_per_piece || parseFloat(formData.price_per_piece) <= 0) {
-      newErrors.price_per_piece = 'Valid price per piece is required';
+    if (
+      !formData.price_per_piece ||
+      parseFloat(formData.price_per_piece) <= 0
+    ) {
+      newErrors.price_per_piece = "Valid price per piece is required";
     }
     if (!formData.dosage_form) {
-      newErrors.dosage_form = 'Dosage form is required';
+      newErrors.dosage_form = "Dosage form is required";
     }
     if (!formData.drug_classification) {
-      newErrors.drug_classification = 'Drug classification is required';
+      newErrors.drug_classification = "Drug classification is required";
     }
 
     // Registration number format validation (basic)
-    if (formData.registration_number && !/^[A-Z0-9-]+$/i.test(formData.registration_number)) {
-      newErrors.registration_number = 'Registration number should contain only letters, numbers, and hyphens';
+    if (
+      formData.registration_number &&
+      !/^[A-Z0-9-]+$/i.test(formData.registration_number)
+    ) {
+      newErrors.registration_number =
+        "Registration number should contain only letters, numbers, and hyphens";
     }
 
     // Pricing validation
@@ -158,7 +165,7 @@ export default function EnhancedProductForm({
       const cost = parseFloat(formData.cost_price);
       const price = parseFloat(formData.price_per_piece);
       if (cost > price) {
-        newErrors.cost_price = 'Cost price should not exceed selling price';
+        newErrors.cost_price = "Cost price should not exceed selling price";
       }
     }
 
@@ -167,23 +174,23 @@ export default function EnhancedProductForm({
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
-    
+
     // Clear error for this field when user starts typing
     if (errors[field]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [field]: ''
+        [field]: "",
       }));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -192,8 +199,8 @@ export default function EnhancedProductForm({
     try {
       await onSave(formData);
     } catch (error) {
-      console.error('Error saving product:', error);
-      setErrors({ submit: 'Failed to save product. Please try again.' });
+      console.error("Error saving product:", error);
+      setErrors({ submit: "Failed to save product. Please try again." });
     } finally {
       setIsSubmitting(false);
     }
@@ -210,7 +217,7 @@ export default function EnhancedProductForm({
             <div className="flex items-center space-x-3">
               <Package className="h-6 w-6" />
               <h2 className="text-xl font-bold">
-                {product ? 'Edit Product' : 'Add New Product'}
+                {product ? "Edit Product" : "Add New Product"}
               </h2>
             </div>
             <button
@@ -223,16 +230,18 @@ export default function EnhancedProductForm({
         </div>
 
         {/* Form Content */}
-        <form onSubmit={handleSubmit} className="max-h-[calc(90vh-120px)] overflow-y-auto">
+        <form
+          onSubmit={handleSubmit}
+          className="max-h-[calc(90vh-120px)] overflow-y-auto"
+        >
           <div className="p-6 space-y-6">
-            
             {/* Basic Product Information */}
             <div className="bg-gray-50 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Info className="h-5 w-5 text-blue-600" />
                 Basic Information
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -241,14 +250,18 @@ export default function EnhancedProductForm({
                   <input
                     type="text"
                     value={formData.generic_name}
-                    onChange={(e) => handleInputChange('generic_name', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("generic_name", e.target.value)
+                    }
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.generic_name ? 'border-red-500' : 'border-gray-300'
+                      errors.generic_name ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="e.g., Paracetamol"
                   />
                   {errors.generic_name && (
-                    <p className="text-red-500 text-sm mt-1">{errors.generic_name}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.generic_name}
+                    </p>
                   )}
                 </div>
 
@@ -259,14 +272,18 @@ export default function EnhancedProductForm({
                   <input
                     type="text"
                     value={formData.brand_name}
-                    onChange={(e) => handleInputChange('brand_name', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("brand_name", e.target.value)
+                    }
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.brand_name ? 'border-red-500' : 'border-gray-300'
+                      errors.brand_name ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="e.g., Tylenol"
                   />
                   {errors.brand_name && (
-                    <p className="text-red-500 text-sm mt-1">{errors.brand_name}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.brand_name}
+                    </p>
                   )}
                 </div>
 
@@ -276,18 +293,24 @@ export default function EnhancedProductForm({
                   </label>
                   <select
                     value={formData.category}
-                    onChange={(e) => handleInputChange('category', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("category", e.target.value)
+                    }
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.category ? 'border-red-500' : 'border-gray-300'
+                      errors.category ? "border-red-500" : "border-gray-300"
                     }`}
                   >
                     <option value="">Select Category</option>
-                    {categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
                     ))}
                   </select>
                   {errors.category && (
-                    <p className="text-red-500 text-sm mt-1">{errors.category}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.category}
+                    </p>
                   )}
                 </div>
 
@@ -298,7 +321,7 @@ export default function EnhancedProductForm({
                   <input
                     type="text"
                     value={formData.sku}
-                    onChange={(e) => handleInputChange('sku', e.target.value)}
+                    onChange={(e) => handleInputChange("sku", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Product SKU"
                   />
@@ -310,7 +333,9 @@ export default function EnhancedProductForm({
                   </label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("description", e.target.value)
+                    }
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Product description..."
@@ -334,7 +359,9 @@ export default function EnhancedProductForm({
                   <input
                     type="text"
                     value={formData.dosage_strength}
-                    onChange={(e) => handleInputChange('dosage_strength', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("dosage_strength", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="e.g., 500mg, 10mg/5ml"
                   />
@@ -346,18 +373,24 @@ export default function EnhancedProductForm({
                   </label>
                   <select
                     value={formData.dosage_form}
-                    onChange={(e) => handleInputChange('dosage_form', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("dosage_form", e.target.value)
+                    }
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.dosage_form ? 'border-red-500' : 'border-gray-300'
+                      errors.dosage_form ? "border-red-500" : "border-gray-300"
                     }`}
                   >
                     <option value="">Select Dosage Form</option>
-                    {DOSAGE_FORMS.map(form => (
-                      <option key={form} value={form}>{form}</option>
+                    {DOSAGE_FORMS.map((form) => (
+                      <option key={form} value={form}>
+                        {form}
+                      </option>
                     ))}
                   </select>
                   {errors.dosage_form && (
-                    <p className="text-red-500 text-sm mt-1">{errors.dosage_form}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.dosage_form}
+                    </p>
                   )}
                 </div>
 
@@ -367,18 +400,26 @@ export default function EnhancedProductForm({
                   </label>
                   <select
                     value={formData.drug_classification}
-                    onChange={(e) => handleInputChange('drug_classification', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("drug_classification", e.target.value)
+                    }
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.drug_classification ? 'border-red-500' : 'border-gray-300'
+                      errors.drug_classification
+                        ? "border-red-500"
+                        : "border-gray-300"
                     }`}
                   >
                     <option value="">Select Classification</option>
-                    {DRUG_CLASSIFICATIONS.map(classification => (
-                      <option key={classification} value={classification}>{classification}</option>
+                    {DRUG_CLASSIFICATIONS.map((classification) => (
+                      <option key={classification} value={classification}>
+                        {classification}
+                      </option>
                     ))}
                   </select>
                   {errors.drug_classification && (
-                    <p className="text-red-500 text-sm mt-1">{errors.drug_classification}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.drug_classification}
+                    </p>
                   )}
                 </div>
 
@@ -389,7 +430,12 @@ export default function EnhancedProductForm({
                   <input
                     type="text"
                     value={formData.pharmacologic_category}
-                    onChange={(e) => handleInputChange('pharmacologic_category', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "pharmacologic_category",
+                        e.target.value
+                      )
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="e.g., Antibiotic, Analgesic"
                   />
@@ -402,14 +448,20 @@ export default function EnhancedProductForm({
                   <input
                     type="text"
                     value={formData.registration_number}
-                    onChange={(e) => handleInputChange('registration_number', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("registration_number", e.target.value)
+                    }
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.registration_number ? 'border-red-500' : 'border-gray-300'
+                      errors.registration_number
+                        ? "border-red-500"
+                        : "border-gray-300"
                     }`}
                     placeholder="e.g., FDA-RX-2024-001234"
                   />
                   {errors.registration_number && (
-                    <p className="text-red-500 text-sm mt-1">{errors.registration_number}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.registration_number}
+                    </p>
                   )}
                 </div>
 
@@ -420,7 +472,12 @@ export default function EnhancedProductForm({
                       <input
                         type="checkbox"
                         checked={formData.is_critical_medicine}
-                        onChange={(e) => handleInputChange('is_critical_medicine', e.target.checked)}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "is_critical_medicine",
+                            e.target.checked
+                          )
+                        }
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                     </div>
@@ -444,7 +501,9 @@ export default function EnhancedProductForm({
                   <input
                     type="text"
                     value={formData.manufacturer}
-                    onChange={(e) => handleInputChange('manufacturer', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("manufacturer", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="e.g., GlaxoSmithKline"
                   />
@@ -456,12 +515,16 @@ export default function EnhancedProductForm({
                   </label>
                   <select
                     value={formData.supplier}
-                    onChange={(e) => handleInputChange('supplier', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("supplier", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select Supplier</option>
-                    {suppliers.map(supplier => (
-                      <option key={supplier} value={supplier}>{supplier}</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier} value={supplier}>
+                        {supplier}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -472,7 +535,9 @@ export default function EnhancedProductForm({
                   </label>
                   <textarea
                     value={formData.storage_conditions}
-                    onChange={(e) => handleInputChange('storage_conditions', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("storage_conditions", e.target.value)
+                    }
                     rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="e.g., Store at room temperature below 25°C"
@@ -498,14 +563,18 @@ export default function EnhancedProductForm({
                     step="0.01"
                     min="0"
                     value={formData.cost_price}
-                    onChange={(e) => handleInputChange('cost_price', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("cost_price", e.target.value)
+                    }
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.cost_price ? 'border-red-500' : 'border-gray-300'
+                      errors.cost_price ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="0.00"
                   />
                   {errors.cost_price && (
-                    <p className="text-red-500 text-sm mt-1">{errors.cost_price}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.cost_price}
+                    </p>
                   )}
                 </div>
 
@@ -518,14 +587,20 @@ export default function EnhancedProductForm({
                     step="0.01"
                     min="0"
                     value={formData.price_per_piece}
-                    onChange={(e) => handleInputChange('price_per_piece', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("price_per_piece", e.target.value)
+                    }
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.price_per_piece ? 'border-red-500' : 'border-gray-300'
+                      errors.price_per_piece
+                        ? "border-red-500"
+                        : "border-gray-300"
                     }`}
                     placeholder="0.00"
                   />
                   {errors.price_per_piece && (
-                    <p className="text-red-500 text-sm mt-1">{errors.price_per_piece}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.price_per_piece}
+                    </p>
                   )}
                 </div>
 
@@ -537,36 +612,65 @@ export default function EnhancedProductForm({
                     type="number"
                     min="0"
                     value={formData.reorder_level}
-                    onChange={(e) => handleInputChange('reorder_level', parseInt(e.target.value) || 0)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "reorder_level",
+                        parseInt(e.target.value) || 0
+                      )
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="0"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                     Pieces per Sheet
+                    <span className="text-xs text-gray-500 font-normal">
+                      (e.g., 10 for blister pack)
+                    </span>
                   </label>
                   <input
                     type="number"
                     min="1"
                     value={formData.pieces_per_sheet}
-                    onChange={(e) => handleInputChange('pieces_per_sheet', parseInt(e.target.value) || 1)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "pieces_per_sheet",
+                        parseInt(e.target.value) || 1
+                      )
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="10"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    How many pieces in one sheet/blister
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                     Sheets per Box
+                    <span className="text-xs text-gray-500 font-normal">
+                      (Set to 1 for retail)
+                    </span>
                   </label>
                   <input
                     type="number"
                     min="1"
                     value={formData.sheets_per_box}
-                    onChange={(e) => handleInputChange('sheets_per_box', parseInt(e.target.value) || 1)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "sheets_per_box",
+                        parseInt(e.target.value) || 1
+                      )
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="1"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Set to 1 to hide box option in POS
+                  </p>
                 </div>
 
                 <div>
@@ -577,7 +681,12 @@ export default function EnhancedProductForm({
                     type="number"
                     min="1"
                     value={formData.supplier_lead_time_days}
-                    onChange={(e) => handleInputChange('supplier_lead_time_days', parseInt(e.target.value) || 7)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "supplier_lead_time_days",
+                        parseInt(e.target.value) || 7
+                      )
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -618,7 +727,7 @@ export default function EnhancedProductForm({
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  <span>{product ? 'Update Product' : 'Create Product'}</span>
+                  <span>{product ? "Update Product" : "Create Product"}</span>
                 </>
               )}
             </button>

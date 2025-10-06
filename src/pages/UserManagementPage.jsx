@@ -1,16 +1,8 @@
 import React, { useState } from "react";
-import {
-  Users,
-  Shield,
-  Activity,
-  UserCheck,
-  Lock,
-  BarChart3,
-} from "lucide-react";
+import { Users, Shield, Activity, UserCheck, Lock } from "lucide-react";
 import UserManagementDashboard from "../features/admin/components/UserManagementDashboard";
 import RolePermissionManager from "../features/admin/components/RolePermissionManager";
 import ActivityLogDashboard from "../features/admin/components/ActivityLogDashboard";
-import UserAnalyticsDashboard from "../features/admin/components/UserAnalyticsDashboard";
 
 const UserManagementPage = () => {
   const [activeTab, setActiveTab] = useState("users");
@@ -34,12 +26,6 @@ const UserManagementPage = () => {
       icon: Activity,
       description: "Track user activities and system events",
     },
-    {
-      id: "analytics",
-      name: "Team Analytics",
-      icon: BarChart3,
-      description: "Team performance and engagement metrics",
-    },
   ];
 
   const renderTabContent = () => {
@@ -50,8 +36,6 @@ const UserManagementPage = () => {
         return <RolePermissionManager />;
       case "activity":
         return <ActivityLogDashboard />;
-      case "analytics":
-        return <UserAnalyticsDashboard />;
       default:
         return <UserManagementDashboard />;
     }

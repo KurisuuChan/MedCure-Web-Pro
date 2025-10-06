@@ -8,6 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./providers/AuthProvider";
+import { SettingsProvider } from "./contexts/SettingsContext";
 import { useAuth } from "./hooks/useAuth";
 import { notificationService } from "./services/notifications/NotificationService.js";
 import { supabase } from "./config/supabase.js";
@@ -310,15 +311,17 @@ function App() {
       }}
     >
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ToastProvider>
-            <Router>
-              <div className="App">
-                <AppContent />
-              </div>
-            </Router>
-          </ToastProvider>
-        </AuthProvider>
+        <Router>
+          <SettingsProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <div className="App">
+                  <AppContent />
+                </div>
+              </ToastProvider>
+            </AuthProvider>
+          </SettingsProvider>
+        </Router>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </ErrorBoundary>

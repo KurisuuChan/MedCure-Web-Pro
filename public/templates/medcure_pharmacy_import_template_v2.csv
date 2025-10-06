@@ -1,0 +1,6 @@
+generic_name,brand_name,category_name,description,dosage_strength,dosage_form,drug_classification,price_per_piece,pieces_per_sheet,stock_in_pieces,reorder_level,supplier_name,cost_price
+Paracetamol,Biogesic,Pain Relief,For fever and pain relief,500mg,Tablet,Over-the-Counter (OTC),5.00,10,500,100,ABC Pharma,3.50
+Amoxicillin,Amoxil,Antibiotics,Bacterial infection treatment,500mg,Capsule,Prescription (Rx),8.50,10,300,50,XYZ Medical,6.00
+Cetirizine,Zyrtec,Antihistamines,Allergy relief,10mg,Tablet,Over-the-Counter (OTC),6.00,10,400,100,ABC Pharma,4.20
+Ibuprofen,Advil,Pain Relief,Anti-inflammatory pain relief,200mg,Tablet,Over-the-Counter (OTC),4.50,10,600,150,DEF Supply,3.00
+Metformin,Glucophage,Diabetes,Type 2 diabetes management,500mg,Tablet,Prescription (Rx),7.00,10,200,50,GHI Distributors,5.00

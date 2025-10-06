@@ -1,6 +1,7 @@
 import React from "react";
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { useSettings } from "../../contexts/SettingsContext";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -62,11 +63,16 @@ const navigationItems = [
 export function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const { user, role } = useAuth();
+  const { settings, isLoading } = useSettings();
 
   // Filter navigation items based on user role
   const filteredNavigation = navigationItems.filter((item) =>
     item.roles.includes(role || "cashier")
   );
+
+  // Use default values while loading
+  const businessName = settings?.businessName || "MedCure Pro";
+  const businessLogo = settings?.businessLogo;
 
   return (
     <>
@@ -93,22 +99,42 @@ export function Sidebar({ isOpen, onClose }) {
         <div className="flex flex-col h-full">
           {/* Logo section for desktop */}
           <div className="hidden lg:flex items-center gap-3 p-6 border-b border-gray-200">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">M</span>
-            </div>
+            {businessLogo ? (
+              <img
+                src={businessLogo}
+                alt={businessName}
+                className="w-8 h-8 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">
+                  {businessName?.[0]?.toUpperCase() || "M"}
+                </span>
+              </div>
+            )}
             <span className="font-semibold text-xl text-gray-900">
-              MedCure Pro
+              {businessName}
             </span>
           </div>
 
           {/* Mobile close button */}
           <div className="flex items-center justify-between p-4 lg:hidden">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">M</span>
-              </div>
+              {businessLogo ? (
+                <img
+                  src={businessLogo}
+                  alt={businessName}
+                  className="w-8 h-8 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">
+                    {businessName?.[0]?.toUpperCase() || "M"}
+                  </span>
+                </div>
+              )}
               <span className="font-semibold text-xl text-gray-900">
-                MedCure Pro
+                {businessName}
               </span>
             </div>
             <button

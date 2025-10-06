@@ -6,7 +6,6 @@ import {
   Database,
   Bell,
   DollarSign,
-  Clock,
   Globe,
   Key,
   RefreshCw,
@@ -14,8 +13,12 @@ import {
   Zap,
   CheckCircle,
   Save,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { DashboardService } from "../services/domains/analytics/dashboardService";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState("general");
@@ -154,24 +157,68 @@ export default function SystemSettingsPage() {
 
 // General Settings Component
 function GeneralSettings() {
+  const { settings: globalSettings, updateSettings } = useSettings();
+
   const [settings, setSettings] = useState({
-    businessName: "MedCure Pharmacy",
-    currency: "PHP",
-    taxRate: "12",
-    timezone: "Asia/Manila",
-    operatingHours: {
-      open: "08:00",
-      close: "20:00",
-    },
-    lowStockThreshold: "10",
-    enableNotifications: true,
-    enableEmailAlerts: true,
+    businessName: globalSettings.businessName || "MedCure Pharmacy",
+    businessLogo: globalSettings.businessLogo || null,
+    currency: globalSettings.currency || "PHP",
+    taxRate: globalSettings.taxRate || "12",
+    timezone: globalSettings.timezone || "Asia/Manila",
+    enableNotifications: globalSettings.enableNotifications ?? true,
+    enableEmailAlerts: globalSettings.enableEmailAlerts ?? true,
   });
 
   const [saved, setSaved] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(settings.businessLogo);
+
+  // Update local state when global settings change
+  useEffect(() => {
+    setSettings({
+      businessName: globalSettings.businessName || "MedCure Pharmacy",
+      businessLogo: globalSettings.businessLogo || null,
+      currency: globalSettings.currency || "PHP",
+      taxRate: globalSettings.taxRate || "12",
+      timezone: globalSettings.timezone || "Asia/Manila",
+      enableNotifications: globalSettings.enableNotifications ?? true,
+      enableEmailAlerts: globalSettings.enableEmailAlerts ?? true,
+    });
+    setLogoPreview(globalSettings.businessLogo);
+  }, [globalSettings]);
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Please upload an image file");
+        return;
+      }
+
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Image size should be less than 2MB");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        setLogoPreview(base64String);
+        setSettings({ ...settings, businessLogo: base64String });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreview(null);
+    setSettings({ ...settings, businessLogo: null });
+  };
 
   const handleSave = () => {
-    // TODO: Save settings to database
+    // Save settings to global context (which saves to localStorage)
+    updateSettings(settings);
     console.log("💾 Saving general settings:", settings);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -185,6 +232,69 @@ function GeneralSettings() {
           <Globe className="h-5 w-5 text-gray-500" />
           <span>Business Information</span>
         </h3>
+
+        {/* Logo Upload Section */}
+        <div className="mb-6 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start gap-6">
+            {/* Logo Preview */}
+            <div className="flex-shrink-0">
+              <div className="relative">
+                {logoPreview ? (
+                  <div className="relative group">
+                    <img
+                      src={logoPreview}
+                      alt="Business Logo"
+                      className="w-24 h-24 rounded-lg object-cover border-2 border-blue-300 shadow-md"
+                    />
+                    <button
+                      onClick={handleRemoveLogo}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center border-2 border-dashed border-blue-300">
+                    <ImageIcon className="h-10 w-10 text-blue-400" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Upload Instructions */}
+            <div className="flex-1">
+              <h4 className="text-base font-semibold text-gray-900 mb-2">
+                Business Logo
+              </h4>
+              <p className="text-sm text-gray-600 mb-4">
+                Upload your business logo to personalize the sidebar.
+                Recommended size: 256x256px or larger. Max file size: 2MB.
+              </p>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors shadow-md hover:shadow-lg">
+                  <Upload className="h-4 w-4" />
+                  <span className="text-sm font-medium">Upload Logo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                </label>
+                {logoPreview && (
+                  <button
+                    onClick={handleRemoveLogo}
+                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
+                  >
+                    Remove Logo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Business Name and Timezone */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -197,7 +307,11 @@ function GeneralSettings() {
                 setSettings({ ...settings, businessName: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              placeholder="Enter your business name"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              This will appear in the sidebar and throughout the system
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -253,80 +367,6 @@ function GeneralSettings() {
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
-          </div>
-        </div>
-      </div>
-
-      {/* Operating Hours */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center space-x-2">
-          <Clock className="h-5 w-5 text-gray-500" />
-          <span>Operating Hours</span>
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Opening Time
-            </label>
-            <input
-              type="time"
-              value={settings.operatingHours.open}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  operatingHours: {
-                    ...settings.operatingHours,
-                    open: e.target.value,
-                  },
-                })
-              }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Closing Time
-            </label>
-            <input
-              type="time"
-              value={settings.operatingHours.close}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  operatingHours: {
-                    ...settings.operatingHours,
-                    close: e.target.value,
-                  },
-                })
-              }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Inventory Settings */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center space-x-2">
-          <Database className="h-5 w-5 text-gray-500" />
-          <span>Inventory Configuration</span>
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Low Stock Threshold
-            </label>
-            <input
-              type="number"
-              value={settings.lowStockThreshold}
-              onChange={(e) =>
-                setSettings({ ...settings, lowStockThreshold: e.target.value })
-              }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Alert when stock falls below this quantity
-            </p>
           </div>
         </div>
       </div>
