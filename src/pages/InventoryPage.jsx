@@ -289,7 +289,7 @@ export default function InventoryPage() {
             onFilter={handleFilter}
             filterOptions={{
               ...filterOptions,
-              categories: filterOptions.categories || []
+              categories: filterOptions.categories || [],
             }}
             currentFilters={filters}
             searchTerm={searchTerm}
@@ -420,13 +420,13 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
   // Smart Batch Number Generation Function - BTMMDDYY-X Format
   const generateSmartBatchNumber = (productName, category, expiryDate) => {
     const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
     const year = String(now.getFullYear()).slice(-2);
-    
+
     // Generate a random incremental number for uniqueness (1-999)
     const incrementalNumber = Math.floor(Math.random() * 999) + 1;
-    
+
     // Format: BTMMDDYY-X (BT + Month + Day + Year + - + Incremental Number)
     return `BT${month}${day}${year}-${incrementalNumber}`;
   };
@@ -438,12 +438,12 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
     description: product?.description || "",
     category: product?.category || "Pain Relief",
     manufacturer: product?.manufacturer || "",
-    
+
     // Medicine-Specific Details
     dosage_form: product?.dosage_form || "",
     dosage_strength: product?.dosage_strength || "",
     drug_classification: product?.drug_classification || "",
-    
+
     // Pricing & Stock
     cost_price: product?.cost_price || "",
     price_per_piece: product?.price_per_piece || "",
@@ -452,7 +452,7 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
     sheets_per_box: product?.sheets_per_box || 1,
     stock_in_pieces: product?.stock_in_pieces || "",
     reorder_level: product?.reorder_level || "",
-    
+
     // Supply Chain
     supplier: product?.supplier || "",
     expiry_date: product?.expiry_date?.split("T")[0] || "",
@@ -481,7 +481,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
   useEffect(() => {
     if (
       !product &&
-      (formData.brand_name || formData.generic_name || formData.category || formData.expiry_date)
+      (formData.brand_name ||
+        formData.generic_name ||
+        formData.category ||
+        formData.expiry_date)
     ) {
       const newBatch = generateSmartBatchNumber(
         formData.brand_name || formData.generic_name,
@@ -490,7 +493,13 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
       );
       setFormData((prev) => ({ ...prev, batch_number: newBatch }));
     }
-  }, [formData.brand_name, formData.generic_name, formData.category, formData.expiry_date, product]);
+  }, [
+    formData.brand_name,
+    formData.generic_name,
+    formData.category,
+    formData.expiry_date,
+    product,
+  ]);
 
   // Handle cost price change
   const handleCostPriceChange = (value) => {
@@ -622,7 +631,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                       required
                       value={formData.generic_name}
                       onChange={(e) =>
-                        setFormData({ ...formData, generic_name: e.target.value })
+                        setFormData({
+                          ...formData,
+                          generic_name: e.target.value,
+                        })
                       }
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
                       placeholder="e.g., Paracetamol"
@@ -677,7 +689,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                       type="text"
                       value={formData.manufacturer}
                       onChange={(e) =>
-                        setFormData({ ...formData, manufacturer: e.target.value })
+                        setFormData({
+                          ...formData,
+                          manufacturer: e.target.value,
+                        })
                       }
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
                       placeholder="e.g., Johnson & Johnson"
@@ -718,7 +733,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                     <select
                       value={formData.dosage_form}
                       onChange={(e) =>
-                        setFormData({ ...formData, dosage_form: e.target.value })
+                        setFormData({
+                          ...formData,
+                          dosage_form: e.target.value,
+                        })
                       }
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 hover:border-gray-300"
                     >
@@ -741,7 +759,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                       type="text"
                       value={formData.dosage_strength}
                       onChange={(e) =>
-                        setFormData({ ...formData, dosage_strength: e.target.value })
+                        setFormData({
+                          ...formData,
+                          dosage_strength: e.target.value,
+                        })
                       }
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 hover:border-gray-300"
                       placeholder="e.g., 500mg, 10ml"
@@ -755,20 +776,27 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                     <select
                       value={formData.drug_classification}
                       onChange={(e) =>
-                        setFormData({ ...formData, drug_classification: e.target.value })
+                        setFormData({
+                          ...formData,
+                          drug_classification: e.target.value,
+                        })
                       }
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 hover:border-gray-300"
                     >
                       <option value="">Select classification</option>
-                      <option value="Prescription (Rx)">Prescription (Rx)</option>
-                      <option value="Over-the-Counter (OTC)">Over-the-Counter (OTC)</option>
-                      <option value="Controlled Substance">Controlled Substance</option>
+                      <option value="Prescription (Rx)">
+                        Prescription (Rx)
+                      </option>
+                      <option value="Over-the-Counter (OTC)">
+                        Over-the-Counter (OTC)
+                      </option>
+                      <option value="Controlled Substance">
+                        Controlled Substance
+                      </option>
                     </select>
                   </div>
                 </div>
               </div>
-
-
 
               {/* Enhanced Pricing Section */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
@@ -903,7 +931,7 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                       </p>
                     </div>
                   )}
-                  
+
                   {/* Show current stock when editing (read-only) */}
                   {product && (
                     <div>
@@ -914,7 +942,8 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         {product.stock_in_pieces?.toLocaleString() || 0} pieces
                       </div>
                       <p className="text-xs text-blue-600 mt-1">
-                        💡 Stock is calculated from batches. Use Batch Management to modify.
+                        💡 Stock is calculated from batches. Use Batch
+                        Management to modify.
                       </p>
                     </div>
                   )}
@@ -1048,11 +1077,12 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        For the initial batch. Additional batches can have different expiry dates.
+                        For the initial batch. Additional batches can have
+                        different expiry dates.
                       </p>
                     </div>
                   )}
-                  
+
                   {/* Show expiry info when editing (informational) */}
                   {product && (
                     <div>
@@ -1060,10 +1090,13 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         Expiry Information
                       </label>
                       <div className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-600">
-                        {product.expiry_date ? formatDate(product.expiry_date) : 'Varies by batch'}
+                        {product.expiry_date
+                          ? formatDate(product.expiry_date)
+                          : "Varies by batch"}
                       </div>
                       <p className="text-xs text-blue-600 mt-1">
-                        💡 Each batch can have different expiry dates. Check Batch Management for details.
+                        💡 Each batch can have different expiry dates. Check
+                        Batch Management for details.
                       </p>
                     </div>
                   )}
@@ -1104,7 +1137,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
   const [batches, setBatches] = useState([]);
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
-  
+
   const stockStatus = getStockStatus(product);
   const expiryStatus = getExpiryStatus(product);
   const stockBreakdown = getStockBreakdown(product.stock_in_pieces, product);
@@ -1122,7 +1155,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
       const batchData = await ProductService.getBatchesForProduct(product.id);
       setBatches(batchData);
     } catch (error) {
-      console.warn('⚠️ Batch functions not available yet:', error);
+      console.warn("⚠️ Batch functions not available yet:", error);
       setBatches([]);
     } finally {
       setLoadingBatches(false);
@@ -1130,25 +1163,30 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
   };
 
   const handleStockAdded = async (result) => {
-    console.log('✅ Stock added successfully:', result);
+    console.log("✅ Stock added successfully:", result);
     // Refresh batches
     await loadBatches();
     // You might want to refresh the main product data here too
   };
 
   const getExpiryStatusForBatch = (expiryDate, daysUntilExpiry) => {
-    if (!expiryDate) return { status: 'none', color: 'gray', label: 'No expiry' };
-    
+    if (!expiryDate)
+      return { status: "none", color: "gray", label: "No expiry" };
+
     if (daysUntilExpiry < 0) {
-      return { status: 'expired', color: 'red', label: 'Expired' };
+      return { status: "expired", color: "red", label: "Expired" };
     } else if (daysUntilExpiry === 0) {
-      return { status: 'expires-today', color: 'red', label: 'Expires today' };
+      return { status: "expires-today", color: "red", label: "Expires today" };
     } else if (daysUntilExpiry <= 30) {
-      return { status: 'expiring-soon', color: 'orange', label: 'Expiring soon' };
+      return {
+        status: "expiring-soon",
+        color: "orange",
+        label: "Expiring soon",
+      };
     } else if (daysUntilExpiry <= 90) {
-      return { status: 'expiring', color: 'yellow', label: 'Expiring' };
+      return { status: "expiring", color: "yellow", label: "Expiring" };
     } else {
-      return { status: 'good', color: 'green', label: 'Good' };
+      return { status: "good", color: "green", label: "Good" };
     }
   };
 
@@ -1208,7 +1246,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                       Generic Name
                     </dt>
                     <dd className="text-lg font-bold text-blue-900 mt-1">
-                      {product.generic_name || 'Not specified'}
+                      {product.generic_name || "Not specified"}
                     </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -1216,7 +1254,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                       Brand Name
                     </dt>
                     <dd className="text-lg font-bold text-blue-900 mt-1">
-                      {product.brand_name || 'Not specified'}
+                      {product.brand_name || "Not specified"}
                     </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -1235,7 +1273,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                     </dt>
                     <dd className="text-lg font-semibold text-gray-900 mt-1">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                        {product.status || 'Active'}
+                        {product.status || "Active"}
                       </span>
                     </dd>
                   </div>
@@ -1264,7 +1302,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                       Dosage Strength
                     </dt>
                     <dd className="text-lg font-bold text-purple-900 mt-1">
-                      {product.dosage_strength || 'Not specified'}
+                      {product.dosage_strength || "Not specified"}
                     </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -1272,7 +1310,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                       Dosage Form
                     </dt>
                     <dd className="text-lg font-bold text-purple-900 mt-1 capitalize">
-                      {product.dosage_form || 'Not specified'}
+                      {product.dosage_form || "Not specified"}
                     </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -1281,15 +1319,24 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                     </dt>
                     <dd className="text-lg font-semibold text-gray-900 mt-1">
                       {product.drug_classification ? (
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          product.drug_classification === 'Prescription (Rx)' ? 'bg-red-100 text-red-800' :
-                          product.drug_classification === 'Over-the-Counter (OTC)' ? 'bg-green-100 text-green-800' :
-                          product.drug_classification === 'Controlled Substance' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                            product.drug_classification === "Prescription (Rx)"
+                              ? "bg-red-100 text-red-800"
+                              : product.drug_classification ===
+                                "Over-the-Counter (OTC)"
+                              ? "bg-green-100 text-green-800"
+                              : product.drug_classification ===
+                                "Controlled Substance"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
                           {product.drug_classification}
                         </span>
-                      ) : 'Not specified'}
+                      ) : (
+                        "Not specified"
+                      )}
                     </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -1297,7 +1344,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                       Pharmacologic Category
                     </dt>
                     <dd className="text-lg font-bold text-purple-900 mt-1">
-                      {product.pharmacologic_category || 'Not specified'}
+                      {product.pharmacologic_category || "Not specified"}
                     </dd>
                   </div>
                   {product.storage_conditions && (
@@ -1325,7 +1372,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                       Manufacturer
                     </dt>
                     <dd className="text-lg font-bold text-green-900 mt-1">
-                      {product.manufacturer || 'Not specified'}
+                      {product.manufacturer || "Not specified"}
                     </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -1333,7 +1380,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                       Registration Number
                     </dt>
                     <dd className="text-lg font-mono text-green-900 mt-1">
-                      {product.registration_number || 'Not specified'}
+                      {product.registration_number || "Not specified"}
                     </dd>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -1341,7 +1388,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                       Supplier
                     </dt>
                     <dd className="text-lg font-bold text-green-900 mt-1">
-                      {product.supplier || 'Not specified'}
+                      {product.supplier || "Not specified"}
                     </dd>
                   </div>
                 </dl>
@@ -1542,10 +1589,11 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                     Batch Tracking
                   </h4>
                   <span className="text-sm text-gray-600">
-                    {batches.length} batch{batches.length !== 1 ? 'es' : ''} found
+                    {batches.length} batch{batches.length !== 1 ? "es" : ""}{" "}
+                    found
                   </span>
                 </div>
-                
+
                 {loadingBatches ? (
                   <div className="bg-white rounded-xl p-8 shadow-sm border border-purple-100 text-center">
                     <div className="animate-spin h-8 w-8 border-2 border-purple-600 border-t-transparent rounded-full mx-auto"></div>
@@ -1554,8 +1602,12 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                 ) : batches.length === 0 ? (
                   <div className="bg-white rounded-xl p-8 shadow-sm border border-purple-100 text-center">
                     <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <h5 className="text-lg font-semibold text-gray-900 mb-2">No Batches Found</h5>
-                    <p className="text-gray-600 mb-4">This product doesn't have any batch records yet.</p>
+                    <h5 className="text-lg font-semibold text-gray-900 mb-2">
+                      No Batches Found
+                    </h5>
+                    <p className="text-gray-600 mb-4">
+                      This product doesn't have any batch records yet.
+                    </p>
                     <button
                       onClick={() => setShowAddStockModal(true)}
                       className="inline-flex items-center px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
@@ -1589,10 +1641,16 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {batches.map((batch) => {
-                            const batchExpiryStatus = getExpiryStatusForBatch(batch.expiry_date, batch.days_until_expiry);
-                            
+                            const batchExpiryStatus = getExpiryStatusForBatch(
+                              batch.expiry_date,
+                              batch.days_until_expiry
+                            );
+
                             return (
-                              <tr key={batch.batch_id} className="hover:bg-gray-50">
+                              <tr
+                                key={batch.batch_id}
+                                className="hover:bg-gray-50"
+                              >
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   <span className="text-sm font-mono font-medium text-gray-900">
                                     #{batch.batch_id}
@@ -1600,7 +1658,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   <span className="text-sm text-gray-900">
-                                    {batch.batch_number || '-'}
+                                    {batch.batch_number || "-"}
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
@@ -1610,7 +1668,9 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   <div className="space-y-1">
-                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-${batchExpiryStatus.color}-100 text-${batchExpiryStatus.color}-800`}>
+                                    <span
+                                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-${batchExpiryStatus.color}-100 text-${batchExpiryStatus.color}-800`}
+                                    >
                                       {batchExpiryStatus.label}
                                     </span>
                                     {batch.expiry_date && (
