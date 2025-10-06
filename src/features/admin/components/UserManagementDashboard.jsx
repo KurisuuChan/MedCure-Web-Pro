@@ -2,21 +2,15 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Users,
   UserPlus,
-  Settings,
   Shield,
-  Activity,
   Clock,
   AlertTriangle,
   Search,
-  Filter,
-  MoreVertical,
   Edit,
   Trash2,
-  Eye,
   RefreshCw,
   Download,
   UserCheck,
-  UserX,
   Key,
 } from "lucide-react";
 import { UserManagementService } from "../../../services/domains/auth/userManagementService";
@@ -33,7 +27,6 @@ const UserManagementDashboard = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userStats, setUserStats] = useState({});
-  const [activeSessions, setActiveSessions] = useState([]);
 
   // Filter users function
   const filterUsers = useCallback(() => {
@@ -64,7 +57,6 @@ const UserManagementDashboard = () => {
   useEffect(() => {
     loadUsers();
     loadUserStats();
-    loadActiveSessions();
   }, []);
 
   useEffect(() => {
@@ -93,15 +85,6 @@ const UserManagementDashboard = () => {
     }
   };
 
-  const loadActiveSessions = async () => {
-    try {
-      const sessions = await UserManagementService.getActiveSessions();
-      setActiveSessions(sessions);
-    } catch (error) {
-      console.error("Error loading active sessions:", error);
-    }
-  };
-
   const handleCreateUser = async (userData) => {
     try {
       await UserManagementService.createUser(userData);
@@ -127,14 +110,33 @@ const UserManagementDashboard = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (window.confirm("Are you sure you want to deactivate this user?")) {
-      try {
-        await UserManagementService.deleteUser(userId);
-        loadUsers();
-        loadUserStats();
-      } catch (error) {
-        console.error("Error deleting user:", error);
-        setError("Failed to delete user");
+    const user = users.find((u) => u.id === userId);
+    const userName = user
+      ? `${user.first_name} ${user.last_name} (${user.email})`
+      : "this user";
+
+    if (
+      window.confirm(
+        `Are you sure you want to PERMANENTLY DELETE ${userName}?\n\nThis action cannot be undone and will remove:\n- User account\n- Activity logs\n- All associated data\n\nType DELETE to confirm.`
+      )
+    ) {
+      // Double confirmation for safety
+      const confirmText = prompt(
+        'Type "DELETE" (all caps) to confirm permanent deletion:'
+      );
+
+      if (confirmText === "DELETE") {
+        try {
+          await UserManagementService.deleteUser(userId);
+          loadUsers();
+          loadUserStats();
+          alert(`User ${userName} has been permanently deleted.`);
+        } catch (error) {
+          console.error("Error deleting user:", error);
+          setError("Failed to delete user: " + error.message);
+        }
+      } else {
+        alert("Deletion cancelled - confirmation text did not match.");
       }
     }
   };
@@ -149,32 +151,50 @@ const UserManagementDashboard = () => {
     }
   };
 
-  const handleEndSession = async (sessionId) => {
-    try {
-      await UserManagementService.endUserSession(sessionId);
-      loadActiveSessions();
-    } catch (error) {
-      console.error("Error ending session:", error);
-      setError("Failed to end session");
-    }
-  };
-
   const getRoleColor = (role) => {
     const colors = {
-      super_admin: "bg-purple-100 text-purple-800",
-      admin: "bg-red-100 text-red-800",
-      manager: "bg-blue-100 text-blue-800",
-      pharmacist: "bg-green-100 text-green-800",
-      cashier: "bg-yellow-100 text-yellow-800",
-      staff: "bg-gray-100 text-gray-800",
+      // Current roles (3-tier system)
+      admin: "bg-red-100 text-red-800", // Super admin - full access
+      pharmacist: "bg-green-100 text-green-800", // Inventory & sales management
+      employee: "bg-blue-100 text-blue-800", // Basic sales access
+
+      // Legacy roles (for backward compatibility - will be migrated)
+      super_admin: "bg-red-100 text-red-800", // → admin
+      manager: "bg-green-100 text-green-800", // → pharmacist
+      cashier: "bg-blue-100 text-blue-800", // → employee
+      staff: "bg-blue-100 text-blue-800", // → employee
     };
     return colors[role] || "bg-gray-100 text-gray-800";
   };
 
-  const getStatusColor = (status) => {
-    return status === "active"
-      ? "bg-green-100 text-green-800"
-      : "bg-red-100 text-red-800";
+  const getOnlineStatus = (user) => {
+    if (!user.is_active) {
+      return { status: "INACTIVE", color: "bg-red-100 text-red-800" };
+    }
+
+    if (!user.last_login) {
+      return { status: "OFFLINE", color: "bg-gray-100 text-gray-800" };
+    }
+
+    const lastLogin = new Date(user.last_login);
+    const now = new Date();
+    const minutesAgo = (now - lastLogin) / (1000 * 60);
+
+    // Online: active within last 5 minutes
+    if (minutesAgo < 5) {
+      return { status: "ONLINE", color: "bg-green-100 text-green-800" };
+    }
+
+    // Recently Active: active within last 24 hours
+    if (minutesAgo < 24 * 60) {
+      return {
+        status: "RECENTLY ACTIVE",
+        color: "bg-yellow-100 text-yellow-800",
+      };
+    }
+
+    // Offline: no activity in 24+ hours
+    return { status: "OFFLINE", color: "bg-gray-100 text-gray-800" };
   };
 
   if (loading) {
@@ -243,9 +263,10 @@ const UserManagementDashboard = () => {
               <UserCheck className="h-6 w-6 text-green-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Users</p>
+              <p className="text-sm font-medium text-gray-600">Online Now</p>
               <p className="text-2xl font-bold text-gray-900">
-                {userStats.activeUsers || 0}
+                {users.filter((u) => getOnlineStatus(u).status === "ONLINE")
+                  .length || 0}
               </p>
             </div>
           </div>
@@ -268,14 +289,14 @@ const UserManagementDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center">
             <div className="p-2 bg-orange-100 rounded-lg">
-              <Activity className="h-6 w-6 text-orange-600" />
+              <Clock className="h-6 w-6 text-orange-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">
-                Active Sessions
+                Recently Active
               </p>
               <p className="text-2xl font-bold text-gray-900">
-                {activeSessions.length || 0}
+                {users.filter((u) => u.last_login).length || 0}
               </p>
             </div>
           </div>
@@ -396,18 +417,16 @@ const UserManagementDashboard = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                        user.status
-                      )}`}
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        getOnlineStatus(user).color
+                      }`}
                     >
-                      {user.status?.toUpperCase()}
+                      {getOnlineStatus(user).status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.user_sessions?.[0]?.last_login
-                      ? new Date(
-                          user.user_sessions[0].last_login
-                        ).toLocaleDateString()
+                    {user.last_login
+                      ? new Date(user.last_login).toLocaleString()
                       : "Never"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -439,64 +458,6 @@ const UserManagementDashboard = () => {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Active Sessions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Active Sessions
-          </h3>
-          <button
-            onClick={loadActiveSessions}
-            className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>Refresh</span>
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {activeSessions.map((session) => (
-            <div
-              key={session.session_id}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-            >
-              <div className="flex items-center space-x-3">
-                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <div>
-                  <p className="font-medium text-gray-900">
-                    {session.user_profiles?.first_name}{" "}
-                    {session.user_profiles?.last_name}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {session.user_profiles?.email}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">
-                    Last Activity:{" "}
-                    {new Date(session.last_activity).toLocaleTimeString()}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Login: {new Date(session.last_login).toLocaleString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleEndSession(session.session_id)}
-                  className="text-red-600 hover:text-red-800 text-sm font-medium"
-                >
-                  End Session
-                </button>
-              </div>
-            </div>
-          ))}
-          {activeSessions.length === 0 && (
-            <p className="text-center text-gray-500 py-8">No active sessions</p>
-          )}
         </div>
       </div>
 

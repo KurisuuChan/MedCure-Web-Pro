@@ -42,17 +42,42 @@ const ActivityLogDashboard = () => {
   const loadActivities = useCallback(async () => {
     try {
       setLoading(true);
-      // For demo purposes, we'll create mock activity data
-      // In a real app, this would come from UserManagementService.getAllActivityLogs()
-      const mockActivities = generateMockActivities();
-      setActivities(mockActivities);
+      setError(null);
+      
+      // Load real activity logs from backend
+      const filters = {
+        userId: selectedUserId,
+        actionType: filterType,
+      };
+      
+      // Apply date range filter
+      if (dateRange !== "all") {
+        const now = new Date();
+        if (dateRange === "today") {
+          filters.startDate = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+        } else if (dateRange === "week") {
+          filters.startDate = new Date(
+            now.getTime() - 7 * 24 * 60 * 60 * 1000
+          ).toISOString();
+        } else if (dateRange === "month") {
+          filters.startDate = new Date(
+            now.getTime() - 30 * 24 * 60 * 60 * 1000
+          ).toISOString();
+        }
+      }
+      
+      const activityData = await UserManagementService.getAllActivityLogs(100, filters);
+      setActivities(activityData || []);
+      
+      console.log("✅ Loaded activity logs:", activityData?.length || 0);
     } catch (error) {
       setError("Failed to load activity logs");
       console.error("Error loading activities:", error);
+      setActivities([]);
     } finally {
       setLoading(false);
     }
-  }, [generateMockActivities]);
+  }, [selectedUserId, filterType, dateRange]);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -62,53 +87,6 @@ const ActivityLogDashboard = () => {
       console.error("Error loading users:", error);
     }
   }, []);
-
-  const generateMockActivities = useCallback(() => {
-    const activities = [];
-    const now = new Date();
-
-    for (let i = 0; i < 50; i++) {
-      const date = new Date(
-        now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000
-      );
-      activities.push({
-        id: i + 1,
-        user_id: `user-${Math.floor(Math.random() * 5) + 1}`,
-        activity_type:
-          ACTIVITY_TYPES[Math.floor(Math.random() * ACTIVITY_TYPES.length)],
-        description: generateActivityDescription(),
-        ip_address: `192.168.1.${Math.floor(Math.random() * 255)}`,
-        user_agent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        created_at: date.toISOString(),
-        metadata: {
-          success: Math.random() > 0.1,
-          details: "Additional context information",
-        },
-        user_name: `User ${Math.floor(Math.random() * 5) + 1}`,
-      });
-    }
-
-    return activities.sort(
-      (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    );
-  }, []);
-
-  const generateActivityDescription = () => {
-    const descriptions = [
-      "User logged into the system",
-      "Password reset requested for account",
-      "User profile updated successfully",
-      "New user account created",
-      "User session ended normally",
-      "Failed login attempt detected",
-      "User permissions modified",
-      "Bulk user update operation performed",
-      "User account deactivated",
-      "System settings changed",
-    ];
-    return descriptions[Math.floor(Math.random() * descriptions.length)];
-  };
 
   const filterActivities = useCallback(() => {
     let filtered = activities;

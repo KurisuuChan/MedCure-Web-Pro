@@ -39,7 +39,16 @@ const UserAnalyticsDashboard = () => {
 
       setUserStats(statsData);
       setActiveSessions(sessionsData);
-      setActivityData(activityHistory);
+      
+      // Handle activity data which might be wrapped in a response object
+      const activities = activityHistory?.data || activityHistory || [];
+      setActivityData(activities);
+      
+      console.log("✅ Loaded user analytics:", {
+        stats: statsData,
+        sessions: sessionsData?.length || 0,
+        activities: activities?.length || 0,
+      });
     } catch (err) {
       console.error("Error loading user analytics:", err);
       setError(err.message);

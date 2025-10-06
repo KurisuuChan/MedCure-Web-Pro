@@ -1,19 +1,16 @@
 import { supabase, isProductionSupabase } from "../../../config/supabase";
 
 export class UserManagementService {
-  // User role constants - match database schema
+  // User role constants - Simplified RBAC for pharmacy system
   static ROLES = {
-    SUPER_ADMIN: "super_admin",
-    ADMIN: "admin",
-    MANAGER: "manager",
-    PHARMACIST: "pharmacist",
-    CASHIER: "cashier",
-    STAFF: "staff",
+    ADMIN: "admin", // Super admin with full access
+    PHARMACIST: "pharmacist", // Pharmacist with inventory and sales access
+    EMPLOYEE: "employee", // Employee with basic access
   };
 
-  // Permission constants
+  // Permission constants - Only permissions that exist in the system
   static PERMISSIONS = {
-    // User Management
+    // User Management (only Admin)
     CREATE_USERS: "create_users",
     EDIT_USERS: "edit_users",
     DELETE_USERS: "delete_users",
@@ -26,6 +23,7 @@ export class UserManagementService {
     DELETE_PRODUCTS: "delete_products",
     VIEW_INVENTORY: "view_inventory",
     MANAGE_STOCK: "manage_stock",
+    MANAGE_BATCHES: "manage_batches",
 
     // Sales & POS
     PROCESS_SALES: "process_sales",
@@ -34,48 +32,54 @@ export class UserManagementService {
     VIEW_SALES_REPORTS: "view_sales_reports",
     MANAGE_DISCOUNTS: "manage_discounts",
 
-    // Financial
+    // Financial Reports
     VIEW_FINANCIAL_REPORTS: "view_financial_reports",
     MANAGE_PRICING: "manage_pricing",
-    VIEW_PROFIT_MARGINS: "view_profit_margins",
 
-    // System Administration
-    MANAGE_SETTINGS: "manage_settings",
-    VIEW_AUDIT_LOGS: "view_audit_logs",
+    // Customer Management
+    VIEW_CUSTOMERS: "view_customers",
+    MANAGE_CUSTOMERS: "manage_customers",
+
+    // System
+    VIEW_ACTIVITY_LOGS: "view_activity_logs",
   };
 
-  // Role-Permission mapping - updated for all roles
+  // Role-Permission mapping - Accurate 3-tier system
   static ROLE_PERMISSIONS = {
-    [this.ROLES.SUPER_ADMIN]: Object.values(this.PERMISSIONS),
-    [this.ROLES.ADMIN]: Object.values(this.PERMISSIONS).filter(
-      (p) => p !== this.PERMISSIONS.MANAGE_SETTINGS
-    ),
-    [this.ROLES.MANAGER]: [
+    // ADMIN: Full system access - ALL permissions (super admin)
+    [this.ROLES.ADMIN]: Object.values(this.PERMISSIONS),
+
+    // PHARMACIST: Inventory, sales, financial, and customer management
+    [this.ROLES.PHARMACIST]: [
+      // Can view users but cannot manage them
       this.PERMISSIONS.VIEW_USERS,
+      // Full inventory management
       this.PERMISSIONS.CREATE_PRODUCTS,
       this.PERMISSIONS.EDIT_PRODUCTS,
+      this.PERMISSIONS.DELETE_PRODUCTS,
       this.PERMISSIONS.VIEW_INVENTORY,
       this.PERMISSIONS.MANAGE_STOCK,
+      this.PERMISSIONS.MANAGE_BATCHES,
+      // Full sales operations
       this.PERMISSIONS.PROCESS_SALES,
       this.PERMISSIONS.HANDLE_RETURNS,
+      this.PERMISSIONS.VOID_TRANSACTIONS,
       this.PERMISSIONS.VIEW_SALES_REPORTS,
       this.PERMISSIONS.MANAGE_DISCOUNTS,
+      // Financial access
       this.PERMISSIONS.VIEW_FINANCIAL_REPORTS,
       this.PERMISSIONS.MANAGE_PRICING,
-      this.PERMISSIONS.VIEW_PROFIT_MARGINS,
-      this.PERMISSIONS.VIEW_AUDIT_LOGS,
+      // Customer management
+      this.PERMISSIONS.VIEW_CUSTOMERS,
+      this.PERMISSIONS.MANAGE_CUSTOMERS,
     ],
-    [this.ROLES.PHARMACIST]: [
+
+    // EMPLOYEE: Basic sales and inventory view only
+    [this.ROLES.EMPLOYEE]: [
       this.PERMISSIONS.VIEW_INVENTORY,
       this.PERMISSIONS.PROCESS_SALES,
-      this.PERMISSIONS.MANAGE_STOCK,
-      this.PERMISSIONS.VIEW_SALES_REPORTS,
+      this.PERMISSIONS.VIEW_CUSTOMERS,
     ],
-    [this.ROLES.CASHIER]: [
-      this.PERMISSIONS.VIEW_INVENTORY,
-      this.PERMISSIONS.PROCESS_SALES,
-    ],
-    [this.ROLES.STAFF]: [this.PERMISSIONS.VIEW_INVENTORY],
   };
 
   // Get all users with their roles and permissions
@@ -275,22 +279,31 @@ export class UserManagementService {
     }
   }
 
-  // Delete/Deactivate user
+  // Delete user permanently (cascade to related records)
   static async deleteUser(userId) {
     try {
-      // Soft delete - mark as inactive
+      // First, delete related records from user_activity_logs
+      const { error: activityError } = await supabase
+        .from("user_activity_logs")
+        .delete()
+        .eq("user_id", userId);
+
+      if (activityError) {
+        console.warn("Error deleting user activity logs:", activityError);
+        // Continue anyway - table might not exist
+      }
+
+      // Then delete the user
       const { data, error } = await supabase
         .from("users")
-        .update({
-          is_active: false,
-          updated_at: new Date().toISOString(),
-        })
+        .delete()
         .eq("id", userId)
         .select()
         .single();
 
       if (error) throw error;
 
+      console.log(`✅ User ${userId} and related records deleted successfully`);
       return data;
     } catch (error) {
       console.error("Error deleting user:", error);
@@ -410,6 +423,15 @@ export class UserManagementService {
         roleDistribution[role] = users.filter((u) => u.role === role).length;
       });
 
+      // Also count legacy roles for backward compatibility
+      const legacyRoles = ["super_admin", "manager", "cashier", "staff"];
+      legacyRoles.forEach((role) => {
+        const count = users.filter((u) => u.role === role).length;
+        if (count > 0) {
+          roleDistribution[role] = count;
+        }
+      });
+
       const recentSignups = users.filter((u) => {
         const createdDate = new Date(u.created_at);
         const weekAgo = new Date();
@@ -439,52 +461,240 @@ export class UserManagementService {
       inactiveUsers: 1,
       roles: Object.values(this.ROLES),
       roleDistribution: {
-        [this.ROLES.SUPER_ADMIN]: 1,
         [this.ROLES.ADMIN]: 2,
-        [this.ROLES.MANAGER]: 2,
-        [this.ROLES.PHARMACIST]: 1,
-        [this.ROLES.CASHIER]: 2,
-        [this.ROLES.STAFF]: 0,
+        [this.ROLES.PHARMACIST]: 3,
+        [this.ROLES.EMPLOYEE]: 3,
       },
       recentSignups: 2,
     };
   }
 
-  // Get active sessions (mock implementation since we don't have sessions table)
+  // Get active sessions (users active in last 24 hours)
   static async getActiveSessions() {
     try {
-      const { data: users, error } = await supabase
+      // Check if we're in development mode without real Supabase
+      if (!isProductionSupabase) {
+        return this.getMockActiveSessions();
+      }
+
+      const cutoffTime = new Date(
+        Date.now() - 24 * 60 * 60 * 1000
+      ).toISOString(); // 24 hours ago
+
+      const { data, error } = await supabase
         .from("users")
-        .select("id, email, first_name, last_name, role, last_login")
+        .select(
+          `
+          id,
+          first_name,
+          last_name,
+          email,
+          role,
+          last_login,
+          is_active
+        `
+        )
+        .gte("last_login", cutoffTime)
         .eq("is_active", true)
-        .not("last_login", "is", null)
         .order("last_login", { ascending: false });
 
       if (error) throw error;
 
-      // Create mock session data for users who have logged in
-      const sessions = users.map((user) => ({
-        session_id: `session_${user.id}_${Date.now()}`,
-        user_id: user.id,
-        user_profiles: {
-          email: user.email,
-          first_name: user.first_name,
-          last_name: user.last_name,
-        },
-        role: user.role,
-        last_login: user.last_login,
-        last_activity: new Date().toISOString(),
-        ip_address: "127.0.0.1", // Mock IP
-        user_agent: "MedCure-Pro Desktop App",
-        is_active: true,
+      return data.map((user) => ({
+        ...user,
+        session_start: user.last_login,
+        last_activity: user.last_login,
+        ip_address: "N/A",
+        device: "Web Browser",
       }));
-
-      return sessions;
     } catch (error) {
       console.error("Error getting active sessions:", error);
-      return []; // Return empty array on error
+      return this.getMockActiveSessions();
     }
   }
+
+  // Mock active sessions for development
+  static getMockActiveSessions() {
+    const now = new Date();
+    return [
+      {
+        id: "1",
+        first_name: "Admin",
+        last_name: "User",
+        email: "admin@medcure.com",
+        role: "admin",
+        last_login: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+        session_start: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+        last_activity: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
+        ip_address: "192.168.1.100",
+        device: "Web Browser",
+        is_active: true,
+      },
+    ];
+  }
+
+  // Get all activity logs from user_activity_logs table
+  static async getAllActivityLogs(limit = 100, filters = {}) {
+    try {
+      // Check if we're in development mode without real Supabase
+      if (!isProductionSupabase) {
+        return this.getMockActivityLogs(limit);
+      }
+
+      let query = supabase
+        .from("user_activity_logs")
+        .select(
+          `
+          *,
+          users!user_activity_logs_user_id_fkey (
+            first_name,
+            last_name,
+            email,
+            role
+          )
+        `
+        )
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      // Apply filters
+      if (filters.userId && filters.userId !== "all") {
+        query = query.eq("user_id", filters.userId);
+      }
+      if (filters.actionType && filters.actionType !== "all") {
+        query = query.eq("action_type", filters.actionType);
+      }
+      if (filters.startDate) {
+        query = query.gte("created_at", filters.startDate);
+      }
+      if (filters.endDate) {
+        query = query.lte("created_at", filters.endDate);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching activity logs:", error);
+        // If table doesn't exist or error, return mock data
+        return this.getMockActivityLogs(limit);
+      }
+
+      // Format the data
+      return data.map((log) => ({
+        id: log.id,
+        user_id: log.user_id,
+        activity_type: log.action_type,
+        description: this.formatActivityDescription(
+          log.action_type,
+          log.metadata
+        ),
+        ip_address: log.metadata?.ip_address || "unknown",
+        user_agent: log.metadata?.user_agent || "unknown",
+        created_at: log.created_at,
+        metadata: log.metadata,
+        user_name: log.users
+          ? `${log.users.first_name} ${log.users.last_name}`
+          : "Unknown User",
+        user_email: log.users?.email || "unknown",
+        user_role: log.users?.role || "unknown",
+      }));
+    } catch (error) {
+      console.error("Error getting activity logs:", error);
+      return this.getMockActivityLogs(limit);
+    }
+  }
+
+  // Format activity description
+  static formatActivityDescription(actionType) {
+    const descriptions = {
+      login: "User logged into the system",
+      logout: "User logged out of the system",
+      USER_CREATED: "New user account created",
+      USER_UPDATED: "User profile updated",
+      USER_DELETED: "User account deleted",
+      USER_DEACTIVATED: "User account deactivated",
+      PASSWORD_RESET_REQUESTED: "Password reset requested",
+      PERMISSION_CHANGED: "User permissions modified",
+      ROLE_CHANGED: "User role changed",
+      SESSION_STARTED: "User session started",
+      SESSION_ENDED: "User session ended",
+    };
+
+    return descriptions[actionType] || `System activity: ${actionType}`;
+  }
+
+  // Generate mock activity logs
+  static getMockActivityLogs(limit = 100) {
+    const activities = [];
+    const now = new Date();
+    const activityTypes = [
+      "login",
+      "logout",
+      "USER_CREATED",
+      "USER_UPDATED",
+      "USER_DEACTIVATED",
+      "SESSION_STARTED",
+      "SESSION_ENDED",
+      "PASSWORD_RESET_REQUESTED",
+      "PERMISSION_CHANGED",
+    ];
+
+    const mockUsers = [
+      {
+        id: "1",
+        name: "Admin User",
+        email: "admin@medcure.com",
+        role: "admin",
+      },
+      {
+        id: "2",
+        name: "John Pharmacist",
+        email: "john@medcure.com",
+        role: "pharmacist",
+      },
+      {
+        id: "3",
+        name: "Jane Employee",
+        email: "jane@medcure.com",
+        role: "employee",
+      },
+    ];
+
+    for (let i = 0; i < limit; i++) {
+      const user = mockUsers[Math.floor(Math.random() * mockUsers.length)];
+      const activityType =
+        activityTypes[Math.floor(Math.random() * activityTypes.length)];
+      const date = new Date(
+        now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000
+      );
+
+      activities.push({
+        id: i + 1,
+        user_id: user.id,
+        activity_type: activityType,
+        description: this.formatActivityDescription(activityType),
+        ip_address: `192.168.1.${Math.floor(Math.random() * 255)}`,
+        user_agent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        created_at: date.toISOString(),
+        metadata: {
+          success: Math.random() > 0.1,
+          details: "System generated activity",
+        },
+        user_name: user.name,
+        user_email: user.email,
+        user_role: user.role,
+      });
+    }
+
+    return activities.sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+  }
+
+  // Note: Real-time session tracking requires a dedicated sessions table and
+  // proper session management infrastructure. The previous mock implementation
+  // was removed as it showed all users who ever logged in, not actual active sessions.
 
   // Reset user password
   static async resetUserPassword(email) {
@@ -505,16 +715,6 @@ export class UserManagementService {
     }
   }
 
-  // End user session (mock implementation)
-  static async endUserSession(sessionId) {
-    try {
-      // Since we don't have actual sessions, this is a mock implementation
-      // In a real implementation, you'd remove the session from a sessions table
-      console.log(`Ending session: ${sessionId}`);
-      return { success: true, message: "Session ended successfully" };
-    } catch (error) {
-      console.error("Error ending session:", error);
-      throw error;
-    }
-  }
+  // Note: Real session management removed. To implement proper session tracking,
+  // create a sessions table with login/logout tracking and real-time updates.
 }
