@@ -43,7 +43,8 @@ export default function ArchivedProductsManagement() {
 
       setArchivedProducts(data || []);
       console.log(
-        `✅ [ArchivedProducts] Loaded ${data?.length || 0} archived products`
+        `✅ [ArchivedProducts] Loaded ${data?.length || 0} archived products`,
+        data?.[0] // Log first product to see structure
       );
     } catch (error) {
       console.error("❌ [ArchivedProducts] Error loading:", error);
@@ -54,7 +55,8 @@ export default function ArchivedProductsManagement() {
   };
 
   const handleRestoreProduct = async (product) => {
-    if (!window.confirm(`Are you sure you want to restore "${product.name}"?`))
+    const productName = product.name || product.product_name || product.generic_name || "this product";
+    if (!window.confirm(`Are you sure you want to restore "${productName}"?`))
       return;
 
     try {
@@ -73,7 +75,8 @@ export default function ArchivedProductsManagement() {
       if (error) throw error;
 
       setArchivedProducts(archivedProducts.filter((p) => p.id !== product.id));
-      alert(`✅ Product "${product.name}" has been restored successfully!`);
+      const productName = product.name || product.product_name || product.generic_name || "Product";
+      alert(`✅ Product "${productName}" has been restored successfully!`);
     } catch (error) {
       console.error("❌ [ArchivedProducts] Error restoring:", error);
       alert("Failed to restore product. Please try again.");
@@ -118,8 +121,10 @@ export default function ArchivedProductsManagement() {
 
   // Filter products
   const filteredProducts = archivedProducts.filter((product) => {
+    // If no search term, don't filter by search
     const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      !searchTerm ||
+      product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.brand?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesReason =
@@ -327,10 +332,10 @@ export default function ArchivedProductsManagement() {
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {product.name}
+                            {product.name || product.product_name || product.generic_name || "Unnamed Product"}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {product.brand || "No brand"}
+                            {product.brand || product.brand_name || "No brand"}
                           </div>
                         </div>
                       </div>
