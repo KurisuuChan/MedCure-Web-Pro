@@ -19,7 +19,8 @@ export class ReportingService {
             unit_price,
             total_amount,
             products (
-              name,
+              generic_name,
+              brand_name,
               category,
               cost_price,
               price_per_piece
@@ -102,7 +103,7 @@ export class ReportingService {
               report.categoryBreakdown[category].quantity += item.quantity;
 
               // Top products
-              const productName = item.products?.name || "Unknown";
+              const productName = item.products?.generic_name || "Unknown";
               if (!report.topProducts[productName]) {
                 report.topProducts[productName] = {
                   revenue: 0,
@@ -213,7 +214,7 @@ export class ReportingService {
           ) {
             report.summary.lowStockItems += 1;
             report.lowStockProducts.push({
-              name: product.name,
+              name: product.generic_name,
               category: product.category,
               currentStock: product.stock_in_pieces,
               reorderLevel: product.reorder_level,
@@ -228,7 +229,7 @@ export class ReportingService {
             } else if (expiryDate <= thirtyDaysFromNow) {
               report.summary.expiringItems += 1;
               report.expiringProducts.push({
-                name: product.name,
+                name: product.generic_name,
                 category: product.category,
                 expiryDate: product.expiry_date,
                 stock: product.stock_in_pieces,
@@ -273,7 +274,7 @@ export class ReportingService {
           const velocity = totalSold / 30; // items per day
 
           const productPerformance = {
-            name: product.name,
+            name: product.generic_name,
             category: product.category,
             stock: product.stock_in_pieces,
             velocity,
@@ -289,7 +290,7 @@ export class ReportingService {
 
           // Stock valuation
           report.stockValuation.push({
-            name: product.name,
+            name: product.generic_name,
             category: product.category,
             stock: product.stock_in_pieces,
             unitPrice: product.price_per_piece,
@@ -437,7 +438,7 @@ export class ReportingService {
               report.categoryPerformance[category].items += item.quantity;
 
               // Brand performance
-              const brand = item.products?.brand || "Generic";
+              const brand = item.products?.brand_name || "Generic";
               if (!report.brandPerformance[brand]) {
                 report.brandPerformance[brand] = {
                   sales: 0,
@@ -450,7 +451,7 @@ export class ReportingService {
               report.brandPerformance[brand].items += item.quantity;
 
               // Top selling products
-              const productName = item.products?.name || "Unknown";
+              const productName = item.products?.generic_name || "Unknown";
               if (!report.topSellingProducts[productName]) {
                 report.topSellingProducts[productName] = {
                   quantity: 0,
@@ -527,118 +528,298 @@ export class ReportingService {
     try {
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.width;
+      const pageHeight = pdf.internal.pageSize.height;
+      const margins = { left: 20, right: 20, top: 25, bottom: 25 };
 
-      // Header
-      pdf.setFontSize(20);
-      pdf.text("Financial Report", pageWidth / 2, 20, { align: "center" });
+      // Modern Color Palette
+      const colors = {
+        primary: [34, 139, 230], // Professional blue
+        secondary: [71, 85, 105], // Slate gray
+        accent: [16, 185, 129], // Success green
+        danger: [239, 68, 68], // Error red
+        lightGray: [241, 245, 249],
+        darkGray: [51, 65, 85],
+        headerBg: [248, 250, 252],
+      };
 
-      pdf.setFontSize(12);
-      pdf.text(`Period: ${reportData.period}`, pageWidth / 2, 30, {
-        align: "center",
-      });
-      pdf.text(
-        `Generated: ${format(new Date(), "MMM dd, yyyy HH:mm")}`,
-        pageWidth / 2,
-        40,
-        { align: "center" }
+      // Helper function to add modern header with branding
+      const addModernHeader = (pageNum = 1) => {
+        // Header background
+        pdf.setFillColor(...colors.primary);
+        pdf.rect(0, 0, pageWidth, 45, "F");
+
+        // Company name/logo area
+        pdf.setFontSize(24);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(255, 255, 255);
+        pdf.text("MedCure Pharmacy", margins.left, 20);
+
+        // Report title
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("Financial Performance Report", margins.left, 30);
+
+        // Page number
+        pdf.setFontSize(9);
+        pdf.text(`Page ${pageNum}`, pageWidth - margins.right - 15, 38);
+
+        // Reset text color
+        pdf.setTextColor(0, 0, 0);
+      };
+
+      // Helper function to add modern footer
+      const addModernFooter = () => {
+        pdf.setFontSize(8);
+        pdf.setTextColor(100, 116, 139);
+        pdf.setFont("helvetica", "normal");
+
+        const footerText = `Generated on ${format(
+          new Date(),
+          "MMMM dd, yyyy 'at' HH:mm"
+        )} | MedCure Pro v1.0`;
+        const footerWidth = pdf.getTextWidth(footerText);
+        pdf.text(footerText, (pageWidth - footerWidth) / 2, pageHeight - 15);
+
+        // Confidential notice
+        pdf.setFontSize(7);
+        const confText = "CONFIDENTIAL - For Internal Use Only";
+        const confWidth = pdf.getTextWidth(confText);
+        pdf.text(confText, (pageWidth - confWidth) / 2, pageHeight - 10);
+      };
+
+      // Page 1: Header and Report Period
+      addModernHeader(1);
+      let currentY = 55;
+
+      // Report period card
+      pdf.setFillColor(...colors.headerBg);
+      pdf.roundedRect(
+        margins.left,
+        currentY,
+        pageWidth - margins.left - margins.right,
+        20,
+        3,
+        3,
+        "F"
       );
 
-      let currentY = 60;
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...colors.secondary);
+      pdf.text("Report Period:", margins.left + 8, currentY + 8);
 
-      // Summary section
-      pdf.setFontSize(16);
-      pdf.text("Financial Summary", 20, currentY);
-      currentY += 10;
+      pdf.setFont("helvetica", "normal");
+      pdf.text(reportData.period, margins.left + 8, currentY + 15);
 
+      currentY += 30;
+
+      // Executive Summary Section
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...colors.primary);
+      pdf.text("Executive Summary", margins.left, currentY);
+
+      // Underline
+      pdf.setDrawColor(...colors.primary);
+      pdf.setLineWidth(0.5);
+      pdf.line(margins.left, currentY + 2, margins.left + 50, currentY + 2);
+
+      currentY += 12;
+
+      // Modern summary cards layout
       const summaryData = [
-        ["Metric", "Value"],
-        ["Total Revenue", formatCurrency(reportData.summary.totalRevenue)],
-        ["Total Cost", formatCurrency(reportData.summary.totalCost)],
-        ["Gross Profit", formatCurrency(reportData.summary.grossProfit)],
-        ["Profit Margin", `${reportData.summary.profitMargin.toFixed(2)}%`],
         [
-          "Average Order Value",
-          formatCurrency(reportData.summary.averageOrderValue),
+          "Total Revenue",
+          formatCurrency(reportData.summary.totalRevenue),
+          colors.primary,
         ],
-        ["Transaction Count", reportData.summary.transactionCount.toString()],
+        [
+          "Total Cost",
+          formatCurrency(reportData.summary.totalCost),
+          colors.secondary,
+        ],
+        [
+          "Gross Profit",
+          formatCurrency(reportData.summary.grossProfit),
+          colors.accent,
+        ],
+        [
+          "Profit Margin",
+          `${reportData.summary.profitMargin.toFixed(2)}%`,
+          reportData.summary.profitMargin > 0 ? colors.accent : colors.danger,
+        ],
+        [
+          "Avg Order Value",
+          formatCurrency(reportData.summary.averageOrderValue),
+          colors.secondary,
+        ],
+        [
+          "Transactions",
+          reportData.summary.transactionCount.toString(),
+          colors.primary,
+        ],
       ];
 
+      // Create 2-column layout for summary cards
+      const cardWidth = (pageWidth - margins.left - margins.right - 10) / 2;
+      const cardHeight = 22;
+      let cardX = margins.left;
+      let cardY = currentY;
+
+      summaryData.forEach((item, index) => {
+        if (index > 0 && index % 2 === 0) {
+          cardX = margins.left;
+          cardY += cardHeight + 5;
+        }
+
+        // Card background
+        pdf.setFillColor(255, 255, 255);
+        pdf.setDrawColor(...colors.lightGray);
+        pdf.setLineWidth(0.3);
+        pdf.roundedRect(cardX, cardY, cardWidth, cardHeight, 2, 2, "FD");
+
+        // Card content
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(...colors.secondary);
+        pdf.text(item[0], cardX + 5, cardY + 8);
+
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(...item[2]);
+        pdf.text(item[1], cardX + 5, cardY + 17);
+
+        cardX += cardWidth + 10;
+      });
+
+      currentY = cardY + cardHeight + 20;
+
+      // Category Breakdown Section
+      if (currentY > 200) {
+        pdf.addPage();
+        addModernHeader(2);
+        currentY = 55;
+      }
+
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...colors.primary);
+      pdf.text("Revenue by Category", margins.left, currentY);
+      pdf.setDrawColor(...colors.primary);
+      pdf.setLineWidth(0.5);
+      pdf.line(margins.left, currentY + 2, margins.left + 55, currentY + 2);
+      currentY += 10;
+
+      const categoryData = reportData.categoryBreakdown
+        .slice(0, 10)
+        .map((category) => {
+          const margin =
+            category.revenue > 0
+              ? ((category.profit / category.revenue) * 100).toFixed(2)
+              : "0.00";
+          return [
+            category.name,
+            formatCurrency(category.revenue),
+            formatCurrency(category.cost),
+            formatCurrency(category.profit),
+            `${margin}%`,
+          ];
+        });
+
       pdf.autoTable({
-        head: [summaryData[0]],
-        body: summaryData.slice(1),
+        head: [["Category", "Revenue", "Cost", "Profit", "Margin %"]],
+        body: categoryData,
         startY: currentY,
-        theme: "grid",
-        styles: { fontSize: 10 },
+        theme: "plain",
+        styles: {
+          fontSize: 9,
+          cellPadding: 6,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: colors.primary,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 10,
+          halign: "left",
+        },
+        columnStyles: {
+          0: { cellWidth: 60, fontStyle: "normal" },
+          1: { cellWidth: 30, halign: "right" },
+          2: { cellWidth: 30, halign: "right" },
+          3: { cellWidth: 30, halign: "right" },
+          4: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+        },
+        alternateRowStyles: {
+          fillColor: colors.headerBg,
+        },
+        margin: { left: margins.left, right: margins.right },
       });
 
       currentY = pdf.lastAutoTable.finalY + 20;
 
-      // Category breakdown
-      if (currentY > 250) {
+      // Top Products Section
+      if (currentY > 200) {
         pdf.addPage();
-        currentY = 20;
+        addModernHeader(3);
+        currentY = 55;
       }
 
-      pdf.setFontSize(16);
-      pdf.text("Revenue by Category", 20, currentY);
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...colors.primary);
+      pdf.text("Top Performing Products", margins.left, currentY);
+      pdf.setDrawColor(...colors.primary);
+      pdf.setLineWidth(0.5);
+      pdf.line(margins.left, currentY + 2, margins.left + 60, currentY + 2);
       currentY += 10;
 
-      const categoryData = [
-        ["Category", "Revenue", "Cost", "Profit", "Margin %"],
-      ];
-
-      reportData.categoryBreakdown.slice(0, 10).forEach((category) => {
-        const margin =
-          category.revenue > 0
-            ? ((category.profit / category.revenue) * 100).toFixed(2)
-            : "0.00";
-        categoryData.push([
-          category.name,
-          formatCurrency(category.revenue),
-          formatCurrency(category.cost),
-          formatCurrency(category.profit),
-          `${margin}%`,
-        ]);
-      });
-
-      pdf.autoTable({
-        head: [categoryData[0]],
-        body: categoryData.slice(1),
-        startY: currentY,
-        theme: "grid",
-        styles: { fontSize: 9 },
-      });
-
-      currentY = pdf.lastAutoTable.finalY + 20;
-
-      // Top products
-      if (currentY > 220) {
-        pdf.addPage();
-        currentY = 20;
-      }
-
-      pdf.setFontSize(16);
-      pdf.text("Top Performing Products", 20, currentY);
-      currentY += 10;
-
-      const productData = [["Product", "Quantity Sold", "Revenue", "Profit"]];
-
-      reportData.topProducts.slice(0, 10).forEach((product) => {
-        productData.push([
+      const productData = reportData.topProducts
+        .slice(0, 10)
+        .map((product) => [
           product.name,
           product.quantity.toString(),
           formatCurrency(product.revenue),
           formatCurrency(product.profit),
         ]);
-      });
 
       pdf.autoTable({
-        head: [productData[0]],
-        body: productData.slice(1),
+        head: [["Product", "Qty Sold", "Revenue", "Profit"]],
+        body: productData,
         startY: currentY,
-        theme: "grid",
-        styles: { fontSize: 9 },
+        theme: "plain",
+        styles: {
+          fontSize: 9,
+          cellPadding: 6,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: colors.primary,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 10,
+          halign: "left",
+        },
+        columnStyles: {
+          0: { cellWidth: 80, fontStyle: "normal" },
+          1: { cellWidth: 25, halign: "center" },
+          2: { cellWidth: 35, halign: "right" },
+          3: { cellWidth: 30, halign: "right", fontStyle: "bold" },
+        },
+        alternateRowStyles: {
+          fillColor: colors.headerBg,
+        },
+        margin: { left: margins.left, right: margins.right },
       });
+
+      // Add footer to all pages
+      const pageCount = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        addModernFooter();
+      }
 
       return pdf;
     } catch (error) {
@@ -652,116 +833,291 @@ export class ReportingService {
     try {
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.width;
+      const pageHeight = pdf.internal.pageSize.height;
+      const margins = { left: 20, right: 20, top: 25, bottom: 25 };
 
-      // Header
-      pdf.setFontSize(20);
-      pdf.text("Inventory Report", pageWidth / 2, 20, { align: "center" });
+      // Modern Color Palette
+      const colors = {
+        primary: [34, 139, 230],
+        secondary: [71, 85, 105],
+        accent: [16, 185, 129],
+        warning: [245, 158, 11],
+        danger: [239, 68, 68],
+        lightGray: [241, 245, 249],
+        darkGray: [51, 65, 85],
+        headerBg: [248, 250, 252],
+      };
 
-      pdf.setFontSize(12);
-      pdf.text(
-        `Generated: ${format(
+      // Helper function to add modern header
+      const addModernHeader = (pageNum = 1) => {
+        pdf.setFillColor(...colors.primary);
+        pdf.rect(0, 0, pageWidth, 45, "F");
+
+        pdf.setFontSize(24);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(255, 255, 255);
+        pdf.text("MedCure Pharmacy", margins.left, 20);
+
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("Inventory Status Report", margins.left, 30);
+
+        pdf.setFontSize(9);
+        pdf.text(`Page ${pageNum}`, pageWidth - margins.right - 15, 38);
+
+        pdf.setTextColor(0, 0, 0);
+      };
+
+      // Helper function to add modern footer
+      const addModernFooter = () => {
+        pdf.setFontSize(8);
+        pdf.setTextColor(100, 116, 139);
+        pdf.setFont("helvetica", "normal");
+
+        const footerText = `Generated on ${format(
           new Date(reportData.generatedAt),
-          "MMM dd, yyyy HH:mm"
-        )}`,
-        pageWidth / 2,
-        30,
-        { align: "center" }
+          "MMMM dd, yyyy 'at' HH:mm"
+        )} | MedCure Pro v1.0`;
+        const footerWidth = pdf.getTextWidth(footerText);
+        pdf.text(footerText, (pageWidth - footerWidth) / 2, pageHeight - 15);
+
+        pdf.setFontSize(7);
+        const confText = "CONFIDENTIAL - For Internal Use Only";
+        const confWidth = pdf.getTextWidth(confText);
+        pdf.text(confText, (pageWidth - confWidth) / 2, pageHeight - 10);
+      };
+
+      // Page 1: Header
+      addModernHeader(1);
+      let currentY = 55;
+
+      // Report timestamp card
+      pdf.setFillColor(...colors.headerBg);
+      pdf.roundedRect(
+        margins.left,
+        currentY,
+        pageWidth - margins.left - margins.right,
+        20,
+        3,
+        3,
+        "F"
       );
 
-      let currentY = 50;
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...colors.secondary);
+      pdf.text("Report Generated:", margins.left + 8, currentY + 8);
 
-      // Summary section
-      pdf.setFontSize(16);
-      pdf.text("Inventory Summary", 20, currentY);
-      currentY += 10;
+      pdf.setFont("helvetica", "normal");
+      pdf.text(
+        format(new Date(reportData.generatedAt), "MMM dd, yyyy HH:mm"),
+        margins.left + 8,
+        currentY + 15
+      );
 
+      currentY += 30;
+
+      // Inventory Overview Section
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...colors.primary);
+      pdf.text("Inventory Overview", margins.left, currentY);
+      pdf.setDrawColor(...colors.primary);
+      pdf.setLineWidth(0.5);
+      pdf.line(margins.left, currentY + 2, margins.left + 50, currentY + 2);
+      currentY += 12;
+
+      // Modern summary cards
       const summaryData = [
-        ["Metric", "Value"],
-        ["Total Products", reportData.summary.totalProducts.toString()],
-        ["Total Value", formatCurrency(reportData.summary.totalValue)],
-        ["Low Stock Items", reportData.summary.lowStockItems.toString()],
-        ["Expiring Soon", reportData.summary.expiringItems.toString()],
-        ["Expired Items", reportData.summary.expiredItems.toString()],
-        ["Out of Stock", reportData.summary.outOfStockItems.toString()],
+        [
+          "Total Products",
+          reportData.summary.totalProducts.toString(),
+          colors.primary,
+        ],
+        [
+          "Total Value",
+          formatCurrency(reportData.summary.totalValue),
+          colors.accent,
+        ],
+        [
+          "Low Stock Items",
+          reportData.summary.lowStockItems.toString(),
+          colors.warning,
+        ],
+        [
+          "Expiring Soon",
+          reportData.summary.expiringItems.toString(),
+          colors.warning,
+        ],
+        [
+          "Expired Items",
+          reportData.summary.expiredItems.toString(),
+          colors.danger,
+        ],
+        [
+          "Out of Stock",
+          reportData.summary.outOfStockItems.toString(),
+          colors.danger,
+        ],
       ];
 
-      pdf.autoTable({
-        head: [summaryData[0]],
-        body: summaryData.slice(1),
-        startY: currentY,
-        theme: "grid",
-        styles: { fontSize: 10 },
-      });
+      const cardWidth = (pageWidth - margins.left - margins.right - 10) / 2;
+      const cardHeight = 22;
+      let cardX = margins.left;
+      let cardY = currentY;
 
-      currentY = pdf.lastAutoTable.finalY + 20;
-
-      // Low stock products
-      if (reportData.lowStockProducts.length > 0) {
-        if (currentY > 250) {
-          pdf.addPage();
-          currentY = 20;
+      summaryData.forEach((item, index) => {
+        if (index > 0 && index % 2 === 0) {
+          cardX = margins.left;
+          cardY += cardHeight + 5;
         }
 
-        pdf.setFontSize(16);
-        pdf.text("Low Stock Alert", 20, currentY);
+        pdf.setFillColor(255, 255, 255);
+        pdf.setDrawColor(...colors.lightGray);
+        pdf.setLineWidth(0.3);
+        pdf.roundedRect(cardX, cardY, cardWidth, cardHeight, 2, 2, "FD");
+
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(...colors.secondary);
+        pdf.text(item[0], cardX + 5, cardY + 8);
+
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(...item[2]);
+        pdf.text(item[1], cardX + 5, cardY + 17);
+
+        cardX += cardWidth + 10;
+      });
+
+      currentY = cardY + cardHeight + 20;
+
+      // Low Stock Alert Section
+      if (reportData.lowStockProducts.length > 0) {
+        if (currentY > 200) {
+          pdf.addPage();
+          addModernHeader(2);
+          currentY = 55;
+        }
+
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(...colors.warning);
+        pdf.text("⚠ Low Stock Alert", margins.left, currentY);
+        pdf.setDrawColor(...colors.warning);
+        pdf.setLineWidth(0.5);
+        pdf.line(margins.left, currentY + 2, margins.left + 42, currentY + 2);
         currentY += 10;
 
-        const lowStockData = [
-          ["Product", "Category", "Current Stock", "Reorder Level", "Value"],
-        ];
-
-        reportData.lowStockProducts.slice(0, 15).forEach((product) => {
-          lowStockData.push([
+        const lowStockData = reportData.lowStockProducts
+          .slice(0, 15)
+          .map((product) => [
             product.name,
             product.category,
             product.currentStock.toString(),
             product.reorderLevel.toString(),
             formatCurrency(product.stockValue),
           ]);
-        });
 
         pdf.autoTable({
-          head: [lowStockData[0]],
-          body: lowStockData.slice(1),
+          head: [["Product", "Category", "Current", "Reorder", "Value"]],
+          body: lowStockData,
           startY: currentY,
-          theme: "grid",
-          styles: { fontSize: 9 },
+          theme: "plain",
+          styles: {
+            fontSize: 9,
+            cellPadding: 6,
+            lineColor: [226, 232, 240],
+            lineWidth: 0.1,
+          },
+          headStyles: {
+            fillColor: colors.warning,
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            fontSize: 10,
+            halign: "left",
+          },
+          columnStyles: {
+            0: { cellWidth: 65, fontStyle: "normal" },
+            1: { cellWidth: 35 },
+            2: { cellWidth: 22, halign: "center", fontStyle: "bold" },
+            3: { cellWidth: 22, halign: "center" },
+            4: { cellWidth: 26, halign: "right" },
+          },
+          alternateRowStyles: {
+            fillColor: colors.headerBg,
+          },
+          margin: { left: margins.left, right: margins.right },
         });
 
         currentY = pdf.lastAutoTable.finalY + 20;
       }
 
-      // Category breakdown
-      if (currentY > 220) {
+      // Category Breakdown Section
+      if (currentY > 200) {
         pdf.addPage();
-        currentY = 20;
+        addModernHeader(pdf.internal.getNumberOfPages());
+        currentY = 55;
       }
 
-      pdf.setFontSize(16);
-      pdf.text("Category Breakdown", 20, currentY);
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(...colors.primary);
+      pdf.text("Category Analysis", margins.left, currentY);
+      pdf.setDrawColor(...colors.primary);
+      pdf.setLineWidth(0.5);
+      pdf.line(margins.left, currentY + 2, margins.left + 45, currentY + 2);
       currentY += 10;
 
-      const categoryData = [
-        ["Category", "Products", "Total Value", "Low Stock", "Expiring"],
-      ];
-
-      reportData.categories.slice(0, 10).forEach((category) => {
-        categoryData.push([
+      const categoryData = reportData.categories
+        .slice(0, 10)
+        .map((category) => [
           category.name,
           category.count.toString(),
           formatCurrency(category.totalValue),
           category.lowStock.toString(),
           category.expiring.toString(),
         ]);
-      });
 
       pdf.autoTable({
-        head: [categoryData[0]],
-        body: categoryData.slice(1),
+        head: [
+          ["Category", "Products", "Total Value", "Low Stock", "Expiring"],
+        ],
+        body: categoryData,
         startY: currentY,
-        theme: "grid",
-        styles: { fontSize: 9 },
+        theme: "plain",
+        styles: {
+          fontSize: 9,
+          cellPadding: 6,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: colors.primary,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 10,
+          halign: "left",
+        },
+        columnStyles: {
+          0: { cellWidth: 60, fontStyle: "normal" },
+          1: { cellWidth: 25, halign: "center" },
+          2: { cellWidth: 40, halign: "right", fontStyle: "bold" },
+          3: { cellWidth: 25, halign: "center" },
+          4: { cellWidth: 25, halign: "center" },
+        },
+        alternateRowStyles: {
+          fillColor: colors.headerBg,
+        },
+        margin: { left: margins.left, right: margins.right },
       });
+
+      // Add footer to all pages
+      const pageCount = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        addModernFooter();
+      }
 
       return pdf;
     } catch (error) {

@@ -252,42 +252,46 @@ export default function POSPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="px-6 py-6 flex items-center justify-between">
+          {/* Left: Title Section */}
           <div className="flex items-center space-x-4">
-            <div className="bg-emerald-100 p-3 rounded-xl">
-              <ShoppingCart className="h-8 w-8 text-emerald-600" />
+            <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+              <ShoppingCart className="h-6 w-6 text-emerald-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                <span>Point of Sale</span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+              <div className="flex items-center space-x-2">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Point of Sale
+                </h1>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
                   Live
                 </span>
-              </h1>
-              <p className="text-gray-600">
-                Process customer transactions securely and efficiently
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Fast checkout and transaction processing
               </p>
             </div>
           </div>
 
+          {/* Right: Quick Actions */}
           <div className="flex items-center space-x-3">
-            {/* Transaction History Button */}
             <button
               onClick={() => navigate("/transaction-history")}
-              className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-200"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
+              title="View Transaction History"
             >
-              <History className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-              <span className="font-medium">Transactions</span>
+              <History className="h-4 w-4 mr-2" />
+              Transaction History
             </button>
 
-            {/* Customer Information Button */}
             <button
               onClick={() => navigate("/customers")}
-              className="group flex items-center space-x-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-all duration-200"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
+              title="Manage Customers"
             >
-              <Users className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-              <span className="font-medium">Customer Information</span>
+              <Users className="h-4 w-4 mr-2" />
+              Customer Information
             </button>
           </div>
         </div>

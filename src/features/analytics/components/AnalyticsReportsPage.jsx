@@ -54,8 +54,14 @@ const AnalyticsReportsPage = () => {
           inventory: {
             totalProducts: result.data.summary.totalProducts,
             totalValue: result.data.summary.totalStockValue,
+            totalCostValue: result.data.summary.totalCostValue || 0,
             lowStockCount: result.data.stockLevels.lowStock,
             outOfStock: result.data.stockLevels.outOfStock,
+            normalStock: result.data.stockLevels.normalStock || 0,
+            expiringItems: result.data.expiryAnalysis?.expiring30 || 0,
+            expiredItems: result.data.expiryAnalysis?.expired || 0,
+            topValueProducts: result.data.topValueProducts || [],
+            categoryAnalysis: result.data.categoryAnalysis || [],
             fullData: result.data,
           },
         }));
@@ -88,9 +94,18 @@ const AnalyticsReportsPage = () => {
         setReports((prev) => ({
           ...prev,
           sales: {
+            totalRevenue: result.data.summary.totalSales,
             totalSales: result.data.summary.totalSales,
+            totalCost: result.data.summary.totalCost,
+            grossProfit: result.data.summary.grossProfit,
+            profitMargin: result.data.summary.profitMargin,
             transactionCount: result.data.summary.totalTransactions,
             averageTransaction: result.data.summary.averageTransaction,
+            averageCost: result.data.summary.averageCost,
+            averageProfit: result.data.summary.averageProfit,
+            topProducts: result.data.topProducts || [],
+            categoryBreakdown: result.data.categoryBreakdown || [],
+            dailyTrends: result.data.dailyTrends || [],
             fullData: result.data,
           },
         }));
@@ -156,9 +171,33 @@ const AnalyticsReportsPage = () => {
         setReports((prev) => ({
           ...prev,
           performance: {
+            // Revenue metrics
+            totalRevenue: result.data.revenue.total,
+            dailyRevenue: result.data.revenue.daily,
+            averageRevenue: result.data.revenue.average,
+
+            // Cost metrics
+            totalCost: result.data.costs.total,
+            dailyCost: result.data.costs.daily,
+            costPercentage: result.data.costs.percentage,
+
+            // Profit metrics
+            grossProfit: result.data.profit.gross,
+            netProfit: result.data.profit.net,
             profitMargin: result.data.profit.margin,
+            dailyProfit: result.data.profit.daily,
+            roi: result.data.profit.roi,
+
+            // Inventory metrics
+            inventoryValue: result.data.inventory.currentValue,
             inventoryTurnover: result.data.inventory.turnover,
-            roi: result.data.profit.margin, // Using profit margin as ROI approximation
+            daysInventory: result.data.inventory.daysInventory,
+
+            // Transaction metrics
+            transactionCount: result.data.transactions.count,
+            averageTransaction: result.data.transactions.averageValue,
+            dailyTransactions: result.data.transactions.dailyAverage,
+
             fullData: result.data,
           },
         }));
@@ -438,21 +477,69 @@ const AnalyticsReportsPage = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Total Products:</span>
                     <span className="font-semibold text-gray-900">
-                      {reports.inventory.totalProducts}
+                      {reports.inventory.totalProducts || 0}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Total Value:</span>
+                    <span className="text-gray-600">Total Stock Value:</span>
                     <span className="font-semibold text-green-600">
-                      ₱{reports.inventory.totalValue?.toFixed(2)}
+                      ₱
+                      {(reports.inventory.totalValue || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
                     </span>
                   </div>
+                  {reports.inventory.totalCostValue !== undefined && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Total Cost Value:</span>
+                      <span className="font-semibold text-orange-600">
+                        ₱
+                        {(reports.inventory.totalCostValue || 0).toLocaleString(
+                          "en-PH",
+                          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                        )}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Low Stock Items:</span>
                     <span className="font-semibold text-orange-600">
-                      {reports.inventory.lowStockCount}
+                      {reports.inventory.lowStockCount || 0}
                     </span>
                   </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Out of Stock:</span>
+                    <span className="font-semibold text-red-600">
+                      {reports.inventory.outOfStock || 0}
+                    </span>
+                  </div>
+                  {reports.inventory.normalStock !== undefined && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Normal Stock:</span>
+                      <span className="font-semibold text-emerald-600">
+                        {reports.inventory.normalStock || 0}
+                      </span>
+                    </div>
+                  )}
+                  {reports.inventory.expiringItems !== undefined && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">
+                        Expiring Soon (30d):
+                      </span>
+                      <span className="font-semibold text-amber-600">
+                        {reports.inventory.expiringItems || 0}
+                      </span>
+                    </div>
+                  )}
+                  {reports.inventory.expiredItems !== undefined && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Expired Items:</span>
+                      <span className="font-semibold text-red-700">
+                        {reports.inventory.expiredItems || 0}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -510,21 +597,78 @@ const AnalyticsReportsPage = () => {
               <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Total Sales:</span>
+                    <span className="text-gray-600">Total Revenue:</span>
                     <span className="font-semibold text-green-600">
-                      ₱{reports.sales.totalSales?.toFixed(2)}
+                      ₱
+                      {(reports.sales.totalRevenue || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Transactions:</span>
+                    <span className="text-gray-600">Total Cost (COGS):</span>
+                    <span className="font-semibold text-orange-600">
+                      ₱
+                      {(reports.sales.totalCost || 0).toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Gross Profit:</span>
+                    <span className="font-semibold text-emerald-600">
+                      ₱
+                      {(reports.sales.grossProfit || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Profit Margin:</span>
+                    <span className="font-semibold text-purple-600">
+                      {(reports.sales.profitMargin || 0).toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="border-t border-gray-300 my-2"></div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Total Transactions:</span>
                     <span className="font-semibold text-gray-900">
-                      {reports.sales.transactionCount}
+                      {reports.sales.transactionCount || 0}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Avg Transaction:</span>
                     <span className="font-semibold text-blue-600">
-                      ₱{reports.sales.averageTransaction?.toFixed(2)}
+                      ₱
+                      {(reports.sales.averageTransaction || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Avg Cost/Transaction:</span>
+                    <span className="font-semibold text-amber-600">
+                      ₱
+                      {(reports.sales.averageCost || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">
+                      Avg Profit/Transaction:
+                    </span>
+                    <span className="font-semibold text-teal-600">
+                      ₱
+                      {(reports.sales.averageProfit || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
                     </span>
                   </div>
                 </div>
@@ -653,22 +797,106 @@ const AnalyticsReportsPage = () => {
             {reports.performance && (
               <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
                 <div className="space-y-2 mb-4">
+                  {/* Revenue Section */}
+                  <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
+                    Revenue Metrics
+                  </div>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Profit Margin:</span>
+                    <span className="text-gray-600">Total Revenue:</span>
                     <span className="font-semibold text-green-600">
-                      {reports.performance.profitMargin?.toFixed(2)}%
+                      ₱
+                      {(reports.performance.totalRevenue || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Inventory Turnover:</span>
-                    <span className="font-semibold text-blue-600">
-                      {reports.performance.inventoryTurnover?.toFixed(2)}
+                    <span className="text-gray-600">Daily Revenue:</span>
+                    <span className="font-semibold text-green-500">
+                      ₱
+                      {(reports.performance.dailyRevenue || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Profit Section */}
+                  <div className="border-t border-gray-300 my-2"></div>
+                  <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
+                    Profitability
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Gross Profit:</span>
+                    <span className="font-semibold text-emerald-600">
+                      ₱
+                      {(reports.performance.grossProfit || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Profit Margin:</span>
+                    <span className="font-semibold text-emerald-500">
+                      {(reports.performance.profitMargin || 0).toFixed(2)}%
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">ROI:</span>
                     <span className="font-semibold text-purple-600">
-                      {reports.performance.roi?.toFixed(2)}%
+                      {(reports.performance.roi || 0).toFixed(2)}%
+                    </span>
+                  </div>
+
+                  {/* Inventory Section */}
+                  <div className="border-t border-gray-300 my-2"></div>
+                  <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
+                    Inventory Efficiency
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Inventory Value:</span>
+                    <span className="font-semibold text-blue-600">
+                      ₱
+                      {(reports.performance.inventoryValue || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Turnover Ratio:</span>
+                    <span className="font-semibold text-blue-500">
+                      {(reports.performance.inventoryTurnover || 0).toFixed(2)}x
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Days Inventory:</span>
+                    <span className="font-semibold text-indigo-600">
+                      {(reports.performance.daysInventory || 0).toFixed(0)} days
+                    </span>
+                  </div>
+
+                  {/* Cost Section */}
+                  <div className="border-t border-gray-300 my-2"></div>
+                  <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
+                    Cost Analysis
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Total COGS:</span>
+                    <span className="font-semibold text-orange-600">
+                      ₱
+                      {(reports.performance.totalCost || 0).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Cost Percentage:</span>
+                    <span className="font-semibold text-orange-500">
+                      {(reports.performance.costPercentage || 0).toFixed(2)}%
                     </span>
                   </div>
                 </div>

@@ -28,7 +28,6 @@ const InventoryPage = React.lazy(() => import("./pages/InventoryPage"));
 const SystemSettingsPage = React.lazy(() =>
   import("./pages/SystemSettingsPage")
 );
-const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const UnauthorizedPage = React.lazy(() => import("./pages/UnauthorizedPage"));
 const UserManagementPage = React.lazy(() =>
   import("./pages/UserManagementPage")
@@ -285,7 +284,7 @@ function AppContent() {
         element={
           <PageErrorBoundary title="Settings Error">
             <ProtectedRoute>
-              <SettingsPage />
+              <SystemSettingsPage />
             </ProtectedRoute>
           </PageErrorBoundary>
         }

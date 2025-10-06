@@ -11,13 +11,13 @@ export function useInventory() {
     expiryStatus: "All",
     drugClassification: "All",
     dosageStrength: "All",
-    dosageForm: "All"
+    dosageForm: "All",
   });
   const [filterOptions, setFilterOptions] = useState({
     drugClassifications: [],
     categories: [],
     dosageStrengths: [],
-    dosageForms: []
+    dosageForms: [],
   });
   const [sortBy, setSortBy] = useState("generic_name");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -38,15 +38,18 @@ export function useInventory() {
       if (import.meta.env.DEV) {
         console.log("🗃️ Loaded Products:", {
           count: data.length,
-          sampleProduct: data.length > 0 ? {
-            id: data[0].id,
-            generic_name: data[0].generic_name,
-            brand_name: data[0].brand_name,
-            dosage_form: data[0].dosage_form,
-            dosage_strength: data[0].dosage_strength,
-            manufacturer: data[0].manufacturer,
-            drug_classification: data[0].drug_classification
-          } : null,
+          sampleProduct:
+            data.length > 0
+              ? {
+                  id: data[0].id,
+                  generic_name: data[0].generic_name,
+                  brand_name: data[0].brand_name,
+                  dosage_form: data[0].dosage_form,
+                  dosage_strength: data[0].dosage_strength,
+                  manufacturer: data[0].manufacturer,
+                  drug_classification: data[0].drug_classification,
+                }
+              : null,
           hasNewSchema: data.length > 0 && data[0].generic_name !== undefined,
           searchTerm: searchTerm,
           filters: filters,
@@ -66,7 +69,7 @@ export function useInventory() {
       }
 
       setProducts(data);
-      
+
       // Load filter options with the loaded data
       await loadFilterOptions(data);
     } catch (error) {
@@ -79,28 +82,32 @@ export function useInventory() {
   const loadFilterOptions = async (productsData = products) => {
     try {
       const options = await ProductService.getFilterOptions();
-      
+
       // Extract dosage strengths and forms from current products
-      const dosageStrengths = [...new Set(productsData
-        .filter(p => p.dosage_strength)
-        .map(p => p.dosage_strength)
-      )].sort();
-      
-      const dosageForms = [...new Set(productsData
-        .filter(p => p.dosage_form)
-        .map(p => p.dosage_form)
-      )].sort();
-      
+      const dosageStrengths = [
+        ...new Set(
+          productsData
+            .filter((p) => p.dosage_strength)
+            .map((p) => p.dosage_strength)
+        ),
+      ].sort();
+
+      const dosageForms = [
+        ...new Set(
+          productsData.filter((p) => p.dosage_form).map((p) => p.dosage_form)
+        ),
+      ].sort();
+
       const enhancedOptions = {
         ...options,
         dosageStrengths,
-        dosageForms
+        dosageForms,
       };
-      
+
       setFilterOptions(enhancedOptions);
-      console.log('✅ Loaded filter options:', enhancedOptions);
+      console.log("✅ Loaded filter options:", enhancedOptions);
     } catch (error) {
-      console.error('❌ Error loading filter options:', error);
+      console.error("❌ Error loading filter options:", error);
     }
   };
 
@@ -115,20 +122,25 @@ export function useInventory() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       console.log("🔍 Searching for:", term, "in", products.length, "products");
-      
+
       filtered = filtered.filter(
         (product) =>
           // Primary medicine fields - ensure brand and generic name are searchable
-          (product.generic_name && product.generic_name.toLowerCase().includes(term)) ||
-          (product.brand_name && product.brand_name.toLowerCase().includes(term)) ||
-          (product.dosage_strength && product.dosage_strength.toLowerCase().includes(term)) ||
-          (product.drug_classification && product.drug_classification.toLowerCase().includes(term)) ||
+          (product.generic_name &&
+            product.generic_name.toLowerCase().includes(term)) ||
+          (product.brand_name &&
+            product.brand_name.toLowerCase().includes(term)) ||
+          (product.dosage_strength &&
+            product.dosage_strength.toLowerCase().includes(term)) ||
+          (product.drug_classification &&
+            product.drug_classification.toLowerCase().includes(term)) ||
           // Standard fields
           (product.category && product.category.toLowerCase().includes(term)) ||
-          (product.description && product.description.toLowerCase().includes(term)) ||
+          (product.description &&
+            product.description.toLowerCase().includes(term)) ||
           (product.sku && product.sku.toLowerCase().includes(term))
       );
-      
+
       console.log("✅ Search results:", filtered.length, "products found");
     }
 
@@ -145,10 +157,9 @@ export function useInventory() {
         if (filters.stockStatus === "in_stock") {
           return product.stock_in_pieces > product.reorder_level;
         } else if (filters.stockStatus === "low_stock") {
-          return (
-            product.stock_in_pieces > 0 &&
-            product.stock_in_pieces <= product.reorder_level
-          );
+          // ✅ FIXED: Match dashboard logic - include all items at or below reorder level
+          const reorderLevel = product.reorder_level || 10;
+          return product.stock_in_pieces <= reorderLevel;
         } else if (filters.stockStatus === "out_of_stock") {
           return product.stock_in_pieces <= 0;
         }
@@ -180,29 +191,29 @@ export function useInventory() {
 
     // Apply drug classification filter (NEW)
     if (filters.drugClassification !== "All") {
-      filtered = filtered.filter((product) => 
-        product.drug_classification === filters.drugClassification
+      filtered = filtered.filter(
+        (product) => product.drug_classification === filters.drugClassification
       );
     }
 
-    // Apply manufacturer filter (NEW)  
+    // Apply manufacturer filter (NEW)
     if (filters.manufacturer !== "All") {
-      filtered = filtered.filter((product) =>
-        product.manufacturer === filters.manufacturer
+      filtered = filtered.filter(
+        (product) => product.manufacturer === filters.manufacturer
       );
     }
 
     // Apply dosage strength filter
     if (filters.dosageStrength !== "All") {
-      filtered = filtered.filter((product) =>
-        product.dosage_strength === filters.dosageStrength
+      filtered = filtered.filter(
+        (product) => product.dosage_strength === filters.dosageStrength
       );
     }
 
     // Apply dosage form filter
     if (filters.dosageForm !== "All") {
-      filtered = filtered.filter((product) =>
-        product.dosage_form === filters.dosageForm
+      filtered = filtered.filter(
+        (product) => product.dosage_form === filters.dosageForm
       );
     }
 
@@ -256,9 +267,11 @@ export function useInventory() {
     }
 
     const totalProducts = activeProducts.length;
-    const lowStockProducts = activeProducts.filter(
-      (p) => p.stock_in_pieces > 0 && p.stock_in_pieces <= p.reorder_level
-    ).length;
+    // ✅ FIXED: Use consistent low stock logic across the app
+    const lowStockProducts = activeProducts.filter((p) => {
+      const reorderLevel = p.reorder_level || 10;
+      return p.stock_in_pieces <= reorderLevel;
+    }).length;
     const outOfStockProducts = activeProducts.filter(
       (p) => p.stock_in_pieces <= 0
     ).length;

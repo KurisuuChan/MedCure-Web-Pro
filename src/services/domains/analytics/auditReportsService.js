@@ -250,7 +250,7 @@ export const ReportsService = {
             quantity,
             unit_price,
             total_price,
-            products!inner(generic_name, category)
+            products!inner(generic_name, category, cost_price)
           )
         `
         )
@@ -281,18 +281,14 @@ export const ReportsService = {
           ),
         },
         summary: {
-          totalSales: salesData.reduce(
-            (sum, sale) => sum + parseFloat(sale.total_amount),
-            0
-          ),
+          totalSales: 0,
+          totalCost: 0,
+          grossProfit: 0,
+          profitMargin: 0,
           totalTransactions: salesData.length,
-          averageTransaction:
-            salesData.length > 0
-              ? salesData.reduce(
-                  (sum, sale) => sum + parseFloat(sale.total_amount),
-                  0
-                ) / salesData.length
-              : 0,
+          averageTransaction: 0,
+          averageCost: 0,
+          averageProfit: 0,
           uniqueCustomers: [...new Set(salesData.map((sale) => sale.user_id))]
             .length,
         },
@@ -312,7 +308,42 @@ export const ReportsService = {
         categoryBreakdown: getCategoryBreakdown(salesData),
       };
 
+      // Calculate comprehensive cost and profit metrics
+      salesData.forEach((sale) => {
+        const saleRevenue = parseFloat(sale.total_amount);
+        report.summary.totalSales += saleRevenue;
+
+        if (sale.sale_items && Array.isArray(sale.sale_items)) {
+          sale.sale_items.forEach((item) => {
+            const costPrice = item.products?.cost_price || 0;
+            const quantity = item.quantity || 0;
+            const itemCost = costPrice * quantity;
+            report.summary.totalCost += itemCost;
+          });
+        }
+      });
+
+      // Calculate derived metrics
+      report.summary.grossProfit =
+        report.summary.totalSales - report.summary.totalCost;
+      report.summary.profitMargin =
+        report.summary.totalSales > 0
+          ? (report.summary.grossProfit / report.summary.totalSales) * 100
+          : 0;
+      report.summary.averageTransaction =
+        salesData.length > 0 ? report.summary.totalSales / salesData.length : 0;
+      report.summary.averageCost =
+        salesData.length > 0 ? report.summary.totalCost / salesData.length : 0;
+      report.summary.averageProfit =
+        salesData.length > 0
+          ? report.summary.grossProfit / salesData.length
+          : 0;
+
       console.log("✅ [ReportsService] Sales report generated successfully");
+      console.log("📊 Revenue:", report.summary.totalSales.toFixed(2));
+      console.log("💰 Cost:", report.summary.totalCost.toFixed(2));
+      console.log("📈 Profit:", report.summary.grossProfit.toFixed(2));
+      console.log("📊 Margin:", report.summary.profitMargin.toFixed(2) + "%");
       return {
         success: true,
         data: report,
@@ -391,17 +422,17 @@ export const ReportsService = {
           outOfStock: productsData.filter((p) => p.stock_in_pieces === 0)
             .length,
           lowStock: productsData.filter(
-            (p) => p.stock_in_pieces > 0 && p.stock_in_pieces <= p.reorder_level
+            (p) => p.stock_in_pieces <= (p.reorder_level || 10)
           ).length,
           normalStock: productsData.filter(
-            (p) => p.stock_in_pieces > p.reorder_level
+            (p) => p.stock_in_pieces > (p.reorder_level || 10)
           ).length,
         },
         expiryAnalysis: getExpiryAnalysis(productsData),
         categoryAnalysis: getInventoryCategoryAnalysis(productsData),
         topValueProducts: getTopValueProducts(productsData),
         lowStockAlerts: productsData.filter(
-          (p) => p.stock_in_pieces <= p.reorder_level && p.stock_in_pieces > 0
+          (p) => p.stock_in_pieces <= (p.reorder_level || 10)
         ),
       };
 
@@ -450,7 +481,7 @@ export const ReportsService = {
               quantity,
               unit_price,
               total_price,
-              products!inner(cost_price, price_per_piece, generic_name)
+              products!inner(cost_price, generic_name)
             )
           `
           )
@@ -477,25 +508,30 @@ export const ReportsService = {
         };
       }
 
-      // Calculate financial metrics
+      // Calculate comprehensive financial metrics
       const totalRevenue = salesResult.data.reduce(
         (sum, sale) => sum + parseFloat(sale.total_amount),
         0
       );
 
-      const totalCost = salesResult.data.reduce((sum, sale) => {
+      // Calculate Cost of Goods Sold (COGS)
+      const totalCOGS = salesResult.data.reduce((sum, sale) => {
+        if (!sale.sale_items || !Array.isArray(sale.sale_items)) return sum;
+
         return (
           sum +
           sale.sale_items.reduce((itemSum, item) => {
-            const costPrice = item.products.cost_price || 0;
-            return itemSum + item.quantity * costPrice;
+            const costPrice = item.products?.cost_price || 0;
+            const quantity = item.quantity || 0;
+            return itemSum + costPrice * quantity;
           }, 0)
         );
       }, 0);
 
-      const grossProfit = totalRevenue - totalCost;
+      const grossProfit = totalRevenue - totalCOGS;
       const profitMargin =
         totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+      const netProfit = grossProfit; // Simplified (no operating expenses tracked)
 
       const inventoryValue = productsResult.data.reduce(
         (sum, product) =>
@@ -503,13 +539,26 @@ export const ReportsService = {
         0
       );
 
+      // Calculate inventory turnover (COGS / Average Inventory)
+      // Using current inventory as approximation
+      const inventoryTurnover =
+        inventoryValue > 0 ? totalCOGS / inventoryValue : 0;
+
+      // Calculate ROI
+      const roi = totalCOGS > 0 ? (grossProfit / totalCOGS) * 100 : 0;
+
+      const daysInPeriod = Math.max(
+        1,
+        Math.ceil(
+          (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)
+        )
+      );
+
       const report = {
         period: {
           startDate,
           endDate,
-          days: Math.ceil(
-            (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)
-          ),
+          days: daysInPeriod,
         },
         revenue: {
           total: totalRevenue,
@@ -517,27 +566,38 @@ export const ReportsService = {
             salesResult.data.length > 0
               ? totalRevenue / salesResult.data.length
               : 0,
-          daily:
-            totalRevenue /
-            Math.max(
-              1,
-              Math.ceil(
-                (new Date(endDate) - new Date(startDate)) /
-                  (1000 * 60 * 60 * 24)
-              )
-            ),
+          daily: totalRevenue / daysInPeriod,
+          growth: 0, // Could be calculated with historical comparison
         },
         costs: {
-          total: totalCost,
-          percentage: totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : 0,
+          total: totalCOGS,
+          average:
+            salesResult.data.length > 0
+              ? totalCOGS / salesResult.data.length
+              : 0,
+          daily: totalCOGS / daysInPeriod,
+          percentage: totalRevenue > 0 ? (totalCOGS / totalRevenue) * 100 : 0,
         },
         profit: {
           gross: grossProfit,
+          net: netProfit,
           margin: profitMargin,
+          average:
+            salesResult.data.length > 0
+              ? grossProfit / salesResult.data.length
+              : 0,
+          daily: grossProfit / daysInPeriod,
+          roi: roi,
         },
         inventory: {
           currentValue: inventoryValue,
-          turnover: inventoryValue > 0 ? totalCost / inventoryValue : 0,
+          turnover: inventoryTurnover,
+          daysInventory: inventoryTurnover > 0 ? 365 / inventoryTurnover : 0,
+        },
+        transactions: {
+          count: salesResult.data.length,
+          averageValue: totalRevenue / Math.max(1, salesResult.data.length),
+          dailyAverage: salesResult.data.length / daysInPeriod,
         },
       };
 
@@ -794,11 +854,26 @@ function generateInventoryCSV(reportData) {
 
 function generateFinancialCSV(reportData) {
   let csv = "Metric,Value\n";
-  csv += `Total Revenue,${reportData.revenue.total}\n`;
-  csv += `Total Costs,${reportData.costs.total}\n`;
-  csv += `Gross Profit,${reportData.profit.gross}\n`;
-  csv += `Profit Margin,${reportData.profit.margin}%\n`;
-  csv += `Inventory Value,${reportData.inventory.currentValue}\n`;
+  csv += `Total Revenue,${reportData.revenue.total.toFixed(2)}\n`;
+  csv += `Total Costs (COGS),${reportData.costs.total.toFixed(2)}\n`;
+  csv += `Gross Profit,${reportData.profit.gross.toFixed(2)}\n`;
+  csv += `Net Profit,${reportData.profit.net.toFixed(2)}\n`;
+  csv += `Profit Margin,${reportData.profit.margin.toFixed(2)}%\n`;
+  csv += `ROI,${reportData.profit.roi.toFixed(2)}%\n`;
+  csv += `Average Transaction Value,${reportData.revenue.average.toFixed(2)}\n`;
+  csv += `Daily Revenue,${reportData.revenue.daily.toFixed(2)}\n`;
+  csv += `Daily Profit,${reportData.profit.daily.toFixed(2)}\n`;
+  csv += `Current Inventory Value,${reportData.inventory.currentValue.toFixed(
+    2
+  )}\n`;
+  csv += `Inventory Turnover Ratio,${reportData.inventory.turnover.toFixed(
+    2
+  )}\n`;
+  csv += `Days Inventory Outstanding,${reportData.inventory.daysInventory.toFixed(
+    1
+  )}\n`;
+  csv += `Transaction Count,${reportData.transactions.count}\n`;
+  csv += `Cost Percentage,${reportData.costs.percentage.toFixed(2)}%\n`;
 
   return csv;
 }

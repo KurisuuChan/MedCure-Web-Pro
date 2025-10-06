@@ -58,26 +58,28 @@ const UserManagementPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <UserCheck className="h-8 w-8 text-blue-600" />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="px-6 py-6">
+          <div className="flex items-center space-x-4 mb-6">
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+              <UserCheck className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Team Management
-              </h1>
-              <p className="text-gray-600">
+              <div className="flex items-center space-x-2">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Team Management
+                </h1>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
                 Comprehensive team member, role, and access control management
               </p>
             </div>
           </div>
 
           {/* Admin Access Info Panel */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start space-x-3">
               <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
@@ -93,7 +95,7 @@ const UserManagementPage = () => {
           </div>
 
           {/* Tab Navigation */}
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200 mt-6">
             <nav className="-mb-px flex space-x-8">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -128,32 +130,36 @@ const UserManagementPage = () => {
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Tab Content */}
-        <div className="space-y-6">{renderTabContent()}</div>
+      {/* Tab Content */}
+      <div className="space-y-6">{renderTabContent()}</div>
 
-        {/* Security Notice */}
-        <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <div className="flex items-center space-x-3">
-            <Lock className="h-6 w-6 text-yellow-600" />
-            <div>
-              <h3 className="text-lg font-medium text-yellow-900">
-                Security Best Practices
-              </h3>
-              <div className="mt-2 text-sm text-yellow-800 space-y-1">
-                <p>
-                  • Always follow the principle of least privilege when
-                  assigning roles
-                </p>
-                <p>
-                  • Regularly review user permissions and deactivate unused
-                  accounts
-                </p>
-                <p>• Monitor activity logs for suspicious behavior</p>
-                <p>• Ensure strong password policies are enforced</p>
-                <p>
-                  • Use two-factor authentication for administrative accounts
-                </p>
+      {/* Security Notice */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="px-6 py-6">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <div className="flex items-center space-x-3">
+              <Lock className="h-6 w-6 text-yellow-600" />
+              <div>
+                <h3 className="text-lg font-medium text-yellow-900">
+                  Security Best Practices
+                </h3>
+                <div className="mt-2 text-sm text-yellow-800 space-y-1">
+                  <p>
+                    • Always follow the principle of least privilege when
+                    assigning roles
+                  </p>
+                  <p>
+                    • Regularly review user permissions and deactivate unused
+                    accounts
+                  </p>
+                  <p>• Monitor activity logs for suspicious behavior</p>
+                  <p>• Ensure strong password policies are enforced</p>
+                  <p>
+                    • Use two-factor authentication for administrative accounts
+                  </p>
+                </div>
               </div>
             </div>
           </div>

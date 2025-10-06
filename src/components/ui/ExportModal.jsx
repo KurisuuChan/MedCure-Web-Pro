@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { X, Download, FileText, Database } from "lucide-react";
 import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
 import jsPDF from "jspdf";
-import autoTable from 'jspdf-autotable';
+import autoTable from "jspdf-autotable";
 
 const ExportModal = ({ isOpen, onClose, products, categories }) => {
   const [isExporting, setIsExporting] = useState(false);
@@ -59,7 +59,11 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
           } else if (exportOptions.format === "json") {
             downloadJSON(categoryData, "category_insights");
           } else if (exportOptions.format === "pdf") {
-            downloadPDF(categoryData, "category_insights", "Category Insights Report");
+            downloadPDF(
+              categoryData,
+              "category_insights",
+              "Category Insights Report"
+            );
           }
         }
       } else {
@@ -112,21 +116,23 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
         }
 
         console.log("📊 Filtered Products:", filteredProducts.length);
-        
+
         // Prepare data for export
         const dataToExport = filteredProducts.map((product) => {
           const row = {};
 
-          if (exportOptions.columns.name) row["Generic Name"] = product.generic_name || 'Unknown Product';
-          if (exportOptions.columns.brand) row["Brand Name"] = product.brand_name || '';
+          if (exportOptions.columns.name)
+            row["Generic Name"] = product.generic_name || "Unknown Product";
+          if (exportOptions.columns.brand)
+            row["Brand Name"] = product.brand_name || "";
           if (exportOptions.columns.category)
             row["Category"] = product.category;
           if (exportOptions.columns.dosageStrength)
-            row["Dosage Strength"] = product.dosage_strength || '';
+            row["Dosage Strength"] = product.dosage_strength || "";
           if (exportOptions.columns.dosageForm)
-            row["Dosage Form"] = product.dosage_form || '';
+            row["Dosage Form"] = product.dosage_form || "";
           if (exportOptions.columns.drugClassification)
-            row["Drug Classification"] = product.drug_classification || '';
+            row["Drug Classification"] = product.drug_classification || "";
           if (exportOptions.columns.stock)
             row["Stock (Pieces)"] = product.stock_in_pieces;
           if (exportOptions.columns.price)
@@ -146,6 +152,9 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
             row["Sheets per Box"] = product.sheets_per_box || 1;
           }
 
+          // Always include reorder_level for accurate stock calculations (hidden in display)
+          row["_reorder_level"] = product.reorder_level || 10;
+
           return row;
         });
 
@@ -155,14 +164,18 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
         } else if (exportOptions.format === "json") {
           downloadJSON(dataToExport, "medicine_inventory_export");
         } else if (exportOptions.format === "pdf") {
-          downloadPDF(dataToExport, "medicine_inventory_export", "Medicine Inventory Report");
+          downloadPDF(
+            dataToExport,
+            "medicine_inventory_export",
+            "Medicine Inventory Report"
+          );
         }
       }
 
       // Show success message
       console.log("✅ Export completed successfully!");
       alert("Export completed successfully! Check your downloads folder.");
-      
+
       // Close modal after successful export
       setTimeout(() => {
         setIsExporting(false);
@@ -185,10 +198,10 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
 
     // Ensure batch_number is included in exports for inventory data
     let processedData = data;
-    if (filename.includes('inventory') || filename.includes('medicine')) {
-      processedData = data.map(item => ({
+    if (filename.includes("inventory") || filename.includes("medicine")) {
+      processedData = data.map((item) => ({
         ...item,
-        batch_number: item.batch_number || 'N/A'
+        batch_number: item.batch_number || "N/A",
       }));
     }
 
@@ -198,16 +211,23 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
     const csvContent = [
       orderedHeaders.join(","),
       ...processedData.map((row) =>
-        orderedHeaders.map((header) => {
-          let value = row[header] || "";
-          // Handle values that contain commas, quotes, or newlines
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-            value = `"${value.replace(/"/g, '""')}"`;
-          } else {
-            value = `"${value}"`;
-          }
-          return value;
-        }).join(",")
+        orderedHeaders
+          .map((header) => {
+            let value = row[header] || "";
+            // Handle values that contain commas, quotes, or newlines
+            if (
+              typeof value === "string" &&
+              (value.includes(",") ||
+                value.includes('"') ||
+                value.includes("\n"))
+            ) {
+              value = `"${value.replace(/"/g, '""')}"`;
+            } else {
+              value = `"${value}"`;
+            }
+            return value;
+          })
+          .join(",")
       ),
     ].join("\n");
 
@@ -243,9 +263,13 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
     document.body.removeChild(link);
   };
 
-  const downloadPDF = (data, filename = "export", title = "Medicine Inventory Export") => {
+  const downloadPDF = (
+    data,
+    filename = "export",
+    title = "Medicine Inventory Report"
+  ) => {
     console.log("📄 Generating PDF with", data.length, "items");
-    
+
     if (data.length === 0) {
       console.warn("⚠️ No data to export");
       alert("No data to export. Please check your filters.");
@@ -257,229 +281,578 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
       const doc = new jsPDF({
         orientation: "landscape",
         unit: "mm",
-        format: "a4"
+        format: "a4",
       });
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
+      const margins = { left: 15, right: 15, top: 30, bottom: 20 };
+
+      // Professional Color Palette - Subtle and Clean
+      const colors = {
+        primary: [37, 99, 235], // Professional blue
+        secondary: [71, 85, 105], // Slate gray
+        lightBg: [248, 250, 252], // Light background
+        border: [226, 232, 240], // Subtle border
+        text: [30, 41, 59], // Dark text
+        textLight: [100, 116, 139], // Light text
+      };
 
       // ============================================
-      // HEADER - Simple Modern Design
+      // HEADER - Clean Professional Design
       // ============================================
-      
-      // Header Background
-      doc.setFillColor(16, 185, 129); // Emerald
-      doc.rect(0, 0, pageWidth, 28, 'F');
-      
-      // Logo Box
-      doc.setFillColor(255, 255, 255);
-      doc.rect(10, 5, 14, 14, 'F');
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(16, 185, 129);
-      doc.text("MC", 17, 13.5, { align: "center" });
 
-      // Company Info - Left side
-      doc.setFontSize(16);
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.text("MEDCURE PHARMACY", 28, 11);
-      
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.text(title || "Medicine Inventory Export", 28, 16);
-      
-      doc.setFontSize(7);
-      doc.setTextColor(240, 253, 244); // Light emerald
-      doc.text("Professional Pharmacy Management System", 28, 20);
+      const addHeader = (pageNum) => {
+        // Simple header background - subtle
+        doc.setFillColor(...colors.primary);
+        doc.rect(0, 0, pageWidth, 25, "F");
 
-      // Export Info - Right side
-      const currentDate = new Date();
-      doc.setFontSize(9);
-      doc.setTextColor(255, 255, 255);
-      doc.text(`Export Date: ${currentDate.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      })}`, pageWidth - 14, 13, { align: 'right' });
-      doc.text(`Time: ${currentDate.toLocaleTimeString('en-US')}`, pageWidth - 14, 18, { align: 'right' });
-      doc.text(`Total Records: ${data.length}`, pageWidth - 14, 23, { align: 'right' });
+        // Company Name
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text("MedCure Pharmacy", margins.left, 12);
+
+        // Report Title
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(title, margins.left, 18);
+
+        // Current Date & Page Number - Right side
+        const currentDate = new Date();
+        const dateStr = `${currentDate.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })} • ${currentDate.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`;
+
+        doc.setFontSize(9);
+        doc.text(dateStr, pageWidth - margins.right, 12, { align: "right" });
+        doc.text(`Page ${pageNum}`, pageWidth - margins.right, 18, {
+          align: "right",
+        });
+
+        // Reset colors
+        doc.setTextColor(...colors.text);
+      };
 
       // ============================================
-      // SUMMARY SECTION - Key Metrics
+      // SUMMARY SECTION - Clean Metrics
       // ============================================
-      
-      let yPos = 45;
 
-      // Calculate summary statistics
+      let yPos = 35;
+
+      // Calculate summary statistics with proper data handling
       const summary = {
         totalProducts: data.length,
         totalValue: 0,
         lowStock: 0,
-        outOfStock: 0
+        outOfStock: 0,
       };
 
-      data.forEach(item => {
-        const stock = parseInt(item['Stock (Pieces)'] || 0);
-        const price = parseFloat(item['Price per Piece'] || 0);
-        summary.totalValue += stock * price;
-        
-        if (stock === 0) summary.outOfStock++;
-        else if (stock <= 10) summary.lowStock++;
+      console.log("📊 Calculating summary from data:", data.length, "items");
+
+      data.forEach((item, index) => {
+        // Handle different possible field names for stock
+        const stock = parseInt(
+          item["Stock (Pieces)"] ||
+            item["Stock Level"] ||
+            item["stock"] ||
+            item["stock_in_pieces"] ||
+            0
+        );
+
+        // Handle different possible field names for price
+        const price = parseFloat(
+          item["Price per Piece"] ||
+            item["price"] ||
+            item["price_per_piece"] ||
+            0
+        );
+
+        // Get reorder level from hidden field or default to 10
+        const reorderLevel = parseInt(
+          item["_reorder_level"] ||
+            item["Reorder Level"] ||
+            item["reorder_level"] ||
+            10
+        );
+
+        // Calculate total value
+        if (!isNaN(stock) && !isNaN(price)) {
+          summary.totalValue += stock * price;
+        }
+
+        // Count stock levels accurately using reorder_level
+        if (stock === 0) {
+          summary.outOfStock++;
+        } else if (stock > 0 && stock <= reorderLevel) {
+          summary.lowStock++;
+        }
+
+        // Debug first item to verify data structure
+        if (index === 0) {
+          console.log("📦 First item structure:", {
+            stock,
+            price,
+            reorderLevel,
+            stockField: item["Stock (Pieces)"],
+            priceField: item["Price per Piece"],
+            reorderField: item["Reorder Level"],
+            allKeys: Object.keys(item),
+          });
+        }
       });
 
-      // Summary boxes
-      const boxWidth = (pageWidth - 28 - 15) / 4; // 4 boxes with spacing
-      const boxHeight = 18;
-      const boxY = yPos;
-      
+      console.log("📊 Summary calculated:", summary);
+
+      // Format total value properly - FIXED: Use PHP instead of peso symbol
+      const formattedValue =
+        summary.totalValue >= 1000000
+          ? `PHP ${(summary.totalValue / 1000000).toFixed(2)}M`
+          : summary.totalValue >= 1000
+          ? `PHP ${(summary.totalValue / 1000).toFixed(1)}K`
+          : `PHP ${summary.totalValue.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`;
+
+      // Summary info bar - clean design
+      doc.setFillColor(...colors.lightBg);
+      doc.rect(
+        margins.left,
+        yPos,
+        pageWidth - margins.left - margins.right,
+        14,
+        "F"
+      );
+
+      // Left side - Total Records
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.text);
+      doc.text(`Total Records: ${data.length}`, margins.left + 5, yPos + 6);
+
+      // Export Date below
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.textLight);
+      const exportDate = new Date();
+      const formattedDate = `${exportDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}`;
+      doc.text(`Export Date: ${formattedDate}`, margins.left + 5, yPos + 11);
+
+      // Right side - Time
+      const hours = exportDate.getHours();
+      const minutes = exportDate.getMinutes();
+      const seconds = exportDate.getSeconds();
+      const ampm = hours >= 12 ? "PM" : "AM";
+      const displayHours = hours % 12 || 12;
+      const formattedTime = `${displayHours}:${String(minutes).padStart(
+        2,
+        "0"
+      )}:${String(seconds).padStart(2, "0")} ${ampm}`;
+
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Time: ${formattedTime}`,
+        pageWidth - margins.right - 5,
+        yPos + 6,
+        {
+          align: "right",
+        }
+      );
+
+      yPos += 20;
+
+      // Key Metrics - Clean 4-column layout with subtle styling
+      const boxWidth = (pageWidth - margins.left - margins.right - 9) / 4;
+      const boxHeight = 16;
+
       const summaryData = [
-        { label: 'Total Products', value: summary.totalProducts, color: [59, 130, 246] }, // Blue
-        { label: 'Total Value', value: `₱${summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, color: [16, 185, 129] }, // Emerald
-        { label: 'Low Stock', value: summary.lowStock, color: [251, 146, 60] }, // Orange
-        { label: 'Out of Stock', value: summary.outOfStock, color: [239, 68, 68] } // Red
+        { label: "Total Products", value: String(summary.totalProducts) },
+        { label: "Total Value", value: formattedValue },
+        { label: "Low Stock", value: String(summary.lowStock) },
+        { label: "Out of Stock", value: String(summary.outOfStock) },
       ];
 
       summaryData.forEach((item, index) => {
-        const xPos = 14 + (boxWidth + 5) * index;
-        
-        // Box background
-        doc.setFillColor(item.color[0], item.color[1], item.color[2]);
-        doc.roundedRect(xPos, boxY, boxWidth, boxHeight, 2, 2, 'F');
-        
+        const xPos = margins.left + (boxWidth + 3) * index;
+
+        // Subtle box with border
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(...colors.border);
+        doc.setLineWidth(0.3);
+        doc.rect(xPos, yPos, boxWidth, boxHeight, "FD");
+
         // Label
-        doc.setFontSize(8);
-        doc.setTextColor(255, 255, 255);
-        doc.setFont(undefined, 'normal');
-        doc.text(item.label, xPos + boxWidth / 2, boxY + 6, { align: 'center' });
-        
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...colors.textLight);
+        doc.text(item.label, xPos + boxWidth / 2, yPos + 6, {
+          align: "center",
+        });
+
         // Value
-        doc.setFontSize(14);
-        doc.setFont(undefined, 'bold');
-        doc.text(String(item.value), xPos + boxWidth / 2, boxY + 14, { align: 'center' });
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...colors.text);
+        doc.text(item.value, xPos + boxWidth / 2, yPos + 12, {
+          align: "center",
+        });
       });
 
-      yPos += boxHeight + 10;
+      yPos += boxHeight + 8;
 
       // ============================================
-      // DATA TABLE - Modern styling
+      // DATA TABLE - Responsive Auto-Adjusting Design
       // ============================================
-      
-      // Prepare table columns and rows
-      const columns = Object.keys(data[0]).map(key => ({
+
+      // Prepare table columns and rows - filter out hidden columns
+      const allColumns = Object.keys(data[0]);
+      const visibleColumns = allColumns.filter((key) => !key.startsWith("_"));
+      const columns = visibleColumns.map((key) => ({
         header: key,
-        dataKey: key
+        dataKey: key,
       }));
 
-      // Add table using the imported autoTable function
+      // Calculate dynamic sizing based on column count
+      const columnCount = columns.length;
+      const availableTableWidth = pageWidth - margins.left - margins.right;
+
+      console.log("📊 PDF Table Configuration:");
+      console.log("   - Total Columns:", columnCount);
+      console.log("   - Available Width:", availableTableWidth, "mm");
+      console.log(
+        "   - Column Names:",
+        columns.map((c) => c.dataKey).join(", ")
+      );
+
+      // Enhanced column width calculation - adaptive for any number of columns
+      const getOptimalColumnWidth = (
+        columnName,
+        totalColumns,
+        availableWidth
+      ) => {
+        // Define column weight system with adaptive min/max based on column count
+        const getColumnConfig = (colName) => {
+          const baseConfigs = {
+            "Generic Name": { weight: 4.5, minBase: 35, maxBase: 60 },
+            "Brand Name": { weight: 3.5, minBase: 30, maxBase: 50 },
+            Category: { weight: 3.8, minBase: 32, maxBase: 55 },
+            "Dosage Strength": { weight: 2.2, minBase: 18, maxBase: 28 },
+            "Dosage Form": { weight: 2.0, minBase: 16, maxBase: 25 },
+            "Drug Classification": { weight: 3.0, minBase: 25, maxBase: 45 },
+            "Stock (Pieces)": { weight: 2.0, minBase: 16, maxBase: 24 },
+            "Price per Piece": { weight: 2.2, minBase: 18, maxBase: 28 },
+            "Cost Price": { weight: 2.2, minBase: 18, maxBase: 28 },
+            "Margin Percentage": { weight: 2.0, minBase: 16, maxBase: 24 },
+            "Expiry Date": { weight: 2.5, minBase: 22, maxBase: 30 },
+            Supplier: { weight: 3.0, minBase: 25, maxBase: 45 },
+            "Batch Number": { weight: 2.3, minBase: 20, maxBase: 30 },
+            "Pieces per Sheet": { weight: 2.0, minBase: 16, maxBase: 24 },
+            "Sheets per Box": { weight: 2.0, minBase: 16, maxBase: 24 },
+          };
+
+          const base = baseConfigs[colName] || {
+            weight: 2.5,
+            minBase: 18,
+            maxBase: 35,
+          };
+
+          // Adjust min/max based on total columns - more columns = smaller minimums
+          let minAdjustment = 1.0;
+          let maxAdjustment = 1.0;
+
+          if (totalColumns <= 5) {
+            minAdjustment = 1.0;
+            maxAdjustment = 1.0;
+          } else if (totalColumns <= 7) {
+            minAdjustment = 0.95;
+            maxAdjustment = 0.9;
+          } else if (totalColumns <= 9) {
+            minAdjustment = 0.85;
+            maxAdjustment = 0.8;
+          } else if (totalColumns <= 12) {
+            minAdjustment = 0.75;
+            maxAdjustment = 0.7;
+          } else {
+            // 13+ columns - aggressive compression
+            minAdjustment = 0.65;
+            maxAdjustment = 0.6;
+          }
+
+          return {
+            weight: base.weight,
+            min: Math.round(base.minBase * minAdjustment),
+            max: Math.round(base.maxBase * maxAdjustment),
+          };
+        };
+
+        const colConfig = getColumnConfig(columnName);
+
+        // Calculate total weight
+        const totalWeight = columns.reduce((sum, col) => {
+          const config = getColumnConfig(col.dataKey);
+          return sum + config.weight;
+        }, 0);
+
+        // Calculate proportional width
+        const proportionalWidth =
+          (colConfig.weight / totalWeight) * availableWidth;
+
+        // Ensure width is within adaptive min/max bounds
+        return Math.max(
+          colConfig.min,
+          Math.min(colConfig.max, proportionalWidth)
+        );
+      };
+
+      // Build dynamic column styles with optimal spacing
+      const dynamicColumnStyles = {};
+      columns.forEach((col, index) => {
+        const colWidth = getOptimalColumnWidth(
+          col.dataKey,
+          columnCount,
+          availableTableWidth
+        );
+
+        dynamicColumnStyles[col.dataKey] = {
+          cellWidth: colWidth,
+          halign:
+            col.dataKey.includes("Price") ||
+            col.dataKey.includes("Cost") ||
+            col.dataKey.includes("Value")
+              ? "right"
+              : col.dataKey.includes("Stock") ||
+                col.dataKey.includes("Dosage") ||
+                col.dataKey.includes("Margin") ||
+                col.dataKey.includes("per Sheet") ||
+                col.dataKey.includes("per Box")
+              ? "center"
+              : "left",
+          fontStyle:
+            col.dataKey === "Generic Name" || col.dataKey === "Stock (Pieces)"
+              ? "bold"
+              : "normal",
+        };
+
+        // First column always gets priority styling
+        if (index === 0) {
+          dynamicColumnStyles[0] = {
+            ...dynamicColumnStyles[col.dataKey],
+            fontStyle: "bold",
+          };
+        }
+      });
+
+      // Optimized font sizes and spacing - aggressive scaling for many columns
+      let headerFontSize, bodyFontSize, cellPadding;
+
+      if (columnCount <= 5) {
+        // Few columns - spacious layout
+        headerFontSize = 9;
+        bodyFontSize = 8;
+        cellPadding = { top: 3.5, right: 4, bottom: 3.5, left: 4 };
+      } else if (columnCount <= 7) {
+        // Standard layout
+        headerFontSize = 8;
+        bodyFontSize = 7;
+        cellPadding = { top: 3, right: 3, bottom: 3, left: 3 };
+      } else if (columnCount <= 9) {
+        // Moderate compression
+        headerFontSize = 7;
+        bodyFontSize = 6.5;
+        cellPadding = { top: 2.5, right: 2.5, bottom: 2.5, left: 2.5 };
+      } else if (columnCount <= 12) {
+        // Significant compression
+        headerFontSize = 6.5;
+        bodyFontSize = 6;
+        cellPadding = { top: 2, right: 2, bottom: 2, left: 2 };
+      } else {
+        // Maximum compression for 13+ columns
+        headerFontSize = 6;
+        bodyFontSize = 5.5;
+        cellPadding = { top: 1.8, right: 1.8, bottom: 1.8, left: 1.8 };
+      }
+
+      console.log(
+        "   - Font Sizes: Header",
+        headerFontSize,
+        "pt, Body",
+        bodyFontSize,
+        "pt"
+      );
+      console.log("   - Cell Padding:", cellPadding.top, "mm");
+
+      // Add table with responsive, space-filling design
       autoTable(doc, {
         startY: yPos,
         columns: columns,
         body: data,
-        theme: 'striped',
+        theme: "plain",
+        tableWidth: availableTableWidth,
         headStyles: {
-          fillColor: [15, 23, 42], // Slate-900
+          fillColor: colors.primary,
           textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 9,
-          halign: 'center',
-          valign: 'middle',
-          cellPadding: 3
+          fontStyle: "bold",
+          fontSize: headerFontSize,
+          halign: "left",
+          valign: "middle",
+          cellPadding: cellPadding,
+          lineWidth: 0.15,
+          lineColor: [255, 255, 255],
         },
         bodyStyles: {
-          fontSize: 8,
-          textColor: [31, 41, 55], // Gray-800
-          cellPadding: 2.5
+          fontSize: bodyFontSize,
+          textColor: colors.text,
+          cellPadding: cellPadding,
+          lineWidth: 0.1,
+          lineColor: colors.border,
+          minCellHeight:
+            columnCount <= 6
+              ? 9
+              : columnCount <= 9
+              ? 8
+              : columnCount <= 12
+              ? 7
+              : 6,
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252] // Slate-50
+          fillColor: colors.lightBg,
         },
-        columnStyles: {
-          0: { fontStyle: 'bold', textColor: [16, 185, 129] }, // First column (Generic Name)
-          'Stock (Pieces)': { halign: 'center' },
-          'Price per Piece': { halign: 'right' },
-          'Expiry Date': { halign: 'center' }
-        },
-        margin: { top: yPos, left: 14, right: 14, bottom: 25 },
+        columnStyles: dynamicColumnStyles,
+        margin: margins,
         styles: {
-          cellPadding: 2,
-          overflow: 'linebreak',
-          cellWidth: 'wrap',
-          lineColor: [226, 232, 240], // Slate-200
-          lineWidth: 0.1
+          overflow: "linebreak",
+          cellWidth: "wrap",
+          lineColor: colors.border,
+          lineWidth: 0.1,
+          fontSize: bodyFontSize,
+          halign: "left",
         },
-        // Highlight critical rows
-        didParseCell: function(data) {
-          if (data.column.dataKey === 'Stock (Pieces)' && data.cell.section === 'body') {
-            const stock = parseInt(data.cell.raw);
+        // Add alternating row effect with better contrast
+        willDrawCell: function (data) {
+          // Add subtle hover effect for rows
+          if (data.row.section === "body" && data.row.index % 2 === 0) {
+            data.cell.styles.fillColor = [255, 255, 255];
+          }
+        },
+        // Subtle highlighting for critical values
+        didParseCell: function (data) {
+          // Stock highlighting - subtle
+          if (
+            data.column.dataKey === "Stock (Pieces)" &&
+            data.cell.section === "body"
+          ) {
+            const stock = parseInt(data.cell.raw || 0);
             if (stock === 0) {
-              data.cell.styles.textColor = [239, 68, 68]; // Red for out of stock
-              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.textColor = [220, 38, 38]; // Red-600
+              data.cell.styles.fontStyle = "bold";
             } else if (stock <= 10) {
-              data.cell.styles.textColor = [251, 146, 60]; // Orange for low stock
-              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.textColor = [234, 88, 12]; // Orange-600
+              data.cell.styles.fontStyle = "bold";
             }
           }
-          
-          // Highlight expired dates
-          if (data.column.dataKey === 'Expiry Date' && data.cell.section === 'body') {
-            const expiryDate = new Date(data.cell.raw);
-            const today = new Date();
-            if (expiryDate < today) {
-              data.cell.styles.textColor = [239, 68, 68]; // Red
-              data.cell.styles.fontStyle = 'bold';
+
+          // Expiry date highlighting
+          if (
+            data.column.dataKey === "Expiry Date" &&
+            data.cell.section === "body"
+          ) {
+            try {
+              const expiryDate = new Date(data.cell.raw);
+              const today = new Date();
+              const daysUntilExpiry = Math.ceil(
+                (expiryDate - today) / (1000 * 60 * 60 * 24)
+              );
+
+              if (daysUntilExpiry < 0) {
+                // Expired - bold red
+                data.cell.styles.textColor = [220, 38, 38];
+                data.cell.styles.fontStyle = "bold";
+              } else if (daysUntilExpiry <= 30) {
+                // Expiring soon - orange
+                data.cell.styles.textColor = [234, 88, 12];
+              }
+            } catch {
+              // Skip if date parsing fails
             }
           }
-        }
+
+          // Price highlighting for high-value items
+          if (
+            data.column.dataKey === "Price per Piece" &&
+            data.cell.section === "body"
+          ) {
+            const price = parseFloat(data.cell.raw || 0);
+            if (price >= 100) {
+              data.cell.styles.fontStyle = "bold";
+            }
+          }
+        },
+        didDrawPage: function () {
+          // Add header to each page
+          addHeader(doc.internal.getCurrentPageInfo().pageNumber);
+        },
       });
 
       // ============================================
-      // FOOTER - Professional with page numbers
+      // FOOTER - Professional and Minimal
       // ============================================
-      
+
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        
-        // Footer background
-        doc.setFillColor(241, 245, 249); // Slate-100
-        doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
-        
-        // Footer line
-        doc.setDrawColor(203, 213, 225); // Slate-300
-        doc.setLineWidth(0.5);
-        doc.line(14, pageHeight - 20, pageWidth - 14, pageHeight - 20);
-        
-        // Left side - Company info
-        doc.setFontSize(8);
-        doc.setTextColor(71, 85, 105); // Slate-600
-        doc.setFont(undefined, 'normal');
-        doc.text('MedCure Pharmacy Management System', 14, pageHeight - 12);
+
+        // Simple footer line
+        doc.setDrawColor(...colors.border);
+        doc.setLineWidth(0.3);
+        doc.line(
+          margins.left,
+          pageHeight - 15,
+          pageWidth - margins.right,
+          pageHeight - 15
+        );
+
+        // Footer text - left side
         doc.setFontSize(7);
-        doc.setTextColor(148, 163, 184); // Slate-400
-        doc.text('Professional Inventory Management Solution', 14, pageHeight - 8);
-        
-        // Center - Document security note
-        doc.setFontSize(7);
-        doc.setTextColor(100, 116, 139); // Slate-500
-        doc.text('CONFIDENTIAL - For Internal Use Only', pageWidth / 2, pageHeight - 10, { align: 'center' });
-        
-        // Right side - Page numbers
-        doc.setFontSize(9);
-        doc.setTextColor(71, 85, 105); // Slate-600
-        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...colors.textLight);
+        doc.setFont("helvetica", "normal");
+        doc.text(
+          "MedCure Pharmacy Management System",
+          margins.left,
+          pageHeight - 10
+        );
+
+        // Footer text - center
+        doc.text(
+          "CONFIDENTIAL - For Internal Use Only",
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: "center" }
+        );
+
+        // Footer text - right side (page number)
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...colors.text);
         doc.text(
           `Page ${i} of ${pageCount}`,
-          pageWidth - 14,
+          pageWidth - margins.right,
           pageHeight - 10,
-          { align: 'right' }
+          { align: "right" }
         );
       }
 
       // ============================================
       // SAVE PDF
       // ============================================
-      
+
       doc.save(`${filename}_${new Date().toISOString().split("T")[0]}.pdf`);
       console.log("✅ PDF generated successfully!");
     } catch (error) {
@@ -564,9 +937,13 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
                     : "border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-gray-700"
                 }`}
               >
-                <FileText className={`w-5 h-5 transition-transform duration-200 ${
-                  exportOptions.exportType === "products" ? "scale-110" : "group-hover:scale-110"
-                }`} />
+                <FileText
+                  className={`w-5 h-5 transition-transform duration-200 ${
+                    exportOptions.exportType === "products"
+                      ? "scale-110"
+                      : "group-hover:scale-110"
+                  }`}
+                />
                 <span className="font-medium">Product Inventory</span>
               </button>
               <button
@@ -582,9 +959,13 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
                     : "border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-gray-700"
                 }`}
               >
-                <Database className={`w-5 h-5 transition-transform duration-200 ${
-                  exportOptions.exportType === "categories" ? "scale-110" : "group-hover:scale-110"
-                }`} />
+                <Database
+                  className={`w-5 h-5 transition-transform duration-200 ${
+                    exportOptions.exportType === "categories"
+                      ? "scale-110"
+                      : "group-hover:scale-110"
+                  }`}
+                />
                 <span className="font-medium">Category Insights</span>
               </button>
             </div>
@@ -607,7 +988,9 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
                 }`}
               >
                 <div className="text-lg">CSV</div>
-                <div className="text-xs text-gray-500 mt-1">Excel Compatible</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Excel Compatible
+                </div>
               </button>
               <button
                 onClick={() =>
@@ -620,7 +1003,9 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
                 }`}
               >
                 <div className="text-lg">JSON</div>
-                <div className="text-xs text-gray-500 mt-1">Structured Data</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Structured Data
+                </div>
               </button>
               <button
                 onClick={() =>
@@ -714,7 +1099,7 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {Object.entries({
                     name: "Generic Name",
-                    brand: "Brand Name", 
+                    brand: "Brand Name",
                     category: "Category",
                     dosageStrength: "Dosage Strength",
                     dosageForm: "Dosage Form",
@@ -728,14 +1113,19 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
                     batchNumber: "Batch Number",
                     unitConversion: "Unit Conversion",
                   }).map(([key, label]) => (
-                    <label key={key} className="flex items-center space-x-2 cursor-pointer group">
+                    <label
+                      key={key}
+                      className="flex items-center space-x-2 cursor-pointer group"
+                    >
                       <input
                         type="checkbox"
                         checked={exportOptions.columns[key]}
                         onChange={(e) => updateColumns(key, e.target.checked)}
                         className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                       />
-                      <span className="text-sm text-gray-700 group-hover:text-emerald-600 transition-colors duration-200">{label}</span>
+                      <span className="text-sm text-gray-700 group-hover:text-emerald-600 transition-colors duration-200">
+                        {label}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -755,9 +1145,10 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
                     📊 Category Insights Export
                   </h4>
                   <p className="text-sm text-emerald-700 leading-relaxed">
-                    This will export intelligent category insights including total
-                    products, total value, low stock counts, auto-creation status,
-                    and last update times for all categories in your inventory.
+                    This will export intelligent category insights including
+                    total products, total value, low stock counts, auto-creation
+                    status, and last update times for all categories in your
+                    inventory.
                   </p>
                 </div>
               </div>
