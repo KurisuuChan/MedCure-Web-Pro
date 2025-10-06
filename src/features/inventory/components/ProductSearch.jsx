@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Search, Filter, X, SlidersHorizontal } from "lucide-react";
+import {
+  Search,
+  Filter,
+  X,
+  SlidersHorizontal,
+  Tag,
+  Archive,
+} from "lucide-react";
 
 export default function ProductSearch({
   onSearch,
@@ -8,6 +15,8 @@ export default function ProductSearch({
   currentFilters = {},
   searchTerm: initialSearchTerm = "",
   className = "",
+  setShowCategoriesModal,
+  setShowArchivedModal,
 }) {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [filters, setFilters] = useState({
@@ -17,7 +26,7 @@ export default function ProductSearch({
     drugClassification: "All",
     dosageStrength: "All",
     dosageForm: "All",
-    ...currentFilters
+    ...currentFilters,
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
@@ -42,7 +51,7 @@ export default function ProductSearch({
     }));
   };
 
-    const clearFilters = () => {
+  const clearFilters = () => {
     const clearedFilters = {
       category: "All Categories",
       stockStatus: "All",
@@ -55,10 +64,7 @@ export default function ProductSearch({
   };
 
   const hasActiveFilters = Object.values(filters).some(
-    (value) =>
-      value !== "All Categories" && 
-      value !== "All" &&
-      value !== ""
+    (value) => value !== "All Categories" && value !== "All" && value !== ""
   );
 
   return (
@@ -78,28 +84,51 @@ export default function ProductSearch({
           />
         </div>
 
+        {/* Categories Button - Icon Only with Tooltip */}
+        {setShowCategoriesModal && (
+          <button
+            onClick={() => setShowCategoriesModal(true)}
+            className="group flex items-center justify-center w-10 h-10 bg-white border border-gray-300 text-purple-600 rounded-lg hover:bg-purple-50 hover:border-purple-400 hover:text-purple-700 transition-all duration-200 shadow-sm hover:shadow"
+            title="Manage Categories"
+            aria-label="Manage Categories"
+          >
+            <Tag className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+          </button>
+        )}
+
+        {/* Filters Button */}
         <button
           onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-          className={`flex items-center space-x-2 px-3 py-2 border rounded-lg transition-colors ${
+          className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-all duration-200 shadow-sm font-medium ${
             showAdvancedFilters || hasActiveFilters
-              ? "border-blue-500 bg-blue-50 text-blue-700"
-              : "border-gray-300 text-gray-700 hover:bg-gray-50"
+              ? "border-blue-500 bg-blue-50 text-blue-700 shadow"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400"
           }`}
         >
           <SlidersHorizontal className="h-4 w-4" />
           <span>Filters</span>
           {hasActiveFilters && (
-            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 ml-1">
+            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 ml-1 font-semibold">
               {
                 Object.values(filters).filter(
-                  (value) =>
-                    value !== "All Categories" &&
-                    value !== "All"
+                  (value) => value !== "All Categories" && value !== "All"
                 ).length
               }
             </span>
           )}
         </button>
+
+        {/* Archived Button - Icon Only with Tooltip */}
+        {setShowArchivedModal && (
+          <button
+            onClick={() => setShowArchivedModal(true)}
+            className="group flex items-center justify-center w-10 h-10 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 hover:border-gray-400 hover:text-gray-700 transition-all duration-200 shadow-sm hover:shadow"
+            title="View Archived Products"
+            aria-label="View Archived Products"
+          >
+            <Archive className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+          </button>
+        )}
       </div>
 
       {/* Advanced Filters */}
@@ -118,17 +147,12 @@ export default function ProductSearch({
               >
                 <option value="All Categories">All Categories</option>
                 {filterOptions.categories?.map((category) => (
-                  <option
-                    key={category}
-                    value={category}
-                  >
+                  <option key={category} value={category}>
                     {category}
                   </option>
                 ))}
               </select>
             </div>
-
-
 
             {/* Stock Status Filter */}
             <div>
@@ -251,11 +275,7 @@ export default function ProductSearch({
       {hasActiveFilters && !showAdvancedFilters && (
         <div className="flex flex-wrap gap-2 mt-3">
           {Object.entries(filters).map(([key, value]) => {
-            if (
-              value === "All Categories" ||
-              value === "All"
-            )
-              return null;
+            if (value === "All Categories" || value === "All") return null;
 
             return (
               <span
@@ -267,9 +287,7 @@ export default function ProductSearch({
                   onClick={() =>
                     handleFilterChange(
                       key,
-                      key === "category"
-                        ? "All Categories"
-                        : "All"
+                      key === "category" ? "All Categories" : "All"
                     )
                   }
                   className="hover:text-blue-600"

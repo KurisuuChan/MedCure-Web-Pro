@@ -25,7 +25,9 @@ const LoginPage = React.lazy(() => import("./pages/LoginPage"));
 const DashboardPage = React.lazy(() => import("./pages/DashboardPage"));
 const POSPage = React.lazy(() => import("./pages/POSPage"));
 const InventoryPage = React.lazy(() => import("./pages/InventoryPage"));
-const ManagementPage = React.lazy(() => import("./pages/ManagementPage"));
+const SystemSettingsPage = React.lazy(() =>
+  import("./pages/SystemSettingsPage")
+);
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const UnauthorizedPage = React.lazy(() => import("./pages/UnauthorizedPage"));
 const UserManagementPage = React.lazy(() =>
@@ -244,11 +246,11 @@ function AppContent() {
       />
 
       <Route
-        path="/management"
+        path="/system-settings"
         element={
-          <PageErrorBoundary title="Management Error">
+          <PageErrorBoundary title="System Settings Error">
             <ProtectedRoute requiredRole="admin">
-              <ManagementPage />
+              <SystemSettingsPage />
             </ProtectedRoute>
           </PageErrorBoundary>
         }
