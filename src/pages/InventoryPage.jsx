@@ -1119,7 +1119,7 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
   const loadBatches = async () => {
     try {
       setLoadingBatches(true);
-      const batchData = await ProductService.getBatchesForProduct(product.id, true); // Use enhanced mode
+      const batchData = await ProductService.getBatchesForProduct(product.id);
       setBatches(batchData);
     } catch (error) {
       console.warn('⚠️ Batch functions not available yet:', error);

@@ -2,12 +2,14 @@
 // MEDCURE CSV IMPORT SERVICE
 // =============================================================================
 // Purpose: Handle CSV import with medicine-specific validation
-// Date: October 3, 2025
+// Features: Auto-create new dosage forms and drug classifications
+// Date: October 6, 2025
 // Author: System Architect
 // =============================================================================
 
 import { parseFlexibleDate, isDateNotInPast, getDateFormatErrorMessage } from "../../../utils/dateParser";
 import { logDebug, handleError } from "../../core/serviceUtils";
+import { supabase } from "../../../config/supabase";
 
 export class CSVImportService {
   // Medicine-specific field mappings for both old and new formats
@@ -44,7 +46,7 @@ export class CSVImportService {
     batch_number: ['batch_number', 'Batch Number'],
   };
 
-  // Valid enum values
+  // Valid enum values (will be checked dynamically)
   static ENUM_VALUES = {
     dosage_form: ['Tablet', 'Capsule', 'Syrup', 'Injection', 'Ointment', 'Drops', 'Inhaler'],
     drug_classification: ['Prescription (Rx)', 'Over-the-Counter (OTC)', 'Controlled Substance']
@@ -61,8 +63,8 @@ export class CSVImportService {
   static OPTIONAL_FIELDS = [
     { name: 'brand_name', required: false },
     { name: 'dosage_strength', required: false },
-    { name: 'dosage_form', required: false, enum: 'dosage_form' },
-    { name: 'drug_classification', required: false, enum: 'drug_classification' },
+    { name: 'dosage_form', required: false, enum: 'dosage_form', auto_create: true },
+    { name: 'drug_classification', required: false, enum: 'drug_classification', auto_create: true },
     { name: 'pieces_per_sheet', required: false, type: 'number', min: 1 },
     { name: 'sheets_per_box', required: false, type: 'number', min: 1 },
     { name: 'reorder_level', required: false, type: 'number', min: 0 },
@@ -168,21 +170,100 @@ export class CSVImportService {
   }
 
   /**
-   * Validate CSV data with medicine-specific rules
-   * @param {Array} data - Parsed CSV data
-   * @returns {Object} Validation result with valid data and errors
+   * Auto-create enum value if it doesn't exist
+   * @param {string} enumType - Type of enum (dosage_form or drug_classification)
+   * @param {string} value - Value to add
+   * @returns {Promise<boolean>} Success status
    */
-  static validateData(data) {
+  static async autoCreateEnumValue(enumType, value) {
+    try {
+      if (!value || !value.trim()) return false;
+      
+      const cleanValue = value.trim();
+      
+      // Check if value already exists in our static list
+      if (this.ENUM_VALUES[enumType] && this.ENUM_VALUES[enumType].includes(cleanValue)) {
+        return true; // Already exists
+      }
+      
+      // Try to add to database enum
+      let functionName;
+      if (enumType === 'dosage_form') {
+        functionName = 'add_dosage_form_value';
+      } else if (enumType === 'drug_classification') {
+        functionName = 'add_drug_classification_value';
+      } else {
+        return false;
+      }
+      
+      const { data, error } = await supabase.rpc(functionName, {
+        new_value: cleanValue
+      });
+      
+      if (error) {
+        console.warn(`⚠️ Could not add ${enumType} value "${cleanValue}":`, error);
+        return false;
+      }
+      
+      // Add to our static list for this session
+      if (data) {
+        this.ENUM_VALUES[enumType].push(cleanValue);
+        console.log(`✅ Auto-created new ${enumType}: ${cleanValue}`);
+      }
+      
+      return true;
+      
+    } catch (error) {
+      console.warn(`⚠️ Error auto-creating ${enumType} value:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Validate CSV data with medicine-specific rules and auto-creation
+   * @param {Array} data - Parsed CSV data
+   * @returns {Promise<Object>} Validation result with valid data and errors
+   */
+  static async validateData(data) {
     const validationErrors = [];
     const validData = [];
+    const newEnumValues = [];
 
     const allFields = [...this.REQUIRED_FIELDS, ...this.OPTIONAL_FIELDS];
 
+    // First pass: collect unique enum values and try to auto-create them
+    const uniqueValues = { dosage_form: new Set(), drug_classification: new Set() };
+    
+    data.forEach(row => {
+      if (row.dosage_form && row.dosage_form.trim()) {
+        uniqueValues.dosage_form.add(row.dosage_form.trim());
+      }
+      if (row.drug_classification && row.drug_classification.trim()) {
+        uniqueValues.drug_classification.add(row.drug_classification.trim());
+      }
+    });
+
+    // Try to auto-create new enum values
+    for (const form of uniqueValues.dosage_form) {
+      const created = await this.autoCreateEnumValue('dosage_form', form);
+      if (created && !this.ENUM_VALUES.dosage_form.includes(form)) {
+        newEnumValues.push({ type: 'dosage_form', value: form });
+      }
+    }
+
+    for (const classification of uniqueValues.drug_classification) {
+      const created = await this.autoCreateEnumValue('drug_classification', classification);
+      if (created && !this.ENUM_VALUES.drug_classification.includes(classification)) {
+        newEnumValues.push({ type: 'drug_classification', value: classification });
+      }
+    }
+
+    // Second pass: validate each row (now with updated enum values)
     data.forEach((row, index) => {
       const rowErrors = [];
 
       // Validate all fields
-      allFields.forEach(({ name, required, type, min, max, enum: enumType }) => {
+      allFields.forEach(({ name, required, type, min, max, enum: enumType, auto_create }) => {
         const value = row[name];
 
         // Check required fields
@@ -209,10 +290,15 @@ export class CSVImportService {
           }
         }
 
-        // Validate enum fields
+        // Validate enum fields (now more lenient with auto-creation)
         if (enumType && this.ENUM_VALUES[enumType]) {
           if (!this.ENUM_VALUES[enumType].includes(value)) {
-            rowErrors.push(`${name} must be one of: ${this.ENUM_VALUES[enumType].join(', ')}`);
+            if (auto_create) {
+              // For auto-create fields, just warn but don't fail validation
+              console.warn(`⚠️ New ${enumType} value "${value}" will be auto-created`);
+            } else {
+              rowErrors.push(`${name} must be one of: ${this.ENUM_VALUES[enumType].join(', ')}`);
+            }
           }
         }
       });
@@ -239,7 +325,9 @@ export class CSVImportService {
       validationErrors,
       totalRows: data.length,
       validRows: validData.length,
-      errorRows: validationErrors.length
+      errorRows: validationErrors.length,
+      newEnumValues, // List of auto-created enum values
+      addedEnumCount: newEnumValues.length
     };
   }
 

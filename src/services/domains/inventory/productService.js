@@ -678,20 +678,17 @@ export class ProductService {
   /**
    * Get all batches for a specific product
    * @param {string} productId - UUID of the product
-   * @param {boolean} enhanced - Whether to use enhanced function with medicine details
    * @returns {Promise<Array>} List of batches for the product
    */
-  static async getBatchesForProduct(productId, enhanced = true) {
+  static async getBatchesForProduct(productId) {
     try {
-      logDebug("Fetching batches for product:", { productId, enhanced });
+      logDebug("Fetching batches for product:", productId);
 
       if (!productId) {
         throw new Error("Product ID is required");
       }
 
-      // Use enhanced function for new medicine structure
-      const functionName = enhanced ? "get_batches_with_medicine_info" : "get_batches_for_product";
-      const { data, error } = await supabase.rpc(functionName, {
+      const { data, error } = await supabase.rpc("get_batches_for_product", {
         p_product_id: productId,
       });
 
@@ -720,16 +717,13 @@ export class ProductService {
 
   /**
    * Get all batches across all products (for Batch Management page)
-   * @param {boolean} enhanced - Whether to use enhanced function with medicine details
    * @returns {Promise<Array>} List of all batches with product information
    */
-  static async getAllBatches(enhanced = true) {
+  static async getAllBatches() {
     try {
-      logDebug("Fetching all product batches", { enhanced });
+      logDebug("Fetching all product batches");
 
-      // Use enhanced function for new medicine structure
-      const functionName = enhanced ? "get_all_batches_enhanced" : "get_all_batches";
-      const { data, error } = await supabase.rpc(functionName);
+      const { data, error } = await supabase.rpc("get_all_batches");
 
       if (error) {
         console.error(
@@ -793,67 +787,6 @@ export class ProductService {
       console.error("❌ ProductService.updateBatchQuantity() failed:", error);
       handleError(error, "Update batch quantity");
       throw error;
-    }
-  }
-
-  /**
-   * Get expiring batches within specified days
-   * @param {number} daysAhead - Number of days to look ahead (default 30)
-   * @returns {Promise<Array>} List of expiring batches with medicine details
-   */
-  static async getExpiringBatches(daysAhead = 30) {
-    try {
-      logDebug("Fetching expiring batches:", { daysAhead });
-
-      const { data, error } = await supabase.rpc("get_expiring_batches", {
-        days_ahead: daysAhead,
-      });
-
-      if (error) {
-        console.error(
-          "❌ ProductService.getExpiringBatches() Supabase error:",
-          error
-        );
-        throw error;
-      }
-
-      console.log(`✅ Successfully fetched ${data?.length || 0} expiring batches`);
-      logDebug("Expiring batches:", data);
-
-      return data || [];
-    } catch (error) {
-      console.error("❌ ProductService.getExpiringBatches() failed:", error);
-      handleError(error, "Get expiring batches");
-      return [];
-    }
-  }
-
-  /**
-   * Get batch analytics and statistics
-   * @returns {Promise<Object>} Batch analytics data
-   */
-  static async getBatchAnalytics() {
-    try {
-      logDebug("Fetching batch analytics");
-
-      const { data, error } = await supabase.rpc("get_batch_analytics");
-
-      if (error) {
-        console.error(
-          "❌ ProductService.getBatchAnalytics() Supabase error:",
-          error
-        );
-        throw error;
-      }
-
-      console.log("✅ Successfully fetched batch analytics:", data);
-      logDebug("Batch analytics:", data);
-
-      return data || {};
-    } catch (error) {
-      console.error("❌ ProductService.getBatchAnalytics() failed:", error);
-      handleError(error, "Get batch analytics");
-      return {};
     }
   }
 

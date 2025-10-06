@@ -65,7 +65,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       }
 
       // Use new validation service
-      const validationResult = CSVImportService.validateData(data);
+      const validationResult = await CSVImportService.validateData(data);
 
       if (validationResult.validationErrors.length > 0) {
         setErrors(validationResult.validationErrors);
