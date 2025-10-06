@@ -122,10 +122,12 @@ export default function ArchivedProductsManagement() {
   // Filter products
   const filteredProducts = archivedProducts.filter((product) => {
     // If no search term, don't filter by search
+    const productName = product.name || product.product_name || product.generic_name || "";
+    const productBrand = product.brand || product.brand_name || "";
     const matchesSearch =
       !searchTerm ||
-      product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.brand?.toLowerCase().includes(searchTerm.toLowerCase());
+      productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      productBrand.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesReason =
       filterReason === "all" || product.archive_reason === filterReason;
