@@ -38,6 +38,8 @@ import { EnhancedImportModal } from "../components/ui/EnhancedImportModal";
 import { useAuth } from "../hooks/useAuth"; // Not currently used
 import { ProductService } from "../services/domains/inventory/productService";
 import AddStockModal from "../components/modals/AddStockModal";
+import CategoryManagement from "../features/inventory/components/CategoryManagement";
+import ArchivedProductsManagement from "../features/inventory/components/ArchivedProductsManagement";
 
 // Extracted Components
 import InventoryHeader from "../features/inventory/components/InventoryHeader";
@@ -105,6 +107,8 @@ export default function InventoryPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [productToArchive, setProductToArchive] = useState(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
 
   // Dynamic categories state
   const [dynamicCategories, setDynamicCategories] = useState([]);
@@ -293,6 +297,8 @@ export default function InventoryPage() {
             }}
             currentFilters={filters}
             searchTerm={searchTerm}
+            setShowCategoriesModal={setShowCategoriesModal}
+            setShowArchivedModal={setShowArchivedModal}
           />
 
           {/* Product List/Grid Section */}
@@ -411,6 +417,30 @@ export default function InventoryPage() {
           console.log(`${toast.type.toUpperCase()}: ${toast.message}`);
         }}
       />
+
+      {/* Categories Management Modal */}
+      {showCategoriesModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-6xl max-h-[90vh] overflow-hidden">
+            <CategoryManagement
+              onClose={() => setShowCategoriesModal(false)}
+              onCategoriesChange={loadProducts}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Archived Products Management Modal */}
+      {showArchivedModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-7xl max-h-[90vh] overflow-hidden">
+            <ArchivedProductsManagement
+              onClose={() => setShowArchivedModal(false)}
+              onRestore={loadProducts}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
