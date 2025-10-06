@@ -55,7 +55,11 @@ export default function ArchivedProductsManagement() {
   };
 
   const handleRestoreProduct = async (product) => {
-    const productName = product.name || product.product_name || product.generic_name || "this product";
+    const productName =
+      product.name ||
+      product.product_name ||
+      product.generic_name ||
+      "this product";
     if (!window.confirm(`Are you sure you want to restore "${productName}"?`))
       return;
 
@@ -75,7 +79,11 @@ export default function ArchivedProductsManagement() {
       if (error) throw error;
 
       setArchivedProducts(archivedProducts.filter((p) => p.id !== product.id));
-      const productName = product.name || product.product_name || product.generic_name || "Product";
+      const productName =
+        product.name ||
+        product.product_name ||
+        product.generic_name ||
+        "Product";
       alert(`✅ Product "${productName}" has been restored successfully!`);
     } catch (error) {
       console.error("❌ [ArchivedProducts] Error restoring:", error);
@@ -122,7 +130,8 @@ export default function ArchivedProductsManagement() {
   // Filter products
   const filteredProducts = archivedProducts.filter((product) => {
     // If no search term, don't filter by search
-    const productName = product.name || product.product_name || product.generic_name || "";
+    const productName =
+      product.name || product.product_name || product.generic_name || "";
     const productBrand = product.brand || product.brand_name || "";
     const matchesSearch =
       !searchTerm ||
@@ -334,7 +343,10 @@ export default function ArchivedProductsManagement() {
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {product.name || product.product_name || product.generic_name || "Unnamed Product"}
+                            {product.name ||
+                              product.product_name ||
+                              product.generic_name ||
+                              "Unnamed Product"}
                           </div>
                           <div className="text-sm text-gray-500">
                             {product.brand || product.brand_name || "No brand"}
