@@ -1,4 +1,4 @@
-import { supabase } from "\.\.\/\.\.\/\.\.\/config\/supabase";
+import { supabase } from "../../../config/supabase";
 
 // ==========================================
 // AUDIT SERVICE
@@ -36,7 +36,7 @@ export const AuditService = {
           created_at,
           reference_type,
           reference_id,
-          products!inner(name, brand, category),
+          products!inner(generic_name, brand_name, category),
           users!inner(first_name, last_name, email, role)
         `
         )
@@ -82,8 +82,8 @@ export const AuditService = {
         userEmail: log.users.email,
         details: getActionDetails(log),
         timestamp: log.created_at,
-        product: log.products.name,
-        productBrand: log.products.brand,
+        product: log.products.generic_name,
+        productBrand: log.products.brand_name,
         category: log.products.category,
         quantity: log.quantity,
         stockBefore: log.stock_before,
@@ -184,7 +184,7 @@ export const AuditService = {
           quantity,
           reason,
           created_at,
-          products!inner(name, brand)
+          products!inner(generic_name, brand_name)
         `
         )
         .eq("user_id", userId)
@@ -245,12 +245,12 @@ export const ReportsService = {
           payment_method,
           status,
           created_at,
-          users!inner(first_name, last_name),
+          user_id,
           sale_items!inner(
             quantity,
             unit_price,
             total_price,
-            products!inner(name, category)
+            products!inner(generic_name, category)
           )
         `
         )
@@ -293,7 +293,7 @@ export const ReportsService = {
                   0
                 ) / salesData.length
               : 0,
-          uniqueCustomers: [...new Set(salesData.map((sale) => sale.users.id))]
+          uniqueCustomers: [...new Set(salesData.map((sale) => sale.user_id))]
             .length,
         },
         paymentMethods: {
@@ -337,8 +337,8 @@ export const ReportsService = {
         .select(
           `
           id,
-          name,
-          brand,
+          generic_name,
+          brand_name,
           category,
           stock_in_pieces,
           reorder_level,
@@ -450,7 +450,7 @@ export const ReportsService = {
               quantity,
               unit_price,
               total_price,
-              products!inner(cost_price, price_per_piece, name)
+              products!inner(cost_price, price_per_piece, generic_name)
             )
           `
           )
@@ -618,7 +618,7 @@ function getActionDescription(log) {
 }
 
 function getActionDetails(log) {
-  const product = log.products.name;
+  const product = log.products.generic_name;
   const quantity = Math.abs(log.quantity);
   const action =
     log.movement_type === "in"
@@ -635,7 +635,7 @@ function getTopProducts(salesData) {
 
   salesData.forEach((sale) => {
     sale.sale_items.forEach((item) => {
-      const productName = item.products.name;
+      const productName = item.products.generic_name;
       if (!productSales[productName]) {
         productSales[productName] = {
           name: productName,
@@ -786,7 +786,7 @@ function generateInventoryCSV(reportData) {
         : product.stock_in_pieces <= product.reorder_level
         ? "Low Stock"
         : "Normal";
-    csv += `${product.name},${product.category},${product.stock_in_pieces},${product.price_per_piece},${product.totalValue},${status}\n`;
+    csv += `${product.generic_name},${product.category},${product.stock_in_pieces},${product.price_per_piece},${product.totalValue},${status}\n`;
   });
 
   return csv;

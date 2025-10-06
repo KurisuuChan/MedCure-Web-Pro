@@ -85,7 +85,7 @@ function InventoryHeader({
             }`}
           >
             <BarChart3 className="h-4 w-4" />
-            <span>Analytics</span>
+            <span>Analytics & Reports</span>
           </button>
         </div>
       </div>

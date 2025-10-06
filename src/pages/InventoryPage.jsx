@@ -19,7 +19,7 @@ import {
   Pill,
   Shield,
 } from "lucide-react";
-import EnhancedInventoryDashboard from "../features/inventory/components/EnhancedInventoryDashboard";
+import AnalyticsReportsPage from "../features/analytics/components/AnalyticsReportsPage";
 import ArchiveReasonModal from "../components/modals/ArchiveReasonModal";
 import {
   getStockStatus,
@@ -383,8 +383,8 @@ export default function InventoryPage() {
           />
         </>
       ) : (
-        // Enhanced Dashboard Tab
-        <EnhancedInventoryDashboard />
+        // Analytics & Reports Tab
+        <AnalyticsReportsPage />
       )}
 
       {/* Export Modal */}
@@ -392,6 +392,7 @@ export default function InventoryPage() {
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
         products={allProducts}
+        categories={dynamicCategories.map((cat) => cat.name)}
       />
 
       {/* Enhanced Import Modal with AI-powered category detection */}
