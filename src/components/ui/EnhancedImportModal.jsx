@@ -457,7 +457,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                               <span className="font-medium">
                                 price_per_piece
                               </span>{" "}
-                              - Unit price in PHP (optional, defaults to 0.00)
+                              - Unit price in PHP (optional, defaults to ₱1.00)
                             </div>
                             <div>
                               <span className="font-medium">brand_name</span> -

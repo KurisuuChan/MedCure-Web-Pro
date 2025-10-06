@@ -128,6 +128,12 @@ export class CSVImportService {
         const values = parseCSVLine(line);
         const row = {};
         
+        // Debug logging for problematic rows
+        if (values.length !== rawHeaders.length) {
+          console.warn(`⚠️ Row ${index + 2}: Expected ${rawHeaders.length} fields, got ${values.length} fields`);
+          console.warn(`⚠️ Row data:`, values);
+        }
+        
         rawHeaders.forEach((header, i) => {
           const normalizedHeader = normalizedHeaders[i];
           if (normalizedHeader) {
@@ -136,6 +142,26 @@ export class CSVImportService {
         });
         
         return row;
+      }).filter((row, index) => {
+        // Filter out rows where generic_name is empty or contains comma-separated data
+        const genericName = row.generic_name?.trim();
+        if (!genericName) {
+          console.warn(`⚠️ Skipping row ${index + 2}: Missing generic_name`);
+          return false;
+        }
+        
+        // Check if generic_name contains what looks like CSV data (multiple commas)
+        if (genericName.includes(',') && genericName.split(',').length > 3) {
+          console.warn(`⚠️ Skipping row ${index + 2}: Malformed data in generic_name field: ${genericName.substring(0, 50)}...`);
+          return false;
+        }
+        
+        // Additional check for brand_name - if it's empty but we have other data, use generic_name
+        if (!row.brand_name?.trim() && row.generic_name?.trim()) {
+          console.warn(`⚠️ Row ${index + 2}: Empty brand_name, will use generic_name as fallback`);
+        }
+        
+        return true;
       });
 
       logDebug(`Successfully parsed ${data.length} rows`);
@@ -287,6 +313,10 @@ export class CSVImportService {
             if (max !== undefined && numValue > max) {
               rowErrors.push(`${name} must be at most ${max}`);
             }
+            // Special validation for price_per_piece - must be > 0
+            if (name === 'price_per_piece' && numValue <= 0) {
+              rowErrors.push(`${name} must be greater than 0`);
+            }
           }
         }
 
@@ -358,7 +388,7 @@ export class CSVImportService {
     const transformed = {
       // Primary fields
       generic_name: row.generic_name.trim(),
-      brand_name: row.brand_name ? row.brand_name.trim() : '',
+      brand_name: (row.brand_name && row.brand_name.trim()) ? row.brand_name.trim() : row.generic_name.trim(),
       description: row.description ? row.description.trim() : '',
       category: row.category_name ? row.category_name.trim() : 'General',
       
@@ -368,7 +398,7 @@ export class CSVImportService {
       drug_classification: row.drug_classification || null,
       
       // Pricing fields
-      price_per_piece: row.price_per_piece ? parseFloat(row.price_per_piece) : 0.00,
+      price_per_piece: row.price_per_piece ? parseFloat(row.price_per_piece) : 1.00,
       cost_price: row.cost_price ? parseFloat(row.cost_price) : null,
       base_price: row.base_price ? parseFloat(row.base_price) : null,
       
