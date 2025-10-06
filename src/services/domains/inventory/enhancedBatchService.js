@@ -34,15 +34,10 @@ export class EnhancedBatchService {
       // Get current user ID from auth context if available
       const userId = this.getCurrentUserId();
 
-      const { data, error } = await supabase.rpc('add_product_batch_enhanced', {
+      const { data, error } = await supabase.rpc('add_product_batch', {
         p_product_id: productId,
         p_quantity: parseInt(quantity),
-        p_batch_number: batchNumber || null,
-        p_expiry_date: expiryDate || null,
-        p_cost_per_unit: parseFloat(costPerUnit) || 0,
-        p_supplier_name: supplierName || null,
-        p_notes: notes || null,
-        p_user_id: userId
+        p_expiry_date: expiryDate || null
       });
 
       if (error) {
@@ -129,12 +124,10 @@ export class EnhancedBatchService {
       // Get current user ID from auth context if available
       const userId = this.getCurrentUserId();
 
-      const { data, error } = await supabase.rpc('adjust_batch_quantity', {
+      const { data, error } = await supabase.rpc('update_batch_quantity', {
         p_batch_id: batchId,
         p_new_quantity: parseInt(newQuantity),
-        p_reason: reason,
-        p_adjustment_type: adjustmentType,
-        p_user_id: userId
+        p_reason: reason
       });
 
       if (error) {
