@@ -610,16 +610,6 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
               </div>
             )}
 
-            {/* DEBUG: Show discount data for troubleshooting */}
-            {receiptData.financial.discount.amount === 0 && (
-              <div className="flex justify-between text-xs bg-yellow-100 p-2 rounded">
-                <span className="text-yellow-800">DEBUG: No discount found</span>
-                <span className="text-yellow-800">
-                  Amount: {receiptData.financial.discount.amount}, Type: {receiptData.financial.discount.type}
-                </span>
-              </div>
-            )}
-
             {/* VAT */}
             <div className="flex justify-between text-sm">
               <span className="text-blue-600 font-medium">

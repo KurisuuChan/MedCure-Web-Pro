@@ -767,34 +767,6 @@ const TransactionHistoryPage = () => {
         }}
       />
 
-      {/* Debug: Show current modal state */}
-      {process.env.NODE_ENV === "development" && (
-        <div className="fixed bottom-4 right-4 bg-black/80 text-white p-3 rounded-lg text-xs z-[10000] max-w-xs">
-          <div className="font-bold mb-2">🐛 Debug Panel</div>
-          <div>Receipt: {showReceipt ? "✅ OPEN" : "❌ CLOSED"}</div>
-          <div>Transaction: {selectedTransaction?.id?.slice(-8) || "NONE"}</div>
-          <div>Status: {selectedTransaction?.status || "N/A"}</div>
-          <div>
-            Success Modal: {showRefundSuccess ? "✅ OPEN" : "❌ CLOSED"}
-          </div>
-          <div>Edit Modal: {showEditModal ? "✅ OPEN" : "❌ CLOSED"}</div>
-          <div className="mt-2 pt-2 border-t border-gray-600">
-            <button
-              onClick={() => {
-                setShowReceipt(false);
-                setSelectedTransaction(null);
-                setShowRefundSuccess(false);
-                setShowEditModal(false);
-                console.log("🔄 [Debug] All modals reset");
-              }}
-              className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs"
-            >
-              Reset All Modals
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Refund Transaction Modal - Scrollable */}
       {showEditModal && editingTransaction && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
