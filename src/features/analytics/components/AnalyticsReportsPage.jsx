@@ -11,8 +11,22 @@ import {
   Activity,
   Sparkles,
 } from "lucide-react";
-import { ReportingService } from "../../../services/domains/analytics/reportingService";
 import { ReportsService } from "../../../services/domains/analytics/auditReportsService";
+
+// Utility to create helpful no-data messages
+const createNoDataMessage = (dateRange, reportType = "sales") => {
+  const { startDate, endDate } = dateRange;
+  return (
+    `📊 No ${reportType === "sales" ? "Sales" : "Financial"} Data Found\n\n` +
+    `Date Range: ${startDate} to ${endDate}\n\n` +
+    `Possible Solutions:\n` +
+    `✓ Try "Last 7 days" or "Last 30 days" quick select button\n` +
+    `✓ Check Transaction History to see when your sales occurred\n` +
+    `✓ Adjust date range to include dates with actual sales\n` +
+    `✓ Ensure sales are marked as "completed" in the system\n\n` +
+    `💡 Tip: The system only includes completed transactions in reports`
+  );
+};
 
 const AnalyticsReportsPage = () => {
   const [reports, setReports] = useState({
@@ -37,6 +51,9 @@ const AnalyticsReportsPage = () => {
     ),
     endDate: format(new Date(), "yyyy-MM-dd"),
   });
+
+  // Debug: Log current date range whenever it changes
+  console.log("📅 [AnalyticsReportsPage] Current date range:", salesDateRange);
 
   // stock alert thresholds removed from UI — alerts are computed from server data
 
@@ -107,9 +124,7 @@ const AnalyticsReportsPage = () => {
           console.warn(
             "⚠️ [AnalyticsReportsPage] No sales data found for selected date range"
           );
-          alert(
-            `📊 No Sales Data Found\n\nDate Range: ${salesDateRange.startDate} to ${salesDateRange.endDate}\n\nPossible reasons:\n• No completed sales in this period\n• Sales might be outside this date range\n• Try selecting "Last 7 days" or check Transaction History for actual dates`
-          );
+          alert(createNoDataMessage(salesDateRange, "sales"));
         }
 
         setReports((prev) => ({
@@ -211,9 +226,7 @@ const AnalyticsReportsPage = () => {
           console.warn(
             "⚠️ [AnalyticsReportsPage] No financial data found for selected date range"
           );
-          alert(
-            `📊 No Financial Data Found\n\nDate Range: ${salesDateRange.startDate} to ${salesDateRange.endDate}\n\nPossible reasons:\n• No completed sales in this period\n• Sales might be outside this date range\n• Try selecting "Last 7 days" or check Transaction History for actual dates`
-          );
+          alert(createNoDataMessage(salesDateRange, "financial"));
         }
 
         setReports((prev) => ({
