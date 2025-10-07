@@ -735,7 +735,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
             {step === "importing" && (
               <div className="text-center py-12">
                 <div className="mx-auto w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-                  <Users className="h-12 w-12 text-blue-600 animate-pulse" />
+                  <Download className="h-12 w-12 text-blue-600 animate-pulse" />
                 </div>
                 <h4 className="text-lg font-semibold text-gray-900 mb-2">
                   Importing Products...

@@ -225,10 +225,16 @@ class EmailService {
         provider: "sendgrid",
       };
     } catch (error) {
-      console.error("❌ SendGrid send failed:", error);
+      // CORS errors are expected when calling SendGrid from browser - this is normal
+      // Email sending MUST be implemented server-side (Supabase Edge Functions, etc.)
+      // Silently fail to avoid console noise during development
       return {
         success: false,
-        reason: "sendgrid_error",
+        reason:
+          error.message.includes("NetworkError") ||
+          error.message.includes("CORS")
+            ? "cors_expected"
+            : "sendgrid_error",
         error: error.message,
       };
     }

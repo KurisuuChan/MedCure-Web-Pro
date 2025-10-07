@@ -22,7 +22,7 @@ export function Header({ onToggleSidebar }) {
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Left side - Logo and Mobile menu */}
+          {/* Left side - Mobile menu */}
           <div className="flex items-center">
             <button
               onClick={onToggleSidebar}
@@ -30,10 +30,6 @@ export function Header({ onToggleSidebar }) {
             >
               <Menu className="h-6 w-6" />
             </button>
-
-            <div className="flex-shrink-0 flex items-center ml-4 lg:ml-0">
-              <h1 className="text-2xl font-bold text-blue-600">MedCure Pro</h1>
-            </div>
           </div>
 
           {/* Center - Search (on larger screens) */}
