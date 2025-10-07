@@ -11,7 +11,6 @@ import {
   Activity,
   Sparkles,
 } from "lucide-react";
-import { ReportingService } from "../../../services/domains/analytics/reportingService";
 import { ReportsService } from "../../../services/domains/analytics/auditReportsService";
 
 // Utility to create helpful no-data messages

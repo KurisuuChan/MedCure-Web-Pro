@@ -19,6 +19,8 @@ export const AuditService = {
         user_id = null,
         date_from = null,
         date_to = null,
+        // search parameter intentionally unused as it's reserved for future implementation
+        // eslint-disable-next-line no-unused-vars
         search = null,
       } = filters;
 
@@ -843,12 +845,14 @@ function getActionDescription(log) {
 function getActionDetails(log) {
   const product = log.products.generic_name;
   const quantity = Math.abs(log.quantity);
-  const action =
-    log.movement_type === "in"
-      ? "added to"
-      : log.movement_type === "out"
-      ? "removed from"
-      : "adjusted for";
+  let action;
+  if (log.movement_type === "in") {
+    action = "added to";
+  } else if (log.movement_type === "out") {
+    action = "removed from";
+  } else {
+    action = "adjusted for";
+  }
 
   return `${quantity} units ${action} ${product} (${log.stock_before} → ${log.stock_after})`;
 }
@@ -1003,12 +1007,14 @@ function generateInventoryCSV(reportData) {
   let csv = "Product Name,Category,Stock Level,Unit Price,Total Value,Status\n";
 
   reportData.topValueProducts.forEach((product) => {
-    const status =
-      product.stock_in_pieces === 0
-        ? "Out of Stock"
-        : product.stock_in_pieces <= product.reorder_level
-        ? "Low Stock"
-        : "Normal";
+    let status;
+    if (product.stock_in_pieces === 0) {
+      status = "Out of Stock";
+    } else if (product.stock_in_pieces <= product.reorder_level) {
+      status = "Low Stock";
+    } else {
+      status = "Normal";
+    }
     csv += `${product.generic_name},${product.category},${product.stock_in_pieces},${product.price_per_piece},${product.totalValue},${status}\n`;
   });
 
