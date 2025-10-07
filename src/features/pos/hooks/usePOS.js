@@ -119,27 +119,33 @@ export function usePOS() {
   }, [getCartTotal]);
 
   // Calculate cart tax (12% VAT) - should be calculated after discount
-  const getCartTax = useCallback((afterDiscount = false, discountAmount = 0) => {
-    const subtotal = getCartSubtotal();
-    if (afterDiscount) {
-      const discountedSubtotal = subtotal - discountAmount;
-      return discountedSubtotal * 0.12;
-    }
-    return subtotal * 0.12;
-  }, [getCartSubtotal]);
+  const getCartTax = useCallback(
+    (afterDiscount = false, discountAmount = 0) => {
+      const subtotal = getCartSubtotal();
+      if (afterDiscount) {
+        const discountedSubtotal = subtotal - discountAmount;
+        return discountedSubtotal * 0.12;
+      }
+      return subtotal * 0.12;
+    },
+    [getCartSubtotal]
+  );
 
   // Calculate cart total (subtotal + tax) - handle discount properly
-  const getCartTotalWithTax = useCallback((discountAmount = 0) => {
-    const subtotal = getCartSubtotal();
-    if (discountAmount > 0) {
-      // Apply discount first, then calculate VAT on discounted amount
-      const discountedSubtotal = subtotal - discountAmount;
-      const vatOnDiscounted = discountedSubtotal * 0.12;
-      return discountedSubtotal + vatOnDiscounted;
-    }
-    // Normal calculation without discount
-    return subtotal + getCartTax();
-  }, [getCartSubtotal, getCartTax]);
+  const getCartTotalWithTax = useCallback(
+    (discountAmount = 0) => {
+      const subtotal = getCartSubtotal();
+      if (discountAmount > 0) {
+        // Apply discount first, then calculate VAT on discounted amount
+        const discountedSubtotal = subtotal - discountAmount;
+        const vatOnDiscounted = discountedSubtotal * 0.12;
+        return discountedSubtotal + vatOnDiscounted;
+      }
+      // Normal calculation without discount
+      return subtotal + getCartTax();
+    },
+    [getCartSubtotal, getCartTax]
+  );
 
   // Handle clearing cart
   const handleClearCart = useCallback(() => {
@@ -158,14 +164,16 @@ export function usePOS() {
       return { isValid: true, issues: [] };
     }
 
-    const productIds = cartItems.map(item => item.productId);
+    const productIds = cartItems.map((item) => item.productId);
     const issues = [];
 
     try {
       // Check if products still exist and are available
       const { data: currentProducts, error } = await supabase
         .from("products")
-        .select("id, brand_name, generic_name, is_active, is_archived, stock_in_pieces")
+        .select(
+          "id, brand_name, generic_name, is_active, is_archived, stock_in_pieces"
+        )
         .in("id", productIds);
 
       if (error) {
@@ -173,30 +181,38 @@ export function usePOS() {
         return { isValid: false, issues: ["Failed to validate cart items"] };
       }
 
-      const foundProductIds = new Set(currentProducts.map(p => p.id));
+      const foundProductIds = new Set(currentProducts.map((p) => p.id));
 
       // Check each cart item
       for (const cartItem of cartItems) {
-        const product = currentProducts.find(p => p.id === cartItem.productId);
-        
+        const product = currentProducts.find(
+          (p) => p.id === cartItem.productId
+        );
+
         if (!product) {
-          issues.push(`${cartItem.name || 'Unknown Product'} no longer exists`);
+          issues.push(`${cartItem.name || "Unknown Product"} no longer exists`);
           continue;
         }
 
         if (!product.is_active) {
-          issues.push(`${product.brand_name || product.generic_name} is no longer active`);
+          issues.push(
+            `${product.brand_name || product.generic_name} is no longer active`
+          );
           continue;
         }
 
         if (product.is_archived) {
-          issues.push(`${product.brand_name || product.generic_name} has been archived`);
+          issues.push(
+            `${product.brand_name || product.generic_name} has been archived`
+          );
           continue;
         }
 
         if ((product.stock_in_pieces || 0) < cartItem.quantityInPieces) {
           issues.push(
-            `${product.brand_name || product.generic_name}: requested ${cartItem.quantityInPieces}, available ${product.stock_in_pieces || 0}`
+            `${product.brand_name || product.generic_name}: requested ${
+              cartItem.quantityInPieces
+            }, available ${product.stock_in_pieces || 0}`
           );
         }
       }
@@ -225,18 +241,18 @@ export function usePOS() {
         const validation = await validateCartItems();
         if (!validation.isValid) {
           console.warn("⚠️ Cart validation failed:", validation.issues);
-          
+
           // Refresh product list and try validation again
           await loadAvailableProducts();
           const retryValidation = await validateCartItems();
-          
+
           if (!retryValidation.isValid) {
             throw new Error(
               `Cart validation failed: ${retryValidation.issues.join("; ")}. ` +
-              "Please remove invalid items and try again."
+                "Please remove invalid items and try again."
             );
           }
-          
+
           console.log("✅ Cart validation passed after product refresh");
         } else {
           console.log("✅ Cart validation passed");
@@ -373,8 +389,11 @@ export function usePOS() {
         console.log("🔍 [usePOS] Enhanced transaction created:", {
           original_pwd_senior_holder_name: transaction.pwd_senior_holder_name,
           fallback_pwd_senior_holder_name: saleData.pwd_senior_holder_name,
-          final_pwd_senior_holder_name: enhancedTransaction.pwd_senior_holder_name,
-          using_fallback: !transaction.pwd_senior_holder_name && saleData.pwd_senior_holder_name,
+          final_pwd_senior_holder_name:
+            enhancedTransaction.pwd_senior_holder_name,
+          using_fallback:
+            !transaction.pwd_senior_holder_name &&
+            saleData.pwd_senior_holder_name,
         });
 
         // Save transaction
@@ -400,19 +419,25 @@ export function usePOS() {
                 (p) => p.id === item.productId
               );
               if (product) {
-                const currentStock = product.stock || 0;
-                const reorderLevel = product.reorder_level || 50;
+                // Use stock_in_pieces (base unit) for accuracy and coerce to Number
+                const currentStock = Number(product.stock_in_pieces || 0);
+                const reorderLevel = Number(product.reorder_level || 50);
 
-                // Notify if stock is below reorder level
+                // Defensive logging for debugging incorrect zero values
+                console.log("🔎 [LowStockCheck]", {
+                  productId: product.id,
+                  sku: product.sku || null,
+                  brand: product.brand_name || product.generic_name,
+                  currentStock,
+                  reorderLevel,
+                });
+
+                // Notify if stock is below or equal to reorder level
                 if (currentStock <= reorderLevel) {
                   console.log(
                     `📢 Sending low stock notification for ${
                       product.brand_name || product.generic_name
-                    }`,
-                    {
-                      currentStock,
-                      reorderLevel,
-                    }
+                    } - currentStock=${currentStock} reorderLevel=${reorderLevel}`
                   );
                   await notificationService.notifyLowStock(
                     product.id,
@@ -436,15 +461,18 @@ export function usePOS() {
         return enhancedTransaction;
       } catch (err) {
         console.error("Payment processing error:", err);
-        
+
         // Check if the error is related to stale products
-        if (err.message && (
-          err.message.includes("no longer exist in the database") ||
-          err.message.includes("not available for sale") ||
-          err.message.includes("Please refresh the product list")
-        )) {
-          console.log("🔄 Product validation error detected, refreshing product list...");
-          
+        if (
+          err.message &&
+          (err.message.includes("no longer exist in the database") ||
+            err.message.includes("not available for sale") ||
+            err.message.includes("Please refresh the product list"))
+        ) {
+          console.log(
+            "🔄 Product validation error detected, refreshing product list..."
+          );
+
           // Automatically refresh the product list
           try {
             await loadAvailableProducts();
@@ -460,7 +488,7 @@ export function usePOS() {
         } else {
           setError(err.message);
         }
-        
+
         throw err;
       } finally {
         setIsProcessing(false);
@@ -473,6 +501,7 @@ export function usePOS() {
       getCartTax,
       clearCart,
       loadAvailableProducts,
+      validateCartItems,
       user?.id,
     ]
   );
@@ -499,7 +528,9 @@ export function usePOS() {
         errors.amount = "Payment amount is required";
       }
 
-      const finalTotalAfterDiscount = getCartTotalWithTax(paymentData.discount_amount || 0);
+      const finalTotalAfterDiscount = getCartTotalWithTax(
+        paymentData.discount_amount || 0
+      );
       if (paymentData.amount < finalTotalAfterDiscount) {
         errors.amount = `Insufficient payment amount. Need ₱${finalTotalAfterDiscount.toFixed(
           2
@@ -515,14 +546,17 @@ export function usePOS() {
   );
 
   // Get cart summary
-  const getCartSummary = useCallback((discountAmount = 0) => {
-    return {
-      itemCount: getCartItemCount(),
-      subtotal: getCartSubtotal(),
-      tax: getCartTax(discountAmount > 0, discountAmount),
-      total: getCartTotalWithTax(discountAmount),
-    };
-  }, [getCartItemCount, getCartSubtotal, getCartTax, getCartTotalWithTax]);
+  const getCartSummary = useCallback(
+    (discountAmount = 0) => {
+      return {
+        itemCount: getCartItemCount(),
+        subtotal: getCartSubtotal(),
+        tax: getCartTax(discountAmount > 0, discountAmount),
+        total: getCartTotalWithTax(discountAmount),
+      };
+    },
+    [getCartItemCount, getCartSubtotal, getCartTax, getCartTotalWithTax]
+  );
 
   return {
     // Data
