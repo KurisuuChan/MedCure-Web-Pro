@@ -54,22 +54,62 @@ export class CSVImportService {
     batch_number: ["batch_number", "Batch Number"],
   };
 
-  // Valid enum values (will be checked dynamically)
+  // Valid enum values (updated with your system's dosage forms)
   static ENUM_VALUES = {
     dosage_form: [
-      "Tablet",
-      "Capsule",
-      "Syrup",
-      "Injection",
-      "Ointment",
-      "Drops",
-      "Inhaler",
+      "SACHET",
+      "TABLETS", 
+      "SYRUP",
+      "CAPSULES",
+      "DROPS",
+      "INHALER",
+      "NEBULIZER",
+      "SUSPENSION"
     ],
     drug_classification: [
       "Prescription (Rx)",
       "Over-the-Counter (OTC)",
       "Controlled Substance",
     ],
+  };
+
+  // Smart Unit Detection Rules based on dosage forms
+  static SMART_UNIT_RULES = {
+    // Liquid forms - only ml and bottle units, price per bottle
+    LIQUIDS: {
+      forms: ["SYRUP", "DROPS", "SUSPENSION"],
+      units: ["ml", "bottle"],
+      primary_pricing_unit: "bottle", // Price per bottle, not per ml
+      has_sheets: false,
+      has_boxes: false
+    },
+    
+    // Solid forms - full hierarchy with sheets and boxes
+    SOLIDS: {
+      forms: ["TABLETS", "CAPSULES"],
+      units: ["piece", "sheet", "box"],
+      primary_pricing_unit: "piece", // Can price per piece, sheet, or box
+      has_sheets: true,
+      has_boxes: true
+    },
+    
+    // Sachets - pieces and boxes only (no sheets)
+    SACHETS: {
+      forms: ["SACHET"],
+      units: ["piece", "box"],
+      primary_pricing_unit: "piece", // Price per sachet or per box
+      has_sheets: false,
+      has_boxes: true
+    },
+    
+    // Devices - single units only
+    DEVICES: {
+      forms: ["INHALER", "NEBULIZER"],
+      units: ["piece"],
+      primary_pricing_unit: "piece", // Price per device only
+      has_sheets: false,
+      has_boxes: false
+    }
   };
 
   // Required fields for validation
@@ -93,13 +133,86 @@ export class CSVImportService {
       enum: "drug_classification",
       auto_create: true,
     },
-    { name: "pieces_per_sheet", required: false, type: "number", min: 1 },
-    { name: "sheets_per_box", required: false, type: "number", min: 1 },
+    { name: "pieces_per_sheet", required: false, type: "number", min: 1, conditional: true },
+    { name: "sheets_per_box", required: false, type: "number", min: 1, conditional: true },
     { name: "reorder_level", required: false, type: "number", min: 0 },
     { name: "cost_price", required: false, type: "number", min: 0 },
     { name: "base_price", required: false, type: "number", min: 0 },
     { name: "stock_in_pieces", required: false, type: "number", min: 0 },
   ];
+
+  /**
+   * Detect appropriate units for a product based on dosage form
+   * @param {string} dosageForm - The dosage form (TABLETS, SYRUP, etc.)
+   * @param {string} productName - Product name for pattern matching
+   * @returns {Object} Unit configuration for the product
+   */
+  static detectProductUnits(dosageForm, productName = '') {
+    // Default fallback
+    const defaultConfig = {
+      units: ["piece"],
+      primary_pricing_unit: "piece",
+      has_sheets: false,
+      has_boxes: false,
+      pieces_per_sheet: 1,
+      sheets_per_box: 1
+    };
+
+    if (!dosageForm) {
+      // Try to detect from product name if dosage form is missing
+      const nameUpper = productName.toUpperCase();
+      if (nameUpper.includes('SYRUP') || nameUpper.includes('LIQUID') || nameUpper.includes('ML')) {
+        dosageForm = 'SYRUP';
+      } else if (nameUpper.includes('TABLET') || nameUpper.includes('TAB')) {
+        dosageForm = 'TABLETS';
+      } else if (nameUpper.includes('CAPSULE') || nameUpper.includes('CAP')) {
+        dosageForm = 'CAPSULES';
+      } else if (nameUpper.includes('DROPS') || nameUpper.includes('DROP')) {
+        dosageForm = 'DROPS';
+      } else if (nameUpper.includes('INHALER')) {
+        dosageForm = 'INHALER';
+      } else if (nameUpper.includes('SACHET')) {
+        dosageForm = 'SACHET';
+      }
+    }
+
+    const formUpper = dosageForm ? dosageForm.toUpperCase() : '';
+
+    // Find matching rule
+    for (const [category, rules] of Object.entries(this.SMART_UNIT_RULES)) {
+      if (rules.forms.includes(formUpper)) {
+        const config = {
+          units: [...rules.units],
+          primary_pricing_unit: rules.primary_pricing_unit,
+          has_sheets: rules.has_sheets,
+          has_boxes: rules.has_boxes,
+          category: category
+        };
+
+        // Set default package structure based on unit type
+        if (rules.has_sheets && rules.has_boxes) {
+          // TABLETS, CAPSULES - standard 10x10 structure
+          config.pieces_per_sheet = 10;
+          config.sheets_per_box = 10;
+        } else if (rules.has_boxes && !rules.has_sheets) {
+          // SACHETS - directly in boxes
+          config.pieces_per_sheet = 1;
+          config.sheets_per_box = 1;
+          config.pieces_per_box = 20; // Common sachet box size
+        } else {
+          // LIQUIDS, DEVICES - no conversion needed
+          config.pieces_per_sheet = 1;
+          config.sheets_per_box = 1;
+        }
+
+        logDebug(`🎯 Smart unit detection for ${dosageForm}:`, config);
+        return config;
+      }
+    }
+
+    logDebug(`⚠️ No unit rule found for dosage form: ${dosageForm}, using default`);
+    return defaultConfig;
+  }
 
   /**
    * Parse CSV content with intelligent field mapping
@@ -364,11 +477,26 @@ export class CSVImportService {
       const rowErrors = [];
       const rowNumber = index + 2; // +2 because index is 0-based and we skip header
 
+      // 🎯 Get unit config for this product to determine what fields are relevant
+      const dosageForm = row.dosage_form ? row.dosage_form.trim() : '';
+      const productName = row.generic_name ? row.generic_name.trim() : '';
+      const unitConfig = this.detectProductUnits(dosageForm, productName);
+
       // Validate all fields
       allFields.forEach(
-        ({ name, required, type, min, max, enum: enumType, auto_create }) => {
+        ({ name, required, type, min, max, enum: enumType, auto_create, conditional }) => {
           const value = row[name];
           const cleanValue = typeof value === "string" ? value.trim() : value;
+
+          // 🎯 SMART CONDITIONAL VALIDATION - Skip sheet/box fields for products that don't need them
+          if (conditional && name === "pieces_per_sheet" && !unitConfig.has_sheets) {
+            // Skip validation - this product doesn't use sheets
+            return;
+          }
+          if (conditional && name === "sheets_per_box" && !unitConfig.has_boxes) {
+            // Skip validation - this product doesn't use boxes
+            return;
+          }
 
           // Check required fields
           if (required && (!cleanValue || cleanValue === "")) {
@@ -485,7 +613,7 @@ export class CSVImportService {
   }
 
   /**
-   * Transform row data for database insertion
+   * Transform row data for database insertion with intelligent unit detection
    * @param {Object} row - Raw row data
    * @param {number} index - Row index for generating batch numbers
    * @returns {Object} Transformed row ready for database
@@ -510,6 +638,13 @@ export class CSVImportService {
       return value.trim();
     };
 
+    // 🎯 INTELLIGENT UNIT DETECTION
+    const dosageForm = cleanString(row.dosage_form);
+    const productName = cleanString(row.generic_name);
+    const unitConfig = this.detectProductUnits(dosageForm, productName);
+    
+    logDebug(`🧠 Smart unit detection for "${productName}" (${dosageForm}):`, unitConfig);
+
     // Parse pricing fields
     const pricePerPiece = safeParseFloat(row.price_per_piece, 1.0);
     const costPrice = safeParseFloat(row.cost_price, null);
@@ -520,6 +655,25 @@ export class CSVImportService {
     if (costPrice && pricePerPiece && costPrice > 0) {
       marginPercentage = ((pricePerPiece - costPrice) / costPrice) * 100;
       marginPercentage = Math.round(marginPercentage * 100) / 100; // Round to 2 decimals
+    }
+
+    // 🎯 SMART PACKAGE STRUCTURE - Use detected unit config or CSV values
+    let pieces_per_sheet, sheets_per_box;
+    
+    if (unitConfig.has_sheets) {
+      // Use CSV values if provided, otherwise use smart defaults
+      pieces_per_sheet = safeParseInt(row.pieces_per_sheet) || unitConfig.pieces_per_sheet || 10;
+    } else {
+      // For liquids, devices, etc. - no sheets
+      pieces_per_sheet = 1;
+    }
+
+    if (unitConfig.has_boxes) {
+      // Use CSV values if provided, otherwise use smart defaults
+      sheets_per_box = safeParseInt(row.sheets_per_box) || unitConfig.sheets_per_box || 10;
+    } else {
+      // For devices that don't come in boxes
+      sheets_per_box = 1;
     }
 
     const transformed = {
@@ -546,9 +700,19 @@ export class CSVImportService {
       base_price: basePrice,
       margin_percentage: marginPercentage,
 
-      // Package structure - ensure minimum 1
-      pieces_per_sheet: Math.max(safeParseInt(row.pieces_per_sheet, 1), 1),
-      sheets_per_box: Math.max(safeParseInt(row.sheets_per_box, 1), 1),
+      // 🎯 SMART PACKAGE STRUCTURE - Based on intelligent unit detection
+      pieces_per_sheet: Math.max(pieces_per_sheet, 1),
+      sheets_per_box: Math.max(sheets_per_box, 1),
+      
+      // 🎯 SMART UNIT METADATA - Store for frontend use
+      unit_config: {
+        detected_units: unitConfig.units,
+        primary_pricing_unit: unitConfig.primary_pricing_unit,
+        has_sheets: unitConfig.has_sheets,
+        has_boxes: unitConfig.has_boxes,
+        category: unitConfig.category,
+        auto_detected: true
+      },
 
       // Inventory fields
       stock_in_pieces: Math.max(safeParseInt(row.stock_in_pieces, 0), 0),
@@ -569,11 +733,15 @@ export class CSVImportService {
       updated_at: new Date().toISOString(),
     };
 
-    logDebug("Transformed row:", {
-      original_generic_name: row.generic_name,
-      transformed_generic_name: transformed.generic_name,
-      price_per_piece: transformed.price_per_piece,
-      stock: transformed.stock_in_pieces,
+    logDebug(`✅ Smart transformation complete for "${productName}":`, {
+      dosage_form: transformed.dosage_form,
+      detected_category: unitConfig.category,
+      units: unitConfig.units,
+      has_sheets: unitConfig.has_sheets,
+      has_boxes: unitConfig.has_boxes,
+      pieces_per_sheet: transformed.pieces_per_sheet,
+      sheets_per_box: transformed.sheets_per_box,
+      primary_pricing: unitConfig.primary_pricing_unit
     });
 
     return transformed;
@@ -612,7 +780,7 @@ export class CSVImportService {
         "MediSupply Corp",
         "Analgesic and antipyretic for pain and fever relief",
         "500mg",
-        "Tablet",
+        "TABLETS",
         "Over-the-Counter (OTC)",
         "2.50",
         "10",
@@ -631,7 +799,7 @@ export class CSVImportService {
         "PharmaCorp Distributors",
         "Broad-spectrum antibiotic for bacterial infections",
         "500mg",
-        "Capsule",
+        "CAPSULES",
         "Prescription (Rx)",
         "5.75",
         "10",
@@ -644,23 +812,61 @@ export class CSVImportService {
         "BT100425-2",
       ],
       [
-        "Ascorbic Acid",
-        "Cecon",
-        "Vitamins & Supplements",
+        "Cough Syrup",
+        "Robitussin",
+        "Cough & Cold",
         "VitaCorp International",
-        "Essential vitamin for immune system support",
-        "500mg",
-        "Tablet",
+        "Cough suppressant and expectorant syrup",
+        "120ml",
+        "SYRUP",
         "Over-the-Counter (OTC)",
-        "1.25",
-        "20",
-        "10",
-        "2000",
-        "200",
-        "1.00",
-        "1.13",
+        "85.00",
+        "",
+        "",
+        "50",
+        "10", 
+        "70.00",
+        "77.50",
         "2025-06-30",
         "BT100425-3",
+      ],
+      [
+        "Oral Rehydration Salt",
+        "ORS Plus",
+        "Electrolytes",
+        "HealthCorp Ltd",
+        "Oral rehydration therapy for dehydration",
+        "21g",
+        "SACHET",
+        "Over-the-Counter (OTC)",
+        "12.50",
+        "",
+        "20",
+        "400",
+        "40",
+        "10.00",
+        "11.25",
+        "2025-08-15",
+        "BT100425-4",
+      ],
+      [
+        "Salbutamol",
+        "Ventolin",
+        "Respiratory",
+        "Asthma Solutions Inc",
+        "Bronchodilator inhaler for asthma relief",
+        "100mcg",
+        "INHALER",
+        "Prescription (Rx)",
+        "450.00",
+        "",
+        "",
+        "25",
+        "5",
+        "380.00",
+        "415.00",
+        "2025-11-20",
+        "BT100425-5",
       ],
     ];
 

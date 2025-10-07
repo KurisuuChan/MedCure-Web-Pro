@@ -88,7 +88,9 @@ export function AuthProvider({ children }) {
 
       return { data: result, error: null };
     } catch (error) {
-      return { data: null, error: { message: error.message } };
+      // 🎯 FIX: Don't swallow the error, let useAuthForm handle it properly
+      console.error("❌ [AuthProvider] Sign in failed:", error);
+      throw error; // Re-throw the error so useAuthForm can catch and display it
     }
   };
 

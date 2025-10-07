@@ -16,16 +16,28 @@ export class AuthService {
         return this.mockSignIn(email, password);
       }
 
-      // Supabase authentication
+      // 🎯 FIXED: Supabase authentication - don't continue if this fails
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("🚫 [AuthService] Supabase authentication failed:", error.message);
+        throw error; // This should stop execution here
+      }
 
-      // Get user profile data
+      // Only proceed if Supabase authentication was successful
+      if (!data.user) {
+        throw new Error("Authentication failed - no user data returned");
+      }
+
+      // Get user profile data from our custom users table
       const userProfile = await UserService.getUserByEmail(email);
+      
+      if (!userProfile) {
+        throw new Error("User profile not found in database");
+      }
 
       const authData = {
         ...data,
@@ -35,7 +47,8 @@ export class AuthService {
       logDebug("Successfully signed in user", authData);
       return authData;
     } catch (error) {
-      handleError(error, "Sign in");
+      console.error("❌ [AuthService] Sign in completely failed:", error.message);
+      handleError(error, "Sign in"); // This should re-throw the error
     }
   }
 

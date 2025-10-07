@@ -15,7 +15,7 @@ import {
 export default function LoginPage() {
   const { user } = useAuth();
   const location = useLocation();
-  const { isLoading, error, handleLogin } = useAuthForm();
+  const { isLoading, error, handleLogin, clearError } = useAuthForm();
 
   const from = location.state?.from?.pathname || "/dashboard";
 
@@ -144,6 +144,7 @@ export default function LoginPage() {
               onSubmit={handleLogin}
               isLoading={isLoading}
               error={error}
+              onClearError={clearError}
             />
 
             {/* Additional Info */}

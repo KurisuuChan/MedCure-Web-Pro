@@ -5,6 +5,7 @@ export default function LoginForm({
   onSubmit,
   isLoading = false,
   error = null,
+  onClearError = null,
 }) {
   const [formData, setFormData] = useState({
     email: "",
@@ -16,18 +17,22 @@ export default function LoginForm({
   const validateForm = () => {
     const errors = {};
 
-    // Email validation
+    // 🎯 ENHANCED EMAIL VALIDATION
     if (!formData.email) {
-      errors.email = "Email is required";
+      errors.email = "Email address is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email address";
+      errors.email = "Please enter a valid email address (e.g., user@example.com)";
+    } else if (formData.email.length > 255) {
+      errors.email = "Email address is too long";
     }
 
-    // Password validation
+    // 🎯 ENHANCED PASSWORD VALIDATION
     if (!formData.password) {
       errors.password = "Password is required";
     } else if (formData.password.length < 6) {
-      errors.password = "Password must be at least 6 characters";
+      errors.password = "Password must be at least 6 characters long";
+    } else if (formData.password.length > 100) {
+      errors.password = "Password is too long";
     }
 
     setValidationErrors(errors);
@@ -55,25 +60,19 @@ export default function LoginForm({
         [field]: "",
       }));
     }
+
+    // 🎯 Clear main login error when user starts typing again
+    if (error && onClearError) {
+      onClearError();
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Global Error Message */}
+      {/* Simple Error Message */}
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-r-lg text-sm flex items-start space-x-3">
-          <svg
-            className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <span>{error}</span>
+        <div className="text-red-600 text-sm text-center font-medium">
+          {error}
         </div>
       )}
 
@@ -88,7 +87,7 @@ export default function LoginForm({
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Mail className={`h-5 w-5 ${
-              validationErrors.email ? "text-red-400" : "text-gray-400"
+              validationErrors.email || error ? "text-red-400" : "text-gray-400"
             }`} />
           </div>
           <input
@@ -98,8 +97,8 @@ export default function LoginForm({
             onChange={handleInputChange("email")}
             disabled={isLoading}
             className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-              validationErrors.email
-                ? "border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50/50"
+              validationErrors.email || error
+                ? "border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50/50"  
                 : "border-gray-300 hover:border-gray-400"
             } ${isLoading ? "bg-gray-50 cursor-not-allowed" : "bg-white"}`}
             placeholder="your.email@example.com"
@@ -133,7 +132,7 @@ export default function LoginForm({
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Lock className={`h-5 w-5 ${
-              validationErrors.password ? "text-red-400" : "text-gray-400"
+              validationErrors.password || error ? "text-red-400" : "text-gray-400"
             }`} />
           </div>
           <input
@@ -143,10 +142,10 @@ export default function LoginForm({
             onChange={handleInputChange("password")}
             disabled={isLoading}
             className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-              validationErrors.password
+              validationErrors.password || error
                 ? "border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50/50"
                 : "border-gray-300 hover:border-gray-400"
-            } ${isLoading ? "bg-gray-50 cursor-not-allowed" : "bg-white"}`}
+            } ${isLoading ? "bg-gray-50 cursor-not-allowed" : "bg-white"}`}         
             placeholder="Enter your password"
             autoComplete="current-password"
           />

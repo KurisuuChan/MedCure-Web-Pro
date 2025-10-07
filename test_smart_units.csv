@@ -1,0 +1,19 @@
+generic_name,brand_name,category_name,supplier_name,description,dosage_strength,dosage_form,drug_classification,price_per_piece,pieces_per_sheet,sheets_per_box,stock_in_pieces,reorder_level,cost_price,base_price,expiry_date,batch_number
+Paracetamol,Biogesic,Pain Relief,MediSupply Corp,Analgesic and antipyretic for pain and fever relief,500mg,TABLETS,Over-the-Counter (OTC),2.50,10,10,1000,100,2.00,2.25,2025-12-31,BT100825-1
+Ibuprofen,Advil,Pain Relief,PharmaCorp Ltd,Non-steroidal anti-inflammatory drug,400mg,TABLETS,Over-the-Counter (OTC),3.75,10,10,800,80,3.00,3.35,2025-11-15,BT100825-2
+Amoxicillin,Amoxil,Antibiotics,MedDistributors Inc,Broad-spectrum antibiotic for bacterial infections,500mg,CAPSULES,Prescription (Rx),5.75,10,10,500,50,4.60,5.18,2025-10-15,BT100825-3
+Cefalexin,Keflex,Antibiotics,Antibiotic Solutions,First-generation cephalosporin antibiotic,250mg,CAPSULES,Prescription (Rx),8.25,6,20,300,30,6.80,7.53,2025-09-30,BT100825-4
+Cough Syrup,Robitussin,Cough & Cold,VitaCorp International,Cough suppressant and expectorant syrup,120ml,SYRUP,Over-the-Counter (OTC),85.00,,,50,10,70.00,77.50,2025-06-30,BT100825-5
+Lagundi Syrup,Ascof,Herbal Medicine,Herbal Corp,Natural cough remedy from lagundi leaves,60ml,SYRUP,Over-the-Counter (OTC),45.00,,,75,15,35.00,40.00,2025-08-20,BT100825-6
+Multivitamins Syrup,Cherifer,Vitamins & Supplements,NutriCorp,Complete vitamins and minerals for children,240ml,SYRUP,Over-the-Counter (OTC),125.00,,,30,5,95.00,110.00,2025-07-10,BT100825-7
+Oral Rehydration Salt,ORS Plus,Electrolytes,HealthCorp Ltd,Oral rehydration therapy for dehydration,21g,SACHET,Over-the-Counter (OTC),12.50,,20,400,40,10.00,11.25,2025-08-15,BT100825-8
+Biogesic Sachet,Biogesic Powder,Pain Relief,MediSupply Corp,Paracetamol powder for children,250mg,SACHET,Over-the-Counter (OTC),8.75,,30,600,60,7.00,7.88,2025-10-05,BT100825-9
+Zinc Sachet,Solmux Plus,Vitamins & Supplements,Immune Corp,Zinc supplement for immune support,10mg,SACHET,Over-the-Counter (OTC),15.00,,25,500,50,12.00,13.50,2025-09-12,BT100825-10
+Salbutamol Inhaler,Ventolin,Respiratory,Asthma Solutions Inc,Bronchodilator inhaler for asthma relief,100mcg,INHALER,Prescription (Rx),450.00,,,25,5,380.00,415.00,2025-11-20,BT100825-11
+Budesonide Inhaler,Pulmicort,Respiratory,Respiratory Care Ltd,Corticosteroid inhaler for asthma control,200mcg,INHALER,Prescription (Rx),750.00,,,15,3,620.00,685.00,2025-12-05,BT100825-12
+Saline Nebulizer,Normal Saline,Respiratory,Medical Devices Co,Sterile saline solution for nebulization,3ml,NEBULIZER,Over-the-Counter (OTC),25.00,,,100,20,20.00,22.50,2025-10-30,BT100825-13
+Salbutamol Nebule,Ventolin Nebule,Respiratory,Asthma Solutions Inc,Nebulizer solution for bronchodilation,2.5mg/3ml,NEBULIZER,Prescription (Rx),35.00,,,80,15,28.00,31.50,2025-11-25,BT100825-14
+Eye Drops,Systane,Eye Care,Vision Corp,Lubricating eye drops for dry eyes,10ml,DROPS,Over-the-Counter (OTC),185.00,,,40,8,145.00,165.00,2025-09-18,BT100825-15
+Ear Drops,Cerumol,Ear Care,Ear Solutions Ltd,Ear wax removal drops,10ml,DROPS,Over-the-Counter (OTC),95.00,,,60,12,75.00,85.00,2025-08-08,BT100825-16
+Amoxicillin Suspension,Amoxil Forte,Antibiotics,PharmaCorp Ltd,Pediatric antibiotic suspension,250mg/5ml,SUSPENSION,Prescription (Rx),95.00,,,35,7,78.00,86.50,2025-07-22,BT100825-17
+Paracetamol Suspension,Tempra,Pain Relief,MediSupply Corp,Fever reducer for children,160mg/5ml,SUSPENSION,Over-the-Counter (OTC),65.00,,,45,9,52.00,58.50,2025-06-14,BT100825-18
