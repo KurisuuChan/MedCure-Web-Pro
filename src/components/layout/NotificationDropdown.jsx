@@ -256,12 +256,9 @@ export function NotificationDropdown({
       loadNotifications();
     });
 
-    // Set up periodic checks every 5 minutes
-    const checkInterval = setInterval(() => {
-      notificationSystem.runHealthChecks();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(checkInterval);
+    // ✅ REMOVED: Duplicate health check interval
+    // Health checks are already handled by App.jsx every 15 minutes
+    // No need to run them here as well
   }, []); // Only run once on mount
 
   // Handle dropdown open/close - load notifications when opened
@@ -293,17 +290,10 @@ export function NotificationDropdown({
 
   // Background polling for notifications even when dropdown is closed
   useEffect(() => {
-    // Set up background polling every 15 seconds to catch new notifications
-    const backgroundInterval = setInterval(() => {
-      if (!isOpen) {
-        console.log("🔄 [NotificationDropdown] Background notification check");
-        loadNotifications();
-      }
-    }, 15000); // Check every 15 seconds in background
-
-    return () => {
-      clearInterval(backgroundInterval);
-    };
+    // ✅ REMOVED: Aggressive 15-second polling
+    // Real-time subscriptions via Supabase should handle updates automatically
+    // The NotificationBell component already subscribes to real-time updates
+    // No need for constant polling here
   }, [isOpen]);
 
   // Sync notification count whenever notifications change
