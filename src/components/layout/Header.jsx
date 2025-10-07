@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { Search, User, LogOut, Menu } from "lucide-react";
 import NotificationBell from "../notifications/NotificationBell.jsx";
+import NotificationErrorBoundary from "../notifications/NotificationErrorBoundary.jsx";
+import { logger } from "../../utils/logger.js";
 
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();
@@ -12,7 +14,7 @@ export function Header({ onToggleSidebar }) {
     try {
       await signOut();
     } catch (error) {
-      console.error("Error signing out:", error);
+      logger.error("Error signing out:", error);
     }
   };
 
@@ -56,8 +58,12 @@ export function Header({ onToggleSidebar }) {
               <Search className="h-5 w-5" />
             </button>
 
-            {/* Notifications - New Database-Backed System */}
-            {user && <NotificationBell userId={user.id} />}
+            {/* Notifications - New Database-Backed System with Error Boundary */}
+            {user && (
+              <NotificationErrorBoundary>
+                <NotificationBell userId={user.id} />
+              </NotificationErrorBoundary>
+            )}
 
             {/* User menu */}
             <div className="relative">

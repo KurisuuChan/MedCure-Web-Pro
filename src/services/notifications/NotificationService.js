@@ -22,6 +22,7 @@
 
 import { supabase } from "../../config/supabase.js";
 import emailService from "./EmailService.js";
+import { logger } from "../../utils/logger.js";
 
 /**
  * Notification priority levels
@@ -64,10 +65,6 @@ class NotificationService {
     this.emailService = emailService; // Use the singleton instance
     this.realtimeSubscription = null;
     this.isInitialized = false;
-
-    // Deduplication cache (prevents spam notifications)
-    this.recentNotifications = new Map();
-    this.DEDUP_WINDOW = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
   }
 
   /**
@@ -76,12 +73,12 @@ class NotificationService {
    */
   async initialize() {
     if (this.isInitialized) {
-      console.log("📬 NotificationService already initialized");
+      logger.info("[NotificationService] Already initialized");
       return;
     }
 
     try {
-      console.log("📬 Initializing NotificationService...");
+      logger.info("[NotificationService] Initializing...");
 
       // Verify database connection
       const { error } = await supabase
@@ -93,11 +90,11 @@ class NotificationService {
       }
 
       this.isInitialized = true;
-      console.log("✅ NotificationService initialized successfully");
+      logger.success("[NotificationService] Initialized successfully");
 
       return true;
     } catch (error) {
-      console.error("❌ Failed to initialize NotificationService:", error);
+      logger.error("[NotificationService] Failed to initialize:", error);
       throw error;
     }
   }
@@ -142,10 +139,28 @@ class NotificationService {
         throw new Error("Message must be 1000 characters or less");
       }
 
-      // Check for duplicate (prevent spam)
-      if (this.isDuplicate(userId, category, metadata.productId)) {
-        console.log("🔄 Duplicate notification prevented:", {
+      // ✅ NEW: Database-backed atomic deduplication
+      // Check if we should send this notification
+      const notificationKey = metadata.productId
+        ? `${category}:${metadata.productId}`
+        : `${category}:${title}`;
+
+      const { data: shouldSend, error: dedupError } = await supabase.rpc(
+        "should_send_notification",
+        {
+          p_user_id: userId,
+          p_notification_key: notificationKey,
+          p_cooldown_hours: 24,
+        }
+      );
+
+      if (dedupError) {
+        logger.warn("[NotificationService] Deduplication check failed:", dedupError);
+        // Continue anyway - don't block notification
+      } else if (!shouldSend) {
+        logger.debug("[NotificationService] Duplicate prevented:", {
           userId,
+          notificationKey,
           category,
           productId: metadata.productId,
         });
@@ -153,6 +168,14 @@ class NotificationService {
       }
 
       // Insert to database
+      logger.debug("[NotificationService] Creating notification:", {
+        userId,
+        title,
+        category,
+        priority,
+        type,
+      });
+
       const { data: notification, error } = await supabase
         .from("user_notifications")
         .insert({
@@ -170,26 +193,29 @@ class NotificationService {
         .single();
 
       if (error) {
+        logger.error("[NotificationService] Database insert error:", error);
         throw error;
       }
 
-      console.log("✅ Notification created:", notification.id, "-", title);
+      logger.success(
+        "[NotificationService] Notification created:",
+        notification.id,
+        "-",
+        title
+      );
 
       // Send email if critical (priority 1 or 2)
       if (priority <= NOTIFICATION_PRIORITY.HIGH) {
         // Fire and forget - don't block notification creation
         this.sendEmailNotification(notification).catch((err) => {
-          console.error("⚠️ Email send failed (non-blocking):", err.message);
+          logger.warn("[NotificationService] Email send failed (non-blocking):", err.message);
         });
       }
-
-      // Update deduplication cache
-      this.markAsRecent(userId, category, metadata.productId);
 
       // Supabase realtime will automatically notify UI subscribers
       return notification;
     } catch (error) {
-      console.error("❌ Failed to create notification:", error);
+      logger.error("[NotificationService] Failed to create notification:", error);
 
       // Log to error tracking service if available
       if (window.Sentry) {
@@ -212,89 +238,6 @@ class NotificationService {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#x27;");
-  }
-
-  /**
-   * Check if a similar notification was recently sent
-   * ✅ IMPROVED: Now checks database for recent notifications
-   */
-  async isDuplicate(userId, category, productId) {
-    if (!productId) return false; // Only deduplicate product-related notifications
-
-    try {
-      // Check database for recent notifications (within last 24 hours)
-      const oneDayAgo = new Date();
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-      const { data, error } = await supabase
-        .from("user_notifications")
-        .select("id, created_at")
-        .eq("user_id", userId)
-        .eq("category", category)
-        .contains("metadata", { productId: productId })
-        .gte("created_at", oneDayAgo.toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.error("❌ Deduplication check failed:", error);
-        return false; // On error, allow notification (fail open)
-      }
-
-      if (data && data.length > 0) {
-        const lastNotification = data[0];
-        const hoursSince =
-          (Date.now() - new Date(lastNotification.created_at).getTime()) /
-          (1000 * 60 * 60);
-
-        console.log(
-          `🔄 Found recent notification for product ${productId}: ${hoursSince.toFixed(
-            1
-          )} hours ago`
-        );
-
-        // Only prevent if within last 24 hours
-        return hoursSince < 24;
-      }
-
-      return false;
-    } catch (error) {
-      console.error("❌ Deduplication check error:", error);
-      return false; // Fail open - allow notification on error
-    }
-  }
-
-  /**
-   * Mark notification as recently sent
-   * ✅ NOTE: Database now handles deduplication tracking
-   */
-  markAsRecent(userId, category, productId) {
-    // Database-backed deduplication handles this automatically
-    // No need to maintain in-memory cache
-    if (productId) {
-      console.log(
-        `✅ Notification recorded in database for deduplication tracking`
-      );
-    }
-  }
-
-  /**
-   * Remove old entries from deduplication cache
-   */
-  cleanupDeduplicationCache() {
-    const now = Date.now();
-    const entriesToDelete = [];
-
-    for (const [key, timestamp] of this.recentNotifications.entries()) {
-      if (now - timestamp > this.DEDUP_WINDOW) {
-        entriesToDelete.push(key);
-      }
-    }
-
-    entriesToDelete.forEach((key) => this.recentNotifications.delete(key));
-    console.log(
-      `🧹 Cleaned ${entriesToDelete.length} old deduplication entries`
-    );
   }
 
   // ============================================================================
@@ -460,7 +403,7 @@ class NotificationService {
         .single();
 
       if (userError || !user?.email) {
-        console.warn("⚠️ No email found for user:", notification.user_id);
+        logger.warn("⚠️ No email found for user:", notification.user_id);
         return;
       }
 
@@ -483,15 +426,15 @@ class NotificationService {
           })
           .eq("id", notification.id);
 
-        console.log("✅ Email sent for notification:", notification.id);
+        logger.debug("✅ Email sent for notification:", notification.id);
       } else {
-        console.warn(
+        logger.warn(
           "⚠️ Email send failed:",
           emailResult.error || emailResult.reason
         );
       }
     } catch (error) {
-      console.error("❌ Failed to send email notification:", error);
+      logger.error("❌ Failed to send email notification:", error);
       // Don't throw - email failure shouldn't break notification creation
     }
   }
@@ -637,7 +580,7 @@ class NotificationService {
         hasMore: count > offset + limit,
       };
     } catch (error) {
-      console.error("❌ Failed to get notifications:", error);
+      logger.error("❌ Failed to get notifications:", error);
       return {
         notifications: [],
         totalCount: 0,
@@ -654,6 +597,11 @@ class NotificationService {
    */
   async getUnreadCount(userId) {
     try {
+      logger.debug(
+        "📊 [NotificationService] Getting unread count for user:",
+        userId
+      );
+
       const { count, error } = await supabase
         .from("user_notifications")
         .select("*", { count: "exact", head: true })
@@ -662,12 +610,17 @@ class NotificationService {
         .is("dismissed_at", null);
 
       if (error) {
+        logger.error(
+          "❌ [NotificationService] Error getting unread count:",
+          error
+        );
         throw error;
       }
 
+      logger.debug("✅ [NotificationService] Unread count result:", count);
       return count || 0;
     } catch (error) {
-      console.error("❌ Failed to get unread count:", error);
+      logger.error("❌ Failed to get unread count:", error);
       return 0;
     }
   }
@@ -696,10 +649,10 @@ class NotificationService {
         throw error;
       }
 
-      console.log("✅ Notification marked as read:", notificationId);
+      logger.debug("✅ Notification marked as read:", notificationId);
       return { success: true, data };
     } catch (error) {
-      console.error("❌ Failed to mark as read:", error);
+      logger.error("❌ Failed to mark as read:", error);
       return { success: false, error: error.message };
     }
   }
@@ -725,10 +678,10 @@ class NotificationService {
       }
 
       const count = data?.length || 0;
-      console.log(`✅ Marked ${count} notifications as read for user:`, userId);
+      logger.debug(`✅ Marked ${count} notifications as read for user:`, userId);
       return { success: true, count, data };
     } catch (error) {
-      console.error("❌ Failed to mark all as read:", error);
+      logger.error("❌ Failed to mark all as read:", error);
       return { success: false, error: error.message };
     }
   }
@@ -752,10 +705,10 @@ class NotificationService {
         throw error;
       }
 
-      console.log("✅ Notification dismissed:", notificationId);
+      logger.debug("✅ Notification dismissed:", notificationId);
       return { success: true, data };
     } catch (error) {
-      console.error("❌ Failed to dismiss notification:", error);
+      logger.error("❌ Failed to dismiss notification:", error);
       return { success: false, error: error.message };
     }
   }
@@ -779,10 +732,10 @@ class NotificationService {
       }
 
       const count = data?.length || 0;
-      console.log(`✅ Dismissed ${count} notifications for user:`, userId);
+      logger.debug(`✅ Dismissed ${count} notifications for user:`, userId);
       return { success: true, count, data };
     } catch (error) {
-      console.error("❌ Failed to dismiss all:", error);
+      logger.error("❌ Failed to dismiss all:", error);
       return { success: false, error: error.message };
     }
   }
@@ -800,7 +753,7 @@ class NotificationService {
    */
   subscribeToNotifications(userId, onNotificationUpdate) {
     if (this.realtimeSubscription) {
-      console.log("🔄 Closing existing subscription before creating new one");
+      logger.debug("🔄 Closing existing subscription before creating new one");
       this.unsubscribe();
     }
 
@@ -815,7 +768,7 @@ class NotificationService {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          console.log(
+          logger.debug(
             "📬 Real-time notification update:",
             payload.eventType,
             payload.new?.title
@@ -825,7 +778,7 @@ class NotificationService {
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          console.log("✅ Subscribed to notifications for user:", userId);
+          logger.debug("✅ Subscribed to notifications for user:", userId);
         }
       });
 
@@ -840,7 +793,7 @@ class NotificationService {
     if (this.realtimeSubscription) {
       this.realtimeSubscription.unsubscribe();
       this.realtimeSubscription = null;
-      console.log("🔌 Unsubscribed from notifications");
+      logger.debug("🔌 Unsubscribed from notifications");
     }
   }
 
@@ -865,20 +818,20 @@ class NotificationService {
 
       // If function doesn't exist yet, allow the check (backward compatibility)
       if (checkError && checkError.code === "42883") {
-        console.warn(
+        logger.warn(
           "⚠️ Health check scheduling not set up yet - running checks anyway"
         );
       } else if (checkError) {
-        console.error("❌ Failed to check health check schedule:", checkError);
+        logger.error("❌ Failed to check health check schedule:", checkError);
         return;
       } else if (!shouldRunData) {
-        console.log(
+        logger.debug(
           "⏸️ Skipping health checks - ran recently (within last 15 minutes)"
         );
         return;
       }
 
-      console.log("🔍 Running notification health checks...");
+      logger.debug("🔍 Running notification health checks...");
 
       // Get all active users who should receive notifications
       const { data: users, error: usersError } = await supabase
@@ -892,15 +845,15 @@ class NotificationService {
       }
 
       if (!users || users.length === 0) {
-        console.log("ℹ️ No active users found for notifications");
+        logger.debug("ℹ️ No active users found for notifications");
         return;
       }
 
-      console.log(`👥 Found ${users.length} users to check`);
+      logger.debug(`👥 Found ${users.length} users to check`);
 
       // ✅ FIX: Only notify ONE admin user (not all users to prevent spam)
       const primaryUser = users.find((u) => u.role === "admin") || users[0];
-      console.log(
+      logger.debug(
         `📧 Sending notifications to primary user: ${primaryUser.role}`
       );
 
@@ -922,18 +875,18 @@ class NotificationService {
       } catch (recordError) {
         // Ignore if function doesn't exist (backward compatibility)
         if (recordError.code !== "42883") {
-          console.warn(
+          logger.warn(
             "⚠️ Failed to record health check run:",
             recordError.message
           );
         }
       }
 
-      console.log(
+      logger.debug(
         `✅ Health checks completed: ${lowStockCount} low stock, ${expiringCount} expiring products (${totalNotifications} total notifications)`
       );
     } catch (error) {
-      console.error("❌ Health check failed:", error);
+      logger.error("❌ Health check failed:", error);
 
       // ✅ FIX: Record failure (if function exists)
       try {
@@ -945,7 +898,7 @@ class NotificationService {
       } catch (recordError) {
         // Ignore if function doesn't exist
         if (recordError.code !== "42883") {
-          console.error(
+          logger.error(
             "❌ Failed to record health check failure:",
             recordError
           );
@@ -969,7 +922,7 @@ class NotificationService {
           );
         }
       } catch (notifyError) {
-        console.error(
+        logger.error(
           "❌ Failed to notify admin about health check failure:",
           notifyError
         );
@@ -1008,7 +961,7 @@ class NotificationService {
         return 0;
       }
 
-      console.log(`📦 Found ${products.length} low stock products`);
+      logger.debug(`📦 Found ${products.length} low stock products`);
 
       let notificationCount = 0;
 
@@ -1043,7 +996,7 @@ class NotificationService {
 
       return notificationCount;
     } catch (error) {
-      console.error("❌ Low stock check failed:", error);
+      logger.error("❌ Low stock check failed:", error);
       return 0;
     }
   }
@@ -1074,7 +1027,7 @@ class NotificationService {
         return 0;
       }
 
-      console.log(`📅 Found ${products.length} expiring products`);
+      logger.debug(`📅 Found ${products.length} expiring products`);
 
       let notificationCount = 0;
 
@@ -1101,7 +1054,7 @@ class NotificationService {
 
       return notificationCount;
     } catch (error) {
-      console.error("❌ Expiry check failed:", error);
+      logger.error("❌ Expiry check failed:", error);
       return 0;
     }
   }
@@ -1120,10 +1073,10 @@ class NotificationService {
         throw error;
       }
 
-      console.log(`🧹 Cleaned up ${data} old notifications`);
+      logger.debug(`🧹 Cleaned up ${data} old notifications`);
       return data;
     } catch (error) {
-      console.error("❌ Cleanup failed:", error);
+      logger.error("❌ Cleanup failed:", error);
       return 0;
     }
   }

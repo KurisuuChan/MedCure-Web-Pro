@@ -3,6 +3,7 @@ import { usePOSStore } from "../../../stores/posStore";
 import { inventoryService } from "../../../services/domains/inventory/inventoryService";
 import transactionService from "../../../services/domains/sales/transactionService";
 import { useAuth } from "../../../hooks/useAuth";
+import notificationService from "../../../services/notifications/NotificationService";
 
 export function usePOS() {
   const { user } = useAuth();
@@ -53,7 +54,8 @@ export function usePOS() {
     (product, quantity = 1, unit = "piece") => {
       try {
         console.log("🎪 usePOS Hook - Received:", {
-          productName: product.generic_name || product.brand_name || 'Unknown Medicine',
+          productName:
+            product.generic_name || product.brand_name || "Unknown Medicine",
           brandName: product.brand_name,
           genericName: product.generic_name,
           quantity,
@@ -176,11 +178,11 @@ export function usePOS() {
           customer: paymentData.customer || null,
           cashierId: user?.id || null,
           // Customer information
-          customer_name: paymentData.customer_name || 'Walk-in Customer',
-          customer_phone: paymentData.customer_phone || '',
-          customer_email: paymentData.customer_email || '',
-          customer_address: paymentData.customer_address || '',
-          customer_type: paymentData.customer_type || 'guest',
+          customer_name: paymentData.customer_name || "Walk-in Customer",
+          customer_phone: paymentData.customer_phone || "",
+          customer_email: paymentData.customer_email || "",
+          customer_address: paymentData.customer_address || "",
+          customer_type: paymentData.customer_type || "guest",
           // Add discount fields
           discount_type: paymentData.discount_type || "none",
           discount_percentage: paymentData.discount_percentage || 0,
@@ -192,12 +194,12 @@ export function usePOS() {
         };
 
         console.log("🚀 POS Hook - Sale data being sent:", saleData);
-        console.log("� [DEBUG] PWD/Senior holder name in sale data:", {
+        console.log("🔍 [DEBUG] PWD/Senior holder name in sale data:", {
           pwd_senior_id: saleData.pwd_senior_id,
           pwd_senior_holder_name: saleData.pwd_senior_holder_name,
           from_payment_data: paymentData.pwd_senior_holder_name,
         });
-        console.log("�🛒 POS Hook - Cart items:", cartItems);
+        console.log("🛒 POS Hook - Cart items:", cartItems);
 
         // Use the new unified service complete payment workflow
         const completedTransaction =
@@ -208,7 +210,7 @@ export function usePOS() {
         );
         console.log("🔍 [DEBUG] Customer data in completed transaction:", {
           customer_id: completedTransaction.create_result?.customer_id,
-          customer_name: completedTransaction.create_result?.customer_name
+          customer_name: completedTransaction.create_result?.customer_name,
         });
 
         // Extract the transaction data
@@ -238,8 +240,8 @@ export function usePOS() {
           // Override items with cart data for receipt display
           sale_items: cartItems.map((item) => ({
             id: item.productId,
-            generic_name: item.generic_name || 'Unknown Medicine',
-            brand_name: item.brand_name || 'Generic',
+            generic_name: item.generic_name || "Unknown Medicine",
+            brand_name: item.brand_name || "Generic",
             unit: item.unit,
             quantity: item.quantity,
             quantityInPieces: item.quantityInPieces,
@@ -257,11 +259,17 @@ export function usePOS() {
           customer_type: transaction.customer_type,
           // ✅ PRESERVE DISCOUNT DATA FOR RECEIPT
           discount_type: transaction.discount_type || saleData.discount_type,
-          discount_percentage: transaction.discount_percentage || saleData.discount_percentage,
-          discount_amount: transaction.discount_amount || saleData.discount_amount,
-          subtotal_before_discount: transaction.subtotal_before_discount || saleData.subtotal_before_discount,
+          discount_percentage:
+            transaction.discount_percentage || saleData.discount_percentage,
+          discount_amount:
+            transaction.discount_amount || saleData.discount_amount,
+          subtotal_before_discount:
+            transaction.subtotal_before_discount ||
+            saleData.subtotal_before_discount,
           pwd_senior_id: transaction.pwd_senior_id || saleData.pwd_senior_id,
-          pwd_senior_holder_name: transaction.pwd_senior_holder_name || saleData.pwd_senior_holder_name,
+          pwd_senior_holder_name:
+            transaction.pwd_senior_holder_name ||
+            saleData.pwd_senior_holder_name,
         };
 
         console.log("🔍 [usePOS] Enhanced transaction created:", {
@@ -280,6 +288,53 @@ export function usePOS() {
         // Reload available products to update stock
         await loadAvailableProducts();
 
+        // ✅ NEW: Check for low stock notifications after sale
+        // Wait a moment for stock to update, then check
+        setTimeout(async () => {
+          try {
+            // Re-fetch products to get updated stock levels
+            const updatedProducts =
+              await inventoryService.getAvailableProducts();
+
+            // Check each sold product for low stock
+            for (const item of cartItems) {
+              const product = updatedProducts.find(
+                (p) => p.id === item.productId
+              );
+              if (product) {
+                const currentStock = product.stock || 0;
+                const reorderLevel = product.reorder_level || 50;
+
+                // Notify if stock is below reorder level
+                if (currentStock <= reorderLevel) {
+                  console.log(
+                    `📢 Sending low stock notification for ${
+                      product.brand_name || product.generic_name
+                    }`,
+                    {
+                      currentStock,
+                      reorderLevel,
+                    }
+                  );
+                  await notificationService.notifyLowStock(
+                    product.id,
+                    product.brand_name || product.generic_name,
+                    currentStock,
+                    reorderLevel,
+                    user?.id
+                  );
+                }
+              }
+            }
+          } catch (notifError) {
+            console.error(
+              "⚠️ Failed to send low stock notifications:",
+              notifError
+            );
+            // Don't fail the transaction if notifications fail
+          }
+        }, 500); // Wait 500ms for stock to update
+
         return enhancedTransaction;
       } catch (err) {
         console.error("Payment processing error:", err);
@@ -296,6 +351,7 @@ export function usePOS() {
       getCartTax,
       clearCart,
       loadAvailableProducts,
+      user?.id,
     ]
   );
 

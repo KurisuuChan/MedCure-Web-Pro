@@ -442,36 +442,58 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                             <File className="inline" size={14} />
-                            Required Fields
+                            Field Requirements
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
-                            <div>
+                            <div className="mb-2">
+                              <span className="font-bold text-red-600">
+                                Required:
+                              </span>
+                            </div>
+                            <div className="ml-3">
                               <span className="font-medium">generic_name</span>{" "}
-                              - Generic medicine name (required)
+                              - Generic medicine name
                             </div>
-                            <div>
-                              <span className="font-medium">category_name</span>{" "}
-                              - Product category (optional, defaults to "General")
+
+                            <div className="mt-2 mb-2">
+                              <span className="font-bold text-blue-600">
+                                Recommended:
+                              </span>
                             </div>
-                            <div>
-                              <span className="font-medium">
-                                price_per_piece
-                              </span>{" "}
-                              - Unit price in PHP (optional, defaults to ₱1.00)
-                            </div>
-                            <div>
-                              <span className="font-medium">brand_name</span> -
-                              Brand name (optional)
-                            </div>
-                            <div>
-                              <span className="font-medium">
-                                dosage_strength
-                              </span>{" "}
-                              - e.g., 500mg, 10ml (optional)
-                            </div>
-                            <div>
-                              <span className="font-medium">dosage_form</span> -
-                              Tablet, Capsule, Syrup, etc. (optional)
+                            <div className="ml-3 space-y-1">
+                              <div>
+                                <span className="font-medium">brand_name</span>{" "}
+                                - Brand name (defaults to generic_name)
+                              </div>
+                              <div>
+                                <span className="font-medium">
+                                  price_per_piece
+                                </span>{" "}
+                                - Unit price in ₱ (defaults to ₱1.00)
+                              </div>
+                              <div>
+                                <span className="font-medium">
+                                  category_name
+                                </span>{" "}
+                                - e.g., "Pain Relief", "Antibiotics" (defaults
+                                to "General")
+                              </div>
+                              <div>
+                                <span className="font-medium">
+                                  dosage_strength
+                                </span>{" "}
+                                - e.g., 500mg, 10ml
+                              </div>
+                              <div>
+                                <span className="font-medium">dosage_form</span>{" "}
+                                - Tablet, Capsule, Syrup, Injection, etc.
+                              </div>
+                              <div>
+                                <span className="font-medium">
+                                  stock_in_pieces
+                                </span>{" "}
+                                - Initial stock quantity (defaults to 0)
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -533,12 +555,15 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-blue-600" />
                     <span className="font-medium text-gray-700">
-                      {approvedCategories.length} of {pendingCategories.length} selected
+                      {approvedCategories.length} of {pendingCategories.length}{" "}
+                      selected
                     </span>
                   </div>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => setApprovedCategories([...pendingCategories])}
+                      onClick={() =>
+                        setApprovedCategories([...pendingCategories])
+                      }
                       className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
                     >
                       Select All
