@@ -116,7 +116,16 @@ export function useInventory() {
     let filtered = [...products];
 
     // Filter out archived products by default
+    console.log("🔍 Before filtering archived:", filtered.length, "products");
+    console.log("🔍 Sample products with archive status:", filtered.slice(0, 3).map(p => ({
+      id: p.id,
+      name: p.generic_name || p.name,
+      is_archived: p.is_archived,
+      is_active: p.is_active
+    })));
+    
     filtered = filtered.filter((product) => !product.is_archived);
+    console.log("🔍 After filtering archived:", filtered.length, "products");
 
     // Apply search filter - enhanced for medicine schema
     if (searchTerm) {

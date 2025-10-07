@@ -134,9 +134,8 @@ class UnifiedTransactionService {
           item.quantity_in_pieces || item.quantityInPieces || item.quantity;
         const total_price = item.total_price || item.totalPrice;
 
-        // Calculate unit_price as price per piece (total_price / quantity_in_pieces)
-        const unit_price =
-          item.price_per_piece || item.pricePerPiece || total_price / quantity; // This gives us price per piece
+        // Use the correct unit_price sent from frontend (price per piece)
+        const unit_price = item.unit_price || item.price_per_piece || item.pricePerPiece || (total_price / quantity);
 
         console.log("🔍 Item mapping debug:", {
           original: item,
@@ -165,25 +164,53 @@ class UnifiedTransactionService {
 
       console.log("📦 Mapped items:", mappedItems);
 
-      // 🔍 VALIDATE: Check if all products exist in database before attempting transaction
-      console.log("🔍 Validating products exist in database...");
+      // 🔍 ENHANCED VALIDATION: Check product availability with detailed validation
+      console.log("🔍 Validating products with enhanced checks...");
       const productIds = mappedItems.map((item) => item.product_id);
-      const { data: existingProducts, error: productCheckError } =
-        await supabase
-          .from("products")
-          .select("id, brand_name, generic_name")
-          .in("id", productIds);
+      
+      // Use enhanced validation function if available, fallback to basic check
+      let validationResult;
+      try {
+        const { data: validation, error: validationError } = await supabase
+          .rpc('validate_pos_products', { product_ids: productIds });
+        
+        if (validationError) {
+          console.warn("⚠️ Enhanced validation failed, using basic check:", validationError);
+          throw validationError;
+        }
+        validationResult = validation;
+      } catch (enhancedError) {
+        // Fallback to basic product existence check
+        console.log("🔄 Using fallback product validation...");
+        const { data: existingProducts, error: productCheckError } =
+          await supabase
+            .from("products")
+            .select("id, brand_name, generic_name, is_active, is_archived, stock_in_pieces")
+            .in("id", productIds);
 
-      if (productCheckError) {
-        console.error("❌ Error checking products:", productCheckError);
-        throw new Error(
-          `Failed to validate products: ${productCheckError.message}`
-        );
+        if (productCheckError) {
+          console.error("❌ Error checking products:", productCheckError);
+          throw new Error(
+            `Failed to validate products: ${productCheckError.message}`
+          );
+        }
+
+        // Convert to validation format
+        validationResult = existingProducts.map(p => ({
+          product_id: p.id,
+          name: p.brand_name || p.generic_name || 'Unknown Product',
+          stock_in_pieces: p.stock_in_pieces || 0,
+          is_available: p.is_active && !p.is_archived && (p.stock_in_pieces || 0) > 0,
+          issue_reason: !p.is_active ? 'Product is inactive' : 
+                       p.is_archived ? 'Product is archived' : 
+                       (p.stock_in_pieces || 0) <= 0 ? 'Out of stock' : 'Available'
+        }));
       }
 
-      const existingProductIds = new Set(existingProducts.map((p) => p.id));
+      // Check for missing products
+      const foundProductIds = new Set(validationResult.map(v => v.product_id));
       const missingProducts = mappedItems.filter(
-        (item) => !existingProductIds.has(item.product_id)
+        (item) => !foundProductIds.has(item.product_id)
       );
 
       if (missingProducts.length > 0) {
@@ -195,7 +222,37 @@ class UnifiedTransactionService {
         );
       }
 
-      console.log("✅ All products validated successfully");
+      // Check for unavailable products
+      const unavailableProducts = validationResult.filter(v => !v.is_available);
+      if (unavailableProducts.length > 0) {
+        console.error("❌ Products not available for sale:", unavailableProducts);
+        const issues = unavailableProducts.map(p => `${p.name}: ${p.issue_reason}`).join("; ");
+        throw new Error(
+          `The following products are not available for sale: ${issues}. ` +
+            `Please refresh the product list and try again.`
+        );
+      }
+
+      // Check stock levels for each item
+      const stockIssues = [];
+      for (const item of mappedItems) {
+        const validation = validationResult.find(v => v.product_id === item.product_id);
+        if (validation && validation.stock_in_pieces < item.quantity) {
+          stockIssues.push(
+            `${validation.name}: requested ${item.quantity}, available ${validation.stock_in_pieces}`
+          );
+        }
+      }
+
+      if (stockIssues.length > 0) {
+        console.error("❌ Insufficient stock:", stockIssues);
+        throw new Error(
+          `Insufficient stock: ${stockIssues.join("; ")}. ` +
+          `Please adjust quantities or refresh stock levels.`
+        );
+      }
+
+      console.log("✅ All products validated successfully with enhanced checks");
 
       // Validate constraint before sending to database
       const constraintViolations = mappedItems.filter((item) => {
@@ -242,6 +299,12 @@ class UnifiedTransactionService {
         },
         sale_items: mappedItems,
       });
+
+      console.log("🔍 [STOCK DEBUG] Sale items being processed:", mappedItems.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        note: "This quantity should be deducted from stock"
+      })));
 
       if (error) throw error;
 

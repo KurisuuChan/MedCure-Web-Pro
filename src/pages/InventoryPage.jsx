@@ -327,11 +327,17 @@ export default function InventoryPage() {
               onClose={() => setShowAddModal(false)}
               onSave={async (productData) => {
                 try {
-                  await addProduct(productData);
+                  console.log("🚀 Attempting to add product:", productData);
+                  const result = await addProduct(productData);
+                  console.log("✅ Product added successfully:", result);
                   setShowAddModal(false);
-                  // Success feedback could go here
+                  // Reload products to show the new one
+                  await loadProducts();
+                  // Success feedback
+                  console.log("✅ Product added successfully!");
                 } catch (error) {
-                  alert("Error adding product: " + error.message);
+                  console.error("❌ Add product error:", error);
+                  alert("Error adding product: " + (error.message || "Unknown error occurred"));
                 }
               }}
             />
@@ -448,10 +454,10 @@ export default function InventoryPage() {
 
 // Product Modal Component - Ultra-Compact Crosswise Design
 function ProductModal({ title, product, categories, onClose, onSave }) {
-  // Predefined options for dropdowns
+  // Predefined options for dropdowns - Auto-create will handle new values
   const dosageFormOptions = [
-    "Tablet", "Capsule", "Syrup", "Suspension", "Injection", "Cream", "Ointment", 
-    "Gel", "Drops", "Inhaler", "Patch", "Suppository", "Powder", "Solution", 
+    "Tablet", "Capsule", "Syrup", "Injection", "Ointment", "Drops", "Inhaler",
+    "Suspension", "Cream", "Gel", "Patch", "Suppository", "Powder", "Solution", 
     "Lotion", "Spray", "Granules", "Emulsion"
   ];
 
@@ -462,7 +468,7 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
   ];
 
   const drugClassificationOptions = [
-    "OTC (Over-the-Counter)", "Prescription", "Controlled Substance", 
+    "Prescription (Rx)", "Over-the-Counter (OTC)", "Controlled Substance",
     "Generic", "Brand", "Antibiotic", "Analgesic", "Antacid", "Vitamin", 
     "Supplement", "Antiseptic", "Anti-inflammatory", "Antihypertensive",
     "Antihistamine", "Antidiabetic", "Schedule I", "Schedule II", "Schedule III"
@@ -501,6 +507,9 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
       product?.category || "Pain Relief",
       product?.expiry_date?.split("T")[0] || ""
     ),
+    // Explicitly set active status for new products
+    is_active: product?.is_active !== undefined ? product.is_active : true,
+    is_archived: product?.is_archived !== undefined ? product.is_archived : false,
   });
 
   // Calculate margin percentage when cost price or selling price changes
@@ -569,6 +578,19 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log("📝 Form submitted with data:", formData);
+    
+    // Basic validation
+    if (!formData.generic_name.trim()) {
+      alert("Generic name is required");
+      return;
+    }
+    
+    if (!formData.price_per_piece || parseFloat(formData.price_per_piece) <= 0) {
+      alert("Valid selling price is required");
+      return;
+    }
+    
     // Sanitize data before sending - convert empty strings to null for numeric fields
     const sanitizedData = {
       ...formData,
@@ -576,17 +598,28 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
       cost_price: formData.cost_price === "" ? null : parseFloat(formData.cost_price) || null,
       price_per_piece: formData.price_per_piece === "" ? null : parseFloat(formData.price_per_piece) || null,
       margin_percentage: formData.margin_percentage === "" ? null : parseFloat(formData.margin_percentage) || null,
-      pieces_per_sheet: formData.pieces_per_sheet === "" ? null : parseInt(formData.pieces_per_sheet) || null,
-      sheets_per_box: formData.sheets_per_box === "" ? null : parseInt(formData.sheets_per_box) || null,
-      stock_in_pieces: formData.stock_in_pieces === "" ? null : parseInt(formData.stock_in_pieces) || null,
-      reorder_level: formData.reorder_level === "" ? null : parseInt(formData.reorder_level) || null,
+      pieces_per_sheet: formData.pieces_per_sheet === "" ? 1 : parseInt(formData.pieces_per_sheet) || 1,
+      sheets_per_box: formData.sheets_per_box === "" ? 1 : parseInt(formData.sheets_per_box) || 1,
+      stock_in_pieces: formData.stock_in_pieces === "" ? 0 : parseInt(formData.stock_in_pieces) || 0,
+      reorder_level: formData.reorder_level === "" ? 10 : parseInt(formData.reorder_level) || 10,
       // Handle batch number
       batch_number: formData.batch_number || null,
       // Handle expiry date
       expiry_date: formData.expiry_date || null,
+      // Ensure active status is explicitly set
+      is_active: true,
+      is_archived: false,
     };
     
-    await onSave(sanitizedData);
+    console.log("🧹 Sanitized data:", sanitizedData);
+    console.log("🔍 Active status check:", { is_active: sanitizedData.is_active, is_archived: sanitizedData.is_archived });
+    
+    try {
+      await onSave(sanitizedData);
+    } catch (error) {
+      console.error("❌ Form submission error:", error);
+      alert("Error saving product: " + (error.message || "Please check your input and try again"));
+    }
   };
 
   return (
@@ -655,8 +688,9 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                             setFormData({ ...formData, brand_name: e.target.value })
                           }
                           className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter brand name"
+                          placeholder="Enter brand name (optional)"
                         />
+                        <p className="text-xs text-gray-500 mt-0.5">Leave blank to use generic name</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-2">

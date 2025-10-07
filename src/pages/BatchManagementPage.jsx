@@ -45,7 +45,7 @@ const BatchManagementPage = () => {
 
   // Filter and Search States
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState("");
+  const [batchAgeFilter, setBatchAgeFilter] = useState("all");
   const [expiryFilter, setExpiryFilter] = useState("all"); // all, expiring, expired
   const [statusFilter, setStatusFilter] = useState("all"); // all, active, expired, depleted
 
@@ -87,7 +87,6 @@ const BatchManagementPage = () => {
       // Try to load batches using enhanced service first, fallback to basic service
       try {
         const batchesData = await EnhancedBatchService.getAllBatches({
-          productId: selectedProduct || null,
           status: statusFilter === "all" ? null : statusFilter,
           expiryFilter: expiryFilter,
           limit: 200,
@@ -166,11 +165,28 @@ const BatchManagementPage = () => {
       );
     }
 
-    // Product filter
-    if (selectedProduct) {
-      filtered = filtered.filter(
-        (batch) => batch.product_id === selectedProduct
-      );
+    // Batch age filter
+    if (batchAgeFilter !== "all") {
+      const today = new Date();
+      filtered = filtered.filter((batch) => {
+        if (!batch.received_date) return true;
+        
+        const receivedDate = new Date(batch.received_date);
+        const daysDiff = Math.floor((today - receivedDate) / (1000 * 60 * 60 * 24));
+        
+        switch (batchAgeFilter) {
+          case "new":
+            return daysDiff <= 30;
+          case "recent":
+            return daysDiff > 30 && daysDiff <= 90;
+          case "old":
+            return daysDiff > 90 && daysDiff <= 180;
+          case "very-old":
+            return daysDiff > 180;
+          default:
+            return true;
+        }
+      });
     }
 
     // Status filter
@@ -293,7 +309,7 @@ const BatchManagementPage = () => {
   }, [
     batches,
     searchTerm,
-    selectedProduct,
+    batchAgeFilter,
     statusFilter,
     supplierFilter,
     categoryFilter,
@@ -339,7 +355,7 @@ const BatchManagementPage = () => {
   // Clear all filters function
   const clearAllFilters = () => {
     setSearchTerm("");
-    setSelectedProduct("");
+    setBatchAgeFilter("all");
     setStatusFilter("all");
     setSupplierFilter("");
     setCategoryFilter("");
@@ -748,7 +764,7 @@ const BatchManagementPage = () => {
               {showAdvancedFilters ? "Hide" : "Show"} Advanced Filters
             </button>
             {(searchTerm ||
-              selectedProduct ||
+              batchAgeFilter !== "all" ||
               statusFilter !== "all" ||
               supplierFilter ||
               categoryFilter ||
@@ -780,20 +796,17 @@ const BatchManagementPage = () => {
             />
           </div>
 
-          {/* Product Filter */}
+          {/* Batch Age Filter */}
           <select
-            value={selectedProduct}
-            onChange={(e) => setSelectedProduct(e.target.value)}
+            value={batchAgeFilter}
+            onChange={(e) => setBatchAgeFilter(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="">All Products</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.brand_name || product.brand || "Unknown Brand"} -{" "}
-                {product.generic_name || product.name}{" "}
-                {product.dosage_strength ? `(${product.dosage_strength})` : ""}
-              </option>
-            ))}
+            <option value="all">All Batch Ages</option>
+            <option value="new">New (≤30 days)</option>
+            <option value="recent">Recent (31-90 days)</option>
+            <option value="old">Old (91-180 days)</option>
+            <option value="very-old">Very Old (&gt;180 days)</option>
           </select>
 
           {/* Status Filter */}
@@ -986,13 +999,13 @@ const BatchManagementPage = () => {
                         </h3>
                         <p className="text-gray-500 mb-4">
                           {searchTerm ||
-                          selectedProduct ||
+                          batchAgeFilter !== "all" ||
                           expiryFilter !== "all"
                             ? "Try adjusting your filters above"
                             : 'Use the "Add New Stock" section above to create your first batch'}
                         </p>
                         {!searchTerm &&
-                          !selectedProduct &&
+                          batchAgeFilter === "all" &&
                           expiryFilter === "all" && (
                             <button
                               onClick={() =>

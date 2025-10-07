@@ -102,8 +102,8 @@ class ReceiptService {
         subtotalAfterDiscount: (transaction.subtotal_before_discount || this.calculateSubtotal(transaction)) - (transaction.discount_amount || 0),
         total: this.calculateCorrectTotal(transaction),
         paymentMethod: transaction.payment_method || "cash",
-        amountPaid: transaction.amount_paid || transaction.total_amount,
-        change: transaction.change_amount || 0,
+        amountPaid: transaction.amount_paid || transaction.payment?.amount || transaction.total_amount,
+        change: transaction.change_amount || transaction.payment?.change || 0,
       },
 
       // Status & Audit
@@ -247,7 +247,12 @@ class ReceiptService {
   calculateCorrectTotal(transaction) {
     const subtotal = transaction.subtotal_before_discount || this.calculateSubtotal(transaction);
     const discountAmount = this.calculateCorrectDiscountAmount(transaction);
-    return subtotal - discountAmount;
+    
+    // Apply discount first, then calculate VAT on discounted amount
+    const subtotalAfterDiscount = subtotal - discountAmount;
+    const vatAmount = subtotalAfterDiscount * 0.12; // 12% VAT on discounted amount
+    
+    return subtotalAfterDiscount + vatAmount;
   }
 
   /**
@@ -415,16 +420,10 @@ class ReceiptService {
                         <span>Amount Paid:</span>
                         <span>${formatCurrency(financial.amountPaid)}</span>
                     </div>
-                    ${
-                      financial.change > 0
-                        ? `
                     <div class="summary-line change">
                         <span>Change:</span>
                         <span>${formatCurrency(financial.change)}</span>
                     </div>
-                    `
-                        : ""
-                    }
                 </div>
             </div>
 
@@ -751,41 +750,46 @@ class ReceiptService {
     const discountAmount = this.calculateCorrectDiscountAmount(transaction);
     const discountType = transaction.discount_type || 'none';
     
-    // For PWD/Senior discounts, VAT exemption applies to the discounted amount
+    // Apply discount first, then calculate VAT on the discounted amount
+    const subtotalAfterDiscount = itemsSubtotal - discountAmount;
+    
+    // For PWD/Senior discounts, they get VAT exemption on the discounted amount
     const isLegalDiscount = discountType === 'pwd' || discountType === 'senior';
     
     let vatExemptAmount = 0;
-    let taxableAmount = itemsSubtotal;
+    let taxableAmount = subtotalAfterDiscount;
+    let vatAmount = 0;
     
     if (isLegalDiscount && discountAmount > 0) {
-      // PWD/Senior citizens are exempt from VAT on the discounted portion
-      vatExemptAmount = discountAmount;
-      taxableAmount = itemsSubtotal - discountAmount;
-    } else if (discountAmount > 0) {
-      // Regular discounts still subject to VAT
-      taxableAmount = itemsSubtotal - discountAmount;
+      // PWD/Senior citizens may get additional VAT exemption
+      // But for now, we'll apply standard VAT calculation
+      vatAmount = subtotalAfterDiscount * VAT_RATE;
+      vatExemptAmount = 0; // No additional exemption beyond discount
+      taxableAmount = subtotalAfterDiscount;
+    } else {
+      // Standard VAT calculation on discounted amount
+      vatAmount = subtotalAfterDiscount * VAT_RATE;
+      taxableAmount = subtotalAfterDiscount;
     }
-    
-    // Calculate VAT (VAT-inclusive pricing)
-    const vatAmount = taxableAmount * (VAT_RATE / (1 + VAT_RATE));
-    const netAmount = taxableAmount - vatAmount;
     
     return {
       // Basic VAT info
       vatRate: VAT_RATE * 100, // Convert to percentage
-      isVatInclusive: true,
+      isVatInclusive: false, // VAT is added on top
       
       // Amount breakdown
       itemsSubtotal: itemsSubtotal,
       discountAmount: discountAmount,
+      subtotalAfterDiscount: subtotalAfterDiscount,
       taxableAmount: taxableAmount,
       vatExemptAmount: vatExemptAmount,
       vatAmount: vatAmount,
-      netAmount: netAmount,
+      netAmount: subtotalAfterDiscount, // Net amount before VAT
+      totalWithVat: subtotalAfterDiscount + vatAmount, // Final total
       
       // Legal compliance
       isLegalDiscount: isLegalDiscount,
-      vatExemptReason: isLegalDiscount ? `${discountType.toUpperCase()} Discount - VAT Exempt` : null,
+      vatExemptReason: isLegalDiscount ? `${discountType.toUpperCase()} Discount` : null,
     };
   }
 

@@ -314,8 +314,30 @@ export class ProductService {
       if (!product.generic_name) {
         throw new Error("Generic name is required for medicine products");
       }
-      if (!product.brand_name) {
-        throw new Error("Brand name is required for medicine products");
+      // Make brand_name optional - use generic_name as fallback
+      const brandName = product.brand_name || product.generic_name;
+
+      // Auto-create enum values if they don't exist
+      if (product.dosage_form) {
+        console.log(`🔧 Auto-creating dosage form if needed: ${product.dosage_form}`);
+        try {
+          await supabase.rpc('add_dosage_form_value', {
+            new_value: product.dosage_form
+          });
+        } catch (enumError) {
+          console.warn(`⚠️ Could not auto-create dosage form "${product.dosage_form}":`, enumError);
+        }
+      }
+
+      if (product.drug_classification) {
+        console.log(`🔧 Auto-creating drug classification if needed: ${product.drug_classification}`);
+        try {
+          await supabase.rpc('add_drug_classification_value', {
+            new_value: product.drug_classification
+          });
+        } catch (enumError) {
+          console.warn(`⚠️ Could not auto-create drug classification "${product.drug_classification}":`, enumError);
+        }
       }
 
       // Ensure proper data structure for new schema
@@ -327,7 +349,7 @@ export class ProductService {
         name: undefined,
         // Ensure we're using the new column structure
         generic_name: product.generic_name,
-        brand_name: product.brand_name,
+        brand_name: brandName, // Use fallback if not provided
         dosage_form: product.dosage_form || null,
         dosage_strength: product.dosage_strength || null,
         drug_classification: product.drug_classification || null,
@@ -346,14 +368,19 @@ export class ProductService {
         }
       });
 
+      console.log("🚀 About to insert product data:", productData);
+
       const { data, error } = await supabase
         .from("products")
         .insert([productData])
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Supabase insert error:", error);
+        throw error;
+      }
 
-      logDebug("Successfully added product with new medicine schema", data[0]);
+      logDebug("✅ Successfully added product with new medicine schema", data[0]);
       return data[0];
     } catch (error) {
       console.error("❌ ProductService.addProduct() failed:", error);
