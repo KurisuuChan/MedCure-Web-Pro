@@ -38,10 +38,7 @@ const AnalyticsReportsPage = () => {
     endDate: format(new Date(), "yyyy-MM-dd"),
   });
 
-  const [stockAlertsThreshold, setStockAlertsThreshold] = useState({
-    lowStockThreshold: 10,
-    expiryDays: 30,
-  });
+  // stock alert thresholds removed from UI — alerts are computed from server data
 
   // Generate Inventory Report
   const generateInventoryReport = async () => {
@@ -85,12 +82,36 @@ const AnalyticsReportsPage = () => {
   const generateSalesReport = async () => {
     setLoading((prev) => ({ ...prev, sales: true }));
     try {
+      console.log(
+        "🔍 [AnalyticsReportsPage] Generating sales report for date range:",
+        salesDateRange
+      );
       const result = await ReportsService.generateSalesReport({
         startDate: new Date(salesDateRange.startDate).toISOString(),
         endDate: new Date(salesDateRange.endDate).toISOString(),
       });
 
+      console.log("📊 [AnalyticsReportsPage] Sales report result:", result);
       if (result.success && result.data) {
+        // Log the full report data for debugging
+        console.log("📈 [AnalyticsReportsPage] Sales report data:", {
+          totalTransactions: result.data.summary.totalTransactions,
+          totalSales: result.data.summary.totalSales,
+          totalCost: result.data.summary.totalCost,
+          grossProfit: result.data.summary.grossProfit,
+          profitMargin: result.data.summary.profitMargin,
+        });
+
+        // Check if there's actually any data
+        if (result.data.summary.totalTransactions === 0) {
+          console.warn(
+            "⚠️ [AnalyticsReportsPage] No sales data found for selected date range"
+          );
+          alert(
+            `📊 No Sales Data Found\n\nDate Range: ${salesDateRange.startDate} to ${salesDateRange.endDate}\n\nPossible reasons:\n• No completed sales in this period\n• Sales might be outside this date range\n• Try selecting "Last 7 days" or check Transaction History for actual dates`
+          );
+        }
+
         setReports((prev) => ({
           ...prev,
           sales: {
@@ -162,12 +183,39 @@ const AnalyticsReportsPage = () => {
   const generatePerformanceReport = async () => {
     setLoading((prev) => ({ ...prev, performance: true }));
     try {
+      console.log(
+        "🔍 [AnalyticsReportsPage] Generating performance report for date range:",
+        salesDateRange
+      );
       const result = await ReportsService.generateFinancialReport({
         startDate: new Date(salesDateRange.startDate).toISOString(),
         endDate: new Date(salesDateRange.endDate).toISOString(),
       });
 
+      console.log(
+        "📊 [AnalyticsReportsPage] Performance report result:",
+        result
+      );
       if (result.success && result.data) {
+        // Log the full report data for debugging
+        console.log("💰 [AnalyticsReportsPage] Performance report data:", {
+          transactionCount: result.data.transactions.count,
+          totalRevenue: result.data.revenue.total,
+          totalCost: result.data.costs.total,
+          grossProfit: result.data.profit.gross,
+          profitMargin: result.data.profit.margin,
+        });
+
+        // Check if there's actually any data
+        if (result.data.transactions.count === 0) {
+          console.warn(
+            "⚠️ [AnalyticsReportsPage] No financial data found for selected date range"
+          );
+          alert(
+            `📊 No Financial Data Found\n\nDate Range: ${salesDateRange.startDate} to ${salesDateRange.endDate}\n\nPossible reasons:\n• No completed sales in this period\n• Sales might be outside this date range\n• Try selecting "Last 7 days" or check Transaction History for actual dates`
+          );
+        }
+
         setReports((prev) => ({
           ...prev,
           performance: {
@@ -262,11 +310,19 @@ const AnalyticsReportsPage = () => {
         ).toFixed(2)}\n`;
       } else if (reportName.includes("stock_alerts")) {
         csvContent = "Alert Type,Count\n";
-        csvContent += `Low Stock Items,${
-          reportData.lowStockItems?.length || 0
-        }\n`;
-        csvContent += `Out of Stock,${reportData.outOfStockItems || 0}\n`;
-        csvContent += `Expiring Soon,${reportData.expiringItems || 0}\n`;
+        const lowStockCount = Array.isArray(reportData.lowStockItems)
+          ? reportData.lowStockItems.length
+          : Number(reportData.lowStockItems) || 0;
+        const outOfStockCount = Array.isArray(reportData.outOfStockItems)
+          ? reportData.outOfStockItems.length
+          : Number(reportData.outOfStockItems) || 0;
+        const expiringCount = Array.isArray(reportData.expiringItems)
+          ? reportData.expiringItems.length
+          : Number(reportData.expiringItems) || 0;
+
+        csvContent += `Low Stock Items,${lowStockCount}\n`;
+        csvContent += `Out of Stock,${outOfStockCount}\n`;
+        csvContent += `Expiring Soon,${expiringCount}\n`;
       } else if (reportName.includes("performance")) {
         csvContent = "Metric,Value\n";
         csvContent += `Profit Margin,${(reportData.profitMargin || 0).toFixed(
@@ -330,7 +386,7 @@ const AnalyticsReportsPage = () => {
             Report Configuration
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label
               htmlFor="config-start-date"
@@ -371,29 +427,7 @@ const AnalyticsReportsPage = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
           </div>
-          <div>
-            <label
-              htmlFor="config-low-stock"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Low Stock Threshold
-            </label>
-            <div className="flex items-center">
-              <input
-                id="config-low-stock"
-                type="number"
-                value={stockAlertsThreshold.lowStockThreshold}
-                onChange={(e) =>
-                  setStockAlertsThreshold((prev) => ({
-                    ...prev,
-                    lowStockThreshold: parseInt(e.target.value),
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              />
-              <span className="ml-2 text-sm text-gray-500">units</span>
-            </div>
-          </div>
+          {/* Low Stock Threshold input removed — thresholds are determined server-side */}
         </div>
         <div className="mt-4 flex items-center gap-3">
           <span className="text-sm text-gray-600">Quick select:</span>
@@ -595,99 +629,144 @@ const AnalyticsReportsPage = () => {
 
             {reports.sales && (
               <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Total Revenue:</span>
-                    <span className="font-semibold text-green-600">
-                      ₱
-                      {(reports.sales.totalRevenue || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
+                {reports.sales.transactionCount === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-gray-600 mb-2">
+                      📊 No sales data found for selected date range
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Try selecting a different date range or make some sales
+                      first.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Current range: {salesDateRange.startDate} to{" "}
+                      {salesDateRange.endDate}
+                    </p>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Total Cost (COGS):</span>
-                    <span className="font-semibold text-orange-600">
-                      ₱
-                      {(reports.sales.totalCost || 0).toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Gross Profit:</span>
-                    <span className="font-semibold text-emerald-600">
-                      ₱
-                      {(reports.sales.grossProfit || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Profit Margin:</span>
-                    <span className="font-semibold text-purple-600">
-                      {(reports.sales.profitMargin || 0).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="border-t border-gray-300 my-2"></div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Total Transactions:</span>
-                    <span className="font-semibold text-gray-900">
-                      {reports.sales.transactionCount || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Avg Transaction:</span>
-                    <span className="font-semibold text-blue-600">
-                      ₱
-                      {(reports.sales.averageTransaction || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Avg Cost/Transaction:</span>
-                    <span className="font-semibold text-amber-600">
-                      ₱
-                      {(reports.sales.averageCost || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">
-                      Avg Profit/Transaction:
-                    </span>
-                    <span className="font-semibold text-teal-600">
-                      ₱
-                      {(reports.sales.averageProfit || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => exportToTXT(reports.sales, "sales_report")}
-                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    TXT
-                  </button>
-                  <button
-                    onClick={() => exportToCSV(reports.sales, "sales_report")}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    CSV
-                  </button>
-                </div>
+                ) : (
+                  <>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Total Revenue:</span>
+                        <span className="font-semibold text-green-600">
+                          ₱
+                          {(reports.sales.totalRevenue || 0).toLocaleString(
+                            "en-PH",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">
+                          Total Cost (COGS):
+                        </span>
+                        <span className="font-semibold text-orange-600">
+                          ₱
+                          {(reports.sales.totalCost || 0).toLocaleString(
+                            "en-PH",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Gross Profit:</span>
+                        <span className="font-semibold text-emerald-600">
+                          ₱
+                          {(reports.sales.grossProfit || 0).toLocaleString(
+                            "en-PH",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Profit Margin:</span>
+                        <span className="font-semibold text-purple-600">
+                          {(reports.sales.profitMargin || 0).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="border-t border-gray-300 my-2"></div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">
+                          Total Transactions:
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {reports.sales.transactionCount || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Avg Transaction:</span>
+                        <span className="font-semibold text-blue-600">
+                          ₱
+                          {(
+                            reports.sales.averageTransaction || 0
+                          ).toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">
+                          Avg Cost/Transaction:
+                        </span>
+                        <span className="font-semibold text-amber-600">
+                          ₱
+                          {(reports.sales.averageCost || 0).toLocaleString(
+                            "en-PH",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">
+                          Avg Profit/Transaction:
+                        </span>
+                        <span className="font-semibold text-teal-600">
+                          ₱
+                          {(reports.sales.averageProfit || 0).toLocaleString(
+                            "en-PH",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          exportToTXT(reports.sales, "sales_report")
+                        }
+                        className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        TXT
+                      </button>
+                      <button
+                        onClick={() =>
+                          exportToCSV(reports.sales, "sales_report")
+                        }
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        CSV
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -726,19 +805,25 @@ const AnalyticsReportsPage = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Low Stock Items:</span>
                     <span className="font-semibold text-orange-600">
-                      {reports.stockAlerts.lowStockItems?.length || 0}
+                      {Array.isArray(reports.stockAlerts.lowStockItems)
+                        ? reports.stockAlerts.lowStockItems.length
+                        : Number(reports.stockAlerts.lowStockItems) || 0}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Out of Stock:</span>
                     <span className="font-semibold text-red-600">
-                      {reports.stockAlerts.outOfStockItems?.length || 0}
+                      {Array.isArray(reports.stockAlerts.outOfStockItems)
+                        ? reports.stockAlerts.outOfStockItems.length
+                        : Number(reports.stockAlerts.outOfStockItems) || 0}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Expiring Soon:</span>
                     <span className="font-semibold text-yellow-600">
-                      {reports.stockAlerts.expiringItems?.length || 0}
+                      {Array.isArray(reports.stockAlerts.expiringItems)
+                        ? reports.stockAlerts.expiringItems.length
+                        : Number(reports.stockAlerts.expiringItems) || 0}
                     </span>
                   </div>
                 </div>
@@ -796,130 +881,164 @@ const AnalyticsReportsPage = () => {
 
             {reports.performance && (
               <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
-                <div className="space-y-2 mb-4">
-                  {/* Revenue Section */}
-                  <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
-                    Revenue Metrics
+                {reports.performance.transactionCount === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-gray-600 mb-2">
+                      📊 No financial data found for selected date range
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Try selecting a different date range or make some sales
+                      first.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Current range: {salesDateRange.startDate} to{" "}
+                      {salesDateRange.endDate}
+                    </p>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Total Revenue:</span>
-                    <span className="font-semibold text-green-600">
-                      ₱
-                      {(reports.performance.totalRevenue || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Daily Revenue:</span>
-                    <span className="font-semibold text-green-500">
-                      ₱
-                      {(reports.performance.dailyRevenue || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2 mb-4">
+                      {/* Revenue Section */}
+                      <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
+                        Revenue Metrics
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Total Revenue:</span>
+                        <span className="font-semibold text-green-600">
+                          ₱
+                          {(
+                            reports.performance.totalRevenue || 0
+                          ).toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Daily Revenue:</span>
+                        <span className="font-semibold text-green-500">
+                          ₱
+                          {(
+                            reports.performance.dailyRevenue || 0
+                          ).toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
 
-                  {/* Profit Section */}
-                  <div className="border-t border-gray-300 my-2"></div>
-                  <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
-                    Profitability
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Gross Profit:</span>
-                    <span className="font-semibold text-emerald-600">
-                      ₱
-                      {(reports.performance.grossProfit || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Profit Margin:</span>
-                    <span className="font-semibold text-emerald-500">
-                      {(reports.performance.profitMargin || 0).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">ROI:</span>
-                    <span className="font-semibold text-purple-600">
-                      {(reports.performance.roi || 0).toFixed(2)}%
-                    </span>
-                  </div>
+                      {/* Profit Section */}
+                      <div className="border-t border-gray-300 my-2"></div>
+                      <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
+                        Profitability
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Gross Profit:</span>
+                        <span className="font-semibold text-emerald-600">
+                          ₱
+                          {(
+                            reports.performance.grossProfit || 0
+                          ).toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Profit Margin:</span>
+                        <span className="font-semibold text-emerald-500">
+                          {(reports.performance.profitMargin || 0).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">ROI:</span>
+                        <span className="font-semibold text-purple-600">
+                          {(reports.performance.roi || 0).toFixed(2)}%
+                        </span>
+                      </div>
 
-                  {/* Inventory Section */}
-                  <div className="border-t border-gray-300 my-2"></div>
-                  <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
-                    Inventory Efficiency
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Inventory Value:</span>
-                    <span className="font-semibold text-blue-600">
-                      ₱
-                      {(reports.performance.inventoryValue || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Turnover Ratio:</span>
-                    <span className="font-semibold text-blue-500">
-                      {(reports.performance.inventoryTurnover || 0).toFixed(2)}x
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Days Inventory:</span>
-                    <span className="font-semibold text-indigo-600">
-                      {(reports.performance.daysInventory || 0).toFixed(0)} days
-                    </span>
-                  </div>
+                      {/* Inventory Section */}
+                      <div className="border-t border-gray-300 my-2"></div>
+                      <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
+                        Inventory Efficiency
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Inventory Value:</span>
+                        <span className="font-semibold text-blue-600">
+                          ₱
+                          {(
+                            reports.performance.inventoryValue || 0
+                          ).toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Turnover Ratio:</span>
+                        <span className="font-semibold text-blue-500">
+                          {(reports.performance.inventoryTurnover || 0).toFixed(
+                            2
+                          )}
+                          x
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Days Inventory:</span>
+                        <span className="font-semibold text-indigo-600">
+                          {(reports.performance.daysInventory || 0).toFixed(0)}{" "}
+                          days
+                        </span>
+                      </div>
 
-                  {/* Cost Section */}
-                  <div className="border-t border-gray-300 my-2"></div>
-                  <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
-                    Cost Analysis
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Total COGS:</span>
-                    <span className="font-semibold text-orange-600">
-                      ₱
-                      {(reports.performance.totalCost || 0).toLocaleString(
-                        "en-PH",
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Cost Percentage:</span>
-                    <span className="font-semibold text-orange-500">
-                      {(reports.performance.costPercentage || 0).toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      exportToTXT(reports.performance, "performance_report")
-                    }
-                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    TXT
-                  </button>
-                  <button
-                    onClick={() =>
-                      exportToCSV(reports.performance, "performance_report")
-                    }
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    CSV
-                  </button>
-                </div>
+                      {/* Cost Section */}
+                      <div className="border-t border-gray-300 my-2"></div>
+                      <div className="font-semibold text-xs text-gray-700 uppercase mb-1">
+                        Cost Analysis
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Total COGS:</span>
+                        <span className="font-semibold text-orange-600">
+                          ₱
+                          {(reports.performance.totalCost || 0).toLocaleString(
+                            "en-PH",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Cost Percentage:</span>
+                        <span className="font-semibold text-orange-500">
+                          {(reports.performance.costPercentage || 0).toFixed(2)}
+                          %
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          exportToTXT(reports.performance, "performance_report")
+                        }
+                        className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        TXT
+                      </button>
+                      <button
+                        onClick={() =>
+                          exportToCSV(reports.performance, "performance_report")
+                        }
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        CSV
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

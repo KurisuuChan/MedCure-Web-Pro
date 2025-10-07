@@ -235,29 +235,49 @@ export const ReportsService = {
         endDate = new Date().toISOString(),
       } = dateRange;
 
-      // Get sales data
-      const { data: salesData, error: salesError } = await supabase
+      console.log(
+        "🔍 [ReportsService] Querying sales from",
+        startDate,
+        "to",
+        endDate
+      );
+
+      // Use the SAME query structure as transactionService.getTransactions()
+      // This ensures we get the same data that works in Transaction History
+      let query = supabase
         .from("sales")
         .select(
           `
-          id,
-          total_amount,
-          payment_method,
-          status,
-          created_at,
-          user_id,
-          sale_items!inner(
+          *,
+          sale_items (
+            id,
+            product_id,
             quantity,
+            unit_type,
             unit_price,
             total_price,
-            products!inner(generic_name, category, cost_price)
+            products (
+              id,
+              generic_name,
+              brand_name,
+              category,
+              cost_price,
+              price_per_piece
+            )
           )
         `
         )
         .gte("created_at", startDate)
         .lte("created_at", endDate)
-        .eq("status", "completed")
         .order("created_at", { ascending: false });
+
+      const { data: salesData, error: salesError } = await query;
+
+      console.log(
+        "📊 [ReportsService] Found",
+        salesData?.length || 0,
+        "sales records in date range"
+      );
 
       if (salesError) {
         console.error(
@@ -270,6 +290,33 @@ export const ReportsService = {
           data: null,
         };
       }
+
+      console.log(
+        "📋 [ReportsService] Raw sales data sample:",
+        salesData?.[0]
+          ? {
+              id: salesData[0].id?.substring(0, 8),
+              status: salesData[0].status,
+              total_amount: salesData[0].total_amount,
+              items_count: salesData[0].sale_items?.length || 0,
+              created_at: salesData[0].created_at,
+            }
+          : "No data"
+      );
+
+      // Filter only completed sales (same logic as transaction history)
+      const completedSalesData =
+        salesData?.filter((sale) => sale.status === "completed") || [];
+      console.log(
+        "✅ [ReportsService] Found",
+        completedSalesData.length,
+        "completed sales out of",
+        salesData?.length || 0,
+        "total"
+      );
+
+      // Use completed sales data for report
+      const reportData = completedSalesData;
 
       // Calculate report metrics
       const report = {
@@ -285,40 +332,48 @@ export const ReportsService = {
           totalCost: 0,
           grossProfit: 0,
           profitMargin: 0,
-          totalTransactions: salesData.length,
+          totalTransactions: reportData.length,
           averageTransaction: 0,
           averageCost: 0,
           averageProfit: 0,
-          uniqueCustomers: [...new Set(salesData.map((sale) => sale.user_id))]
+          uniqueCustomers: [...new Set(reportData.map((sale) => sale.user_id))]
             .length,
         },
         paymentMethods: {
-          cash: salesData
+          cash: reportData
             .filter((sale) => sale.payment_method === "cash")
-            .reduce((sum, sale) => sum + parseFloat(sale.total_amount), 0),
-          card: salesData
+            .reduce((sum, sale) => sum + parseFloat(sale.total_amount || 0), 0),
+          card: reportData
             .filter((sale) => sale.payment_method === "card")
-            .reduce((sum, sale) => sum + parseFloat(sale.total_amount), 0),
-          digital: salesData
+            .reduce((sum, sale) => sum + parseFloat(sale.total_amount || 0), 0),
+          digital: reportData
             .filter((sale) => sale.payment_method === "digital")
-            .reduce((sum, sale) => sum + parseFloat(sale.total_amount), 0),
+            .reduce((sum, sale) => sum + parseFloat(sale.total_amount || 0), 0),
         },
-        topProducts: getTopProducts(salesData),
-        dailyTrends: getDailyTrends(salesData),
-        categoryBreakdown: getCategoryBreakdown(salesData),
+        topProducts: getTopProducts(reportData),
+        dailyTrends: getDailyTrends(reportData),
+        categoryBreakdown: getCategoryBreakdown(reportData),
       };
 
       // Calculate comprehensive cost and profit metrics
-      salesData.forEach((sale) => {
-        const saleRevenue = parseFloat(sale.total_amount);
+      reportData.forEach((sale) => {
+        const saleRevenue = parseFloat(sale.total_amount || 0);
         report.summary.totalSales += saleRevenue;
 
+        // Calculate cost from sale_items (same structure as transaction history)
         if (sale.sale_items && Array.isArray(sale.sale_items)) {
           sale.sale_items.forEach((item) => {
             const costPrice = item.products?.cost_price || 0;
             const quantity = item.quantity || 0;
             const itemCost = costPrice * quantity;
             report.summary.totalCost += itemCost;
+
+            console.log("💰 [ReportsService] Item cost calculation:", {
+              product: item.products?.generic_name || item.products?.brand_name,
+              cost_price: costPrice,
+              quantity: quantity,
+              item_cost: itemCost,
+            });
           });
         }
       });
@@ -331,15 +386,20 @@ export const ReportsService = {
           ? (report.summary.grossProfit / report.summary.totalSales) * 100
           : 0;
       report.summary.averageTransaction =
-        salesData.length > 0 ? report.summary.totalSales / salesData.length : 0;
+        reportData.length > 0
+          ? report.summary.totalSales / reportData.length
+          : 0;
       report.summary.averageCost =
-        salesData.length > 0 ? report.summary.totalCost / salesData.length : 0;
+        reportData.length > 0
+          ? report.summary.totalCost / reportData.length
+          : 0;
       report.summary.averageProfit =
-        salesData.length > 0
-          ? report.summary.grossProfit / salesData.length
+        reportData.length > 0
+          ? report.summary.grossProfit / reportData.length
           : 0;
 
       console.log("✅ [ReportsService] Sales report generated successfully");
+      console.log("📊 Transactions:", report.summary.totalTransactions);
       console.log("📊 Revenue:", report.summary.totalSales.toFixed(2));
       console.log("💰 Cost:", report.summary.totalCost.toFixed(2));
       console.log("📈 Profit:", report.summary.grossProfit.toFixed(2));
@@ -468,26 +528,39 @@ export const ReportsService = {
         endDate = new Date().toISOString(),
       } = dateRange;
 
-      // Get sales and product data
+      console.log(
+        "🔍 [ReportsService] Querying financial data from",
+        startDate,
+        "to",
+        endDate
+      );
+
+      // Use the SAME query structure as transactionService for consistency
       const [salesResult, productsResult] = await Promise.all([
         supabase
           .from("sales")
           .select(
             `
-            id,
-            total_amount,
-            created_at,
-            sale_items!inner(
+            *,
+            sale_items (
+              id,
+              product_id,
               quantity,
+              unit_type,
               unit_price,
               total_price,
-              products!inner(cost_price, generic_name)
+              products (
+                id,
+                generic_name,
+                brand_name,
+                cost_price,
+                price_per_piece
+              )
             )
           `
           )
           .gte("created_at", startDate)
-          .lte("created_at", endDate)
-          .eq("status", "completed"),
+          .lte("created_at", endDate),
 
         supabase
           .from("products")
@@ -508,14 +581,34 @@ export const ReportsService = {
         };
       }
 
-      // Calculate comprehensive financial metrics
-      const totalRevenue = salesResult.data.reduce(
-        (sum, sale) => sum + parseFloat(sale.total_amount),
+      // Filter only completed sales
+      const completedSales =
+        salesResult.data?.filter((sale) => sale.status === "completed") || [];
+      console.log(
+        "📊 [ReportsService] Found",
+        salesResult.data?.length || 0,
+        "total sales,",
+        completedSales.length,
+        "completed"
+      );
+
+      if (completedSales.length > 0) {
+        console.log("📋 [ReportsService] Sample completed sale:", {
+          id: completedSales[0].id?.substring(0, 8),
+          total_amount: completedSales[0].total_amount,
+          items_count: completedSales[0].sale_items?.length || 0,
+          created_at: completedSales[0].created_at,
+        });
+      }
+
+      // Calculate comprehensive financial metrics using completed sales only
+      const totalRevenue = completedSales.reduce(
+        (sum, sale) => sum + parseFloat(sale.total_amount || 0),
         0
       );
 
-      // Calculate Cost of Goods Sold (COGS)
-      const totalCOGS = salesResult.data.reduce((sum, sale) => {
+      // Calculate Cost of Goods Sold (COGS) using the same logic as sales report
+      const totalCOGS = completedSales.reduce((sum, sale) => {
         if (!sale.sale_items || !Array.isArray(sale.sale_items)) return sum;
 
         return (
@@ -563,8 +656,8 @@ export const ReportsService = {
         revenue: {
           total: totalRevenue,
           average:
-            salesResult.data.length > 0
-              ? totalRevenue / salesResult.data.length
+            completedSales.length > 0
+              ? totalRevenue / completedSales.length
               : 0,
           daily: totalRevenue / daysInPeriod,
           growth: 0, // Could be calculated with historical comparison
@@ -572,9 +665,7 @@ export const ReportsService = {
         costs: {
           total: totalCOGS,
           average:
-            salesResult.data.length > 0
-              ? totalCOGS / salesResult.data.length
-              : 0,
+            completedSales.length > 0 ? totalCOGS / completedSales.length : 0,
           daily: totalCOGS / daysInPeriod,
           percentage: totalRevenue > 0 ? (totalCOGS / totalRevenue) * 100 : 0,
         },
@@ -583,9 +674,7 @@ export const ReportsService = {
           net: netProfit,
           margin: profitMargin,
           average:
-            salesResult.data.length > 0
-              ? grossProfit / salesResult.data.length
-              : 0,
+            completedSales.length > 0 ? grossProfit / completedSales.length : 0,
           daily: grossProfit / daysInPeriod,
           roi: roi,
         },
@@ -595,15 +684,20 @@ export const ReportsService = {
           daysInventory: inventoryTurnover > 0 ? 365 / inventoryTurnover : 0,
         },
         transactions: {
-          count: salesResult.data.length,
-          averageValue: totalRevenue / Math.max(1, salesResult.data.length),
-          dailyAverage: salesResult.data.length / daysInPeriod,
+          count: completedSales.length,
+          averageValue: totalRevenue / Math.max(1, completedSales.length),
+          dailyAverage: completedSales.length / daysInPeriod,
         },
       };
 
       console.log(
         "✅ [ReportsService] Financial report generated successfully"
       );
+      console.log("📊 Transactions:", completedSales.length);
+      console.log("💰 Revenue:", totalRevenue.toFixed(2));
+      console.log("📉 COGS:", totalCOGS.toFixed(2));
+      console.log("📈 Profit:", grossProfit.toFixed(2));
+      console.log("📊 Margin:", profitMargin.toFixed(2) + "%");
       return {
         success: true,
         data: report,

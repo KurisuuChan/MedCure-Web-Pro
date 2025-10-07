@@ -29,6 +29,8 @@ const InventoryPage = React.lazy(() => import("./pages/InventoryPage"));
 const SystemSettingsPage = React.lazy(() =>
   import("./pages/SystemSettingsPage")
 );
+const HeroLanding = React.lazy(() => import("./pages/HeroLanding"));
+const LearnMore = React.lazy(() => import("./pages/LearnMore"));
 const UnauthorizedPage = React.lazy(() => import("./pages/UnauthorizedPage"));
 const UserManagementPage = React.lazy(() =>
   import("./pages/UserManagementPage")
@@ -309,8 +311,24 @@ function AppContent() {
       {/* Error pages */}
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* Public home / landing page (placed before login) */}
+      <Route
+        path="/"
+        element={
+          <PageErrorBoundary title="Welcome">
+            <HeroLanding />
+          </PageErrorBoundary>
+        }
+      />
+
+      <Route
+        path="/learn-more"
+        element={
+          <PageErrorBoundary title="Learn More">
+            <LearnMore />
+          </PageErrorBoundary>
+        }
+      />
     </Routes>
   );
 }

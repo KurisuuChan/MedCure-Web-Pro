@@ -108,12 +108,7 @@ export default function VariantSelectionModal({
   const isOutOfStock = (currentVariant.stock || 0) <= 0;
   const hasVariants = Object.keys(variants).length > 0;
 
-  const handleQuantityChange = (change) => {
-    const newQuantity = quantity + change;
-    if (newQuantity >= 1 && newQuantity <= maxQuantity) {
-      setQuantity(newQuantity);
-    }
-  };
+
 
   const handleAddToCart = () => {
     if (!isOutOfStock && quantity > 0) {
@@ -210,7 +205,7 @@ export default function VariantSelectionModal({
                 
               {/* Purchase Units - Modern, Small & Compact */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
                   <Package className="h-4 w-4 text-blue-600 mr-1.5" />
                   Purchase Units
                 </label>
@@ -292,7 +287,7 @@ export default function VariantSelectionModal({
               {/* Quantity Selection - Type Only */}
               {!isOutOfStock && (
                 <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
                     <Minus className="h-4 w-4 text-blue-600 mr-1.5" />
                     Select Quantity
                   </label>
