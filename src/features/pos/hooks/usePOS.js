@@ -188,10 +188,16 @@ export function usePOS() {
           subtotal_before_discount:
             paymentData.subtotal_before_discount || total,
           pwd_senior_id: paymentData.pwd_senior_id || null,
+          pwd_senior_holder_name: paymentData.pwd_senior_holder_name || null,
         };
 
         console.log("🚀 POS Hook - Sale data being sent:", saleData);
-        console.log("🛒 POS Hook - Cart items:", cartItems);
+        console.log("� [DEBUG] PWD/Senior holder name in sale data:", {
+          pwd_senior_id: saleData.pwd_senior_id,
+          pwd_senior_holder_name: saleData.pwd_senior_holder_name,
+          from_payment_data: paymentData.pwd_senior_holder_name,
+        });
+        console.log("�🛒 POS Hook - Cart items:", cartItems);
 
         // Use the new unified service complete payment workflow
         const completedTransaction =
@@ -240,6 +246,13 @@ export function usePOS() {
           customer_email: transaction.customer_email,
           customer_address: transaction.customer_address,
           customer_type: transaction.customer_type,
+          // ✅ PRESERVE DISCOUNT DATA FOR RECEIPT
+          discount_type: transaction.discount_type || saleData.discount_type,
+          discount_percentage: transaction.discount_percentage || saleData.discount_percentage,
+          discount_amount: transaction.discount_amount || saleData.discount_amount,
+          subtotal_before_discount: transaction.subtotal_before_discount || saleData.subtotal_before_discount,
+          pwd_senior_id: transaction.pwd_senior_id || saleData.pwd_senior_id,
+          pwd_senior_holder_name: transaction.pwd_senior_holder_name || saleData.pwd_senior_holder_name,
         };
 
         // Save transaction

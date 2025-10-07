@@ -238,6 +238,7 @@ class UnifiedTransactionService {
             saleData.total ||
             saleData.total_amount,
           pwd_senior_id: saleData.pwd_senior_id || null,
+          pwd_senior_holder_name: saleData.pwd_senior_holder_name || null,
         },
         sale_items: mappedItems,
       });

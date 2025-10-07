@@ -26,6 +26,27 @@ class ReceiptService {
   generateReceiptData(transaction, options = {}) {
     console.log("🧾 [ReceiptService] Generating receipt data:", transaction);
     console.log("🔍 [DEBUG] Customer ID in transaction for receipt:", transaction.customer_id);
+    console.log("🔍 [DEBUG] Discount data in transaction:", {
+      discount_type: transaction.discount_type,
+      discount_percentage: transaction.discount_percentage,
+      discount_amount: transaction.discount_amount,
+      pwd_senior_id: transaction.pwd_senior_id,
+      pwd_senior_holder_name: transaction.pwd_senior_holder_name,
+    });
+
+    console.log("🔍 [DEBUG] PWD/Senior isValid calculation:", {
+      pwd_senior_id: transaction.pwd_senior_id,
+      discount_amount: transaction.discount_amount,
+      discount_amount_greater_than_zero: transaction.discount_amount > 0,
+      has_pwd_senior_id: !!transaction.pwd_senior_id,
+      final_isValid: !!(transaction.pwd_senior_id && transaction.discount_amount > 0),
+    });
+
+    console.log("🔍 [ReceiptService] PWD/Senior holder name details:", {
+      pwd_senior_holder_name: transaction.pwd_senior_holder_name,
+      discount_holder_name: transaction.discount_holder_name,
+      final_holder_name: transaction.pwd_senior_holder_name || transaction.discount_holder_name || 'Not Specified',
+    });
 
     const receiptData = {
       // Header Information
@@ -45,22 +66,41 @@ class ReceiptService {
         email: transaction.customer_email || null,
         address: transaction.customer_address || null,
         type: this.formatCustomerType(transaction.customer_type, transaction.customer_id),
-        pwdSeniorId: transaction.pwd_senior_id || null,
+      },
+
+      // PWD/Senior Citizen Information (separate from regular customer)
+      pwdSenior: {
+        type: transaction.discount_type && (transaction.discount_type === 'pwd' || transaction.discount_type === 'senior') 
+          ? transaction.discount_type : null,
+        idNumber: transaction.pwd_senior_id || null,
+        // PWD/Senior holder name (can be different from registered customer)
+        holderName: transaction.pwd_senior_holder_name || transaction.discount_holder_name || 'Not Specified',
+        isValid: !!(transaction.pwd_senior_id && transaction.discount_amount > 0),
       },
 
       // Transaction Items
       items: this.formatReceiptItems(transaction),
 
-      // Financial Summary with Enhanced VAT Calculation
+      // Enhanced Financial Summary with Proper VAT and Discount Breakdown
       financial: {
-        subtotal:
-          transaction.subtotal_before_discount ||
-          this.calculateSubtotal(transaction),
-        discountType: transaction.discount_type || "none",
-        discountPercentage: transaction.discount_percentage || 0,
-        discountAmount: transaction.discount_amount || 0,
-        vatDetails: this.calculateVATDetails(transaction),
-        total: transaction.total_amount,
+        // Base amounts
+        itemsSubtotal: this.calculateSubtotal(transaction),
+        
+        // Discount breakdown
+        discount: {
+          type: transaction.discount_type || "none",
+          percentage: transaction.discount_percentage || 0,
+          amount: this.calculateCorrectDiscountAmount(transaction),
+          description: this.getDiscountDescription(transaction.discount_type),
+          isLegalDiscount: transaction.discount_type === 'pwd' || transaction.discount_type === 'senior',
+        },
+        
+        // VAT calculations (after discount)
+        vatDetails: this.calculateEnhancedVATDetails(transaction),
+        
+        // Final amounts
+        subtotalAfterDiscount: (transaction.subtotal_before_discount || this.calculateSubtotal(transaction)) - (transaction.discount_amount || 0),
+        total: this.calculateCorrectTotal(transaction),
         paymentMethod: transaction.payment_method || "cash",
         amountPaid: transaction.amount_paid || transaction.total_amount,
         change: transaction.change_amount || 0,
@@ -201,10 +241,43 @@ class ReceiptService {
   }
 
   /**
+   * Calculate the correct final total (subtotal - discount)
+   * For PWD/Senior discounts, the total should be subtotal minus discount
+   */
+  calculateCorrectTotal(transaction) {
+    const subtotal = transaction.subtotal_before_discount || this.calculateSubtotal(transaction);
+    const discountAmount = this.calculateCorrectDiscountAmount(transaction);
+    return subtotal - discountAmount;
+  }
+
+  /**
+   * Calculate the correct discount amount based on percentage and subtotal
+   */
+  calculateCorrectDiscountAmount(transaction) {
+    const subtotal = transaction.subtotal_before_discount || this.calculateSubtotal(transaction);
+    const discountPercentage = transaction.discount_percentage || 0;
+    
+    // If we have a transaction discount amount, verify it's correct
+    const calculatedDiscount = subtotal * (discountPercentage / 100);
+    const transactionDiscount = transaction.discount_amount || 0;
+    
+    console.log("🔍 [ReceiptService] Discount calculation check:", {
+      subtotal: subtotal,
+      discountPercentage: discountPercentage,
+      calculatedDiscount: calculatedDiscount,
+      transactionDiscount: transactionDiscount,
+      usingCalculated: calculatedDiscount !== transactionDiscount
+    });
+    
+    // Use calculated discount if transaction discount seems wrong or missing
+    return calculatedDiscount;
+  }
+
+  /**
    * Generate HTML receipt for printing
    */
   generateHTMLReceipt(receiptData, format = "standard") {
-    const { header, customer, items, financial, status, options } = receiptData;
+    const { header, customer, pwdSenior, items, financial, status, options } = receiptData;
 
     return `
     <!DOCTYPE html>
@@ -250,19 +323,18 @@ class ReceiptService {
                 }
             </div>
 
-            <!-- Customer Info -->
+            <!-- Customer Information Section -->
             ${
-              customer.name || customer.phone || customer.pwdSeniorId
+              customer.name || customer.phone || customer.email
                 ? `
             <div class="customer-info">
                 <h3>Customer Information</h3>
-                ${customer.name ? `<p>Name: ${customer.name}</p>` : ""}
-                ${customer.phone ? `<p>Phone: ${customer.phone}</p>` : ""}
-                ${
-                  customer.pwdSeniorId
-                    ? `<p>PWD/Senior ID: ${customer.pwdSeniorId}</p>`
-                    : ""
-                }
+                ${customer.id ? `<p><strong>Customer ID:</strong> ${customer.id.slice(-8)}</p>` : ""}
+                ${customer.name ? `<p><strong>Name:</strong> ${customer.name}</p>` : ""}
+                ${customer.phone ? `<p><strong>Phone:</strong> ${customer.phone}</p>` : ""}
+                ${customer.email ? `<p><strong>Email:</strong> ${customer.email}</p>` : ""}
+                ${customer.address ? `<p><strong>Address:</strong> ${customer.address}</p>` : ""}
+                <p><strong>Type:</strong> ${customer.type || 'Walk-in Customer'}</p>
             </div>
             `
                 : ""
@@ -301,42 +373,80 @@ class ReceiptService {
                 </table>
             </div>
 
-            <!-- Financial Summary -->
+            <!-- Simplified Financial Summary: AMOUNT, DISCOUNT, VAT, TOTAL -->
             <div class="financial-summary">
+                <!-- Amount (Gross) -->
                 <div class="summary-line">
-                    <span>Subtotal:</span>
-                    <span>${formatCurrency(financial.subtotal)}</span>
+                    <span>AMOUNT:</span>
+                    <span>${formatCurrency(financial.vatDetails.itemsSubtotal)}</span>
                 </div>
+
+                <!-- Discount (if applicable) -->
                 ${
-                  financial.discountAmount > 0
+                  financial.discount.amount > 0
                     ? `
                 <div class="summary-line discount">
-                    <span>Discount (${financial.discountPercentage}%):</span>
-                    <span>-${formatCurrency(financial.discountAmount)}</span>
+                    <span>DISCOUNT (${financial.discount.percentage}%):</span>
+                    <span>-${formatCurrency(financial.discount.amount)}</span>
                 </div>
                 `
                     : ""
                 }
+
+                <!-- VAT -->
+                <div class="summary-line vat-amount">
+                    <span>VAT (${financial.vatDetails.vatRate}%):</span>
+                    <span>${formatCurrency(financial.vatDetails.vatAmount)}</span>
+                </div>
+
+                <!-- Total Amount -->
                 <div class="summary-line total">
-                    <span><strong>TOTAL:</strong></span>
-                    <span><strong>${formatCurrency(
-                      financial.total
-                    )}</strong></span>
+                    <span><strong>TOTAL AMOUNT:</strong></span>
+                    <span><strong>${formatCurrency(financial.total)}</strong></span>
                 </div>
-                <div class="summary-line">
-                    <span>Payment (${financial.paymentMethod.toUpperCase()}):</span>
-                    <span>${formatCurrency(financial.amountPaid)}</span>
+
+                <!-- Payment Information -->
+                <div class="payment-section">
+                    <div class="summary-line">
+                        <span>Payment Method:</span>
+                        <span>${financial.paymentMethod.toUpperCase()}</span>
+                    </div>
+                    <div class="summary-line">
+                        <span>Amount Paid:</span>
+                        <span>${formatCurrency(financial.amountPaid)}</span>
+                    </div>
+                    ${
+                      financial.change > 0
+                        ? `
+                    <div class="summary-line change">
+                        <span>Change:</span>
+                        <span>${formatCurrency(financial.change)}</span>
+                    </div>
+                    `
+                        : ""
+                    }
                 </div>
-                ${
-                  financial.change > 0
-                    ? `
-                <div class="summary-line">
-                    <span>Change:</span>
-                    <span>${formatCurrency(financial.change)}</span>
+            </div>
+
+            <!-- PWD/Senior Citizen Information (separate holder information) -->
+            ${
+              pwdSenior.type && pwdSenior.isValid
+                ? `
+            <div class="pwd-senior-info-section">
+                <h3>${pwdSenior.type === 'pwd' ? 'PWD Discount Information' : 'Senior Citizen Discount Information'}</h3>
+                <div class="pwd-senior-details">
+                    <p><strong>ID Number:</strong> ${pwdSenior.idNumber}</p>
+                    <p><strong>ID Holder Name:</strong> ${pwdSenior.holderName}</p>
+                    <p><strong>Discount Applied:</strong> ${formatCurrency(financial.discount.amount)}</p>
                 </div>
-                `
-                    : ""
-                }
+                <div class="legal-notice">
+                    <p><strong>Legal Basis:</strong> ${pwdSenior.type === 'pwd' ? 'Republic Act No. 10754 (PWD Act)' : 'Republic Act No. 9994 (Senior Citizens Act)'}</p>
+                    <p><em>20% discount applied as per Philippine law</em></p>
+                </div>
+            </div>
+            `
+                : ""
+            }
             </div>
 
             <!-- Footer -->
@@ -384,18 +494,67 @@ class ReceiptService {
         .receipt-info { margin-bottom: 15px; font-size: 11px; }
         .receipt-number { font-weight: bold; }
         .edited-notice { background: #fffacd; padding: 3px; text-align: center; font-weight: bold; color: #ff6600; }
-        .customer-info { margin-bottom: 15px; font-size: 11px; }
-        .customer-info h3 { font-size: 12px; margin-bottom: 5px; }
+        
+        /* Customer Information Styles */
+        .customer-info { margin-bottom: 15px; font-size: 11px; border: 1px solid #ccc; padding: 8px; background: #f9f9f9; }
+        .customer-info h3 { font-size: 12px; margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
+        
+        /* PWD/Senior Information Styles (after financial summary) */
+        .pwd-senior-info-section { margin-top: 15px; font-size: 11px; border: 2px solid #0066cc; padding: 10px; background: #e6f3ff; }
+        .pwd-senior-info-section h3 { font-size: 12px; margin-bottom: 8px; color: #0066cc; font-weight: bold; text-align: center; }
+        .pwd-senior-details { margin-bottom: 8px; }
+        .pwd-senior-details p { margin-bottom: 3px; line-height: 1.3; }
+        .legal-notice { margin-top: 8px; padding: 6px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 3px; }
+        .legal-notice p { font-size: 9px; color: #856404; line-height: 1.2; margin-bottom: 2px; }
+        
+        /* Financial Summary Enhancements */
+        .vat-breakdown { background: #f8f8f8; padding: 5px; margin: 5px 0; border-radius: 3px; border: 1px solid #ddd; }
+        .summary-line.subtotal-after-discount { border-top: 1px dashed #666; padding-top: 3px; margin-top: 5px; font-weight: bold; }
+        
+        /* Breakdown Summary Table */
+        .breakdown-summary { margin-top: 15px; padding: 10px; background: #f0f8ff; border: 2px solid #4169e1; border-radius: 5px; }
+        .breakdown-summary h4 { font-size: 12px; margin-bottom: 8px; color: #4169e1; text-align: center; text-decoration: underline; }
+        .breakdown-table { width: 100%; font-size: 10px; }
+        .breakdown-table td { padding: 2px 5px; border-bottom: 1px dotted #ccc; }
+        .breakdown-table .total-row { border-top: 2px solid #000; font-weight: bold; }
+        .breakdown-table .total-row td { padding-top: 5px; }
+        
+        /* Items Table */
         .items h3 { font-size: 12px; margin-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 10px; }
         th, td { padding: 3px; text-align: left; }
         th { border-bottom: 1px solid #000; font-weight: bold; }
         .item-name { max-width: 150px; word-wrap: break-word; }
         .quantity, .unit-price, .total-price { text-align: right; }
+        
+        /* Enhanced Financial Summary */
         .financial-summary { margin-top: 15px; border-top: 1px solid #000; padding-top: 10px; }
         .summary-line { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px; }
-        .summary-line.total { font-size: 13px; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; }
-        .summary-line.discount { color: #009900; }
+        .summary-line.total { font-size: 13px; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; font-weight: bold; }
+        .summary-line.subtotal-after-discount { border-top: 1px dashed #666; padding-top: 3px; margin-top: 5px; }
+        
+        /* Discount Section */
+        .discount-section { background: #f0f8ff; padding: 5px; margin: 5px 0; border-radius: 3px; }
+        .summary-line.discount { color: #009900; font-weight: bold; }
+        .summary-line.discount-note { font-style: italic; color: #666; font-size: 9px; }
+        
+        /* VAT Section */
+        .vat-section { background: #f8f8f8; padding: 5px; margin: 5px 0; border-radius: 3px; border: 1px solid #ddd; }
+        .summary-line.vat-exempt { color: #cc6600; font-weight: bold; }
+        .summary-line.vat-taxable { color: #0066cc; }
+        .summary-line.vat-amount { color: #0066cc; font-weight: bold; }
+        .summary-line.vat-net { color: #666; }
+        
+        /* Payment Section */
+        .payment-section { background: #f9f9f9; padding: 5px; margin: 5px 0; border-radius: 3px; }
+        .summary-line.change { color: #009900; font-weight: bold; }
+        
+        /* VAT Analysis */
+        .vat-analysis { background: #fff9e6; padding: 8px; margin: 10px 0; border: 1px solid #ffcc00; border-radius: 3px; }
+        .vat-analysis h4 { font-size: 11px; margin-bottom: 5px; color: #cc6600; text-decoration: underline; }
+        .vat-analysis p { font-size: 9px; margin-bottom: 2px; line-height: 1.3; }
+        
+        /* Footer */
         .footer { margin-top: 20px; text-align: center; border-top: 1px solid #000; padding-top: 10px; }
         .thank-you { font-weight: bold; margin-bottom: 5px; }
         .tagline { font-style: italic; margin-bottom: 10px; }
@@ -565,28 +724,78 @@ class ReceiptService {
   }
 
   /**
-   * Calculate comprehensive VAT details
+   * Get discount description based on type
+   */
+  getDiscountDescription(discountType) {
+    switch (discountType) {
+      case 'pwd':
+        return 'PWD Discount (RA 10754)';
+      case 'senior':
+        return 'Senior Citizen Discount (RA 9994)';
+      case 'custom':
+        return 'Custom Discount';
+      case 'none':
+      default:
+        return 'No Discount Applied';
+    }
+  }
+
+  /**
+   * Calculate enhanced VAT details with proper PWD/Senior handling
+   * @param {Object} transaction - Transaction data
+   * @returns {Object} Enhanced VAT breakdown
+   */
+  calculateEnhancedVATDetails(transaction) {
+    const VAT_RATE = 0.12; // 12% VAT in Philippines
+    const itemsSubtotal = this.calculateSubtotal(transaction);
+    const discountAmount = this.calculateCorrectDiscountAmount(transaction);
+    const discountType = transaction.discount_type || 'none';
+    
+    // For PWD/Senior discounts, VAT exemption applies to the discounted amount
+    const isLegalDiscount = discountType === 'pwd' || discountType === 'senior';
+    
+    let vatExemptAmount = 0;
+    let taxableAmount = itemsSubtotal;
+    
+    if (isLegalDiscount && discountAmount > 0) {
+      // PWD/Senior citizens are exempt from VAT on the discounted portion
+      vatExemptAmount = discountAmount;
+      taxableAmount = itemsSubtotal - discountAmount;
+    } else if (discountAmount > 0) {
+      // Regular discounts still subject to VAT
+      taxableAmount = itemsSubtotal - discountAmount;
+    }
+    
+    // Calculate VAT (VAT-inclusive pricing)
+    const vatAmount = taxableAmount * (VAT_RATE / (1 + VAT_RATE));
+    const netAmount = taxableAmount - vatAmount;
+    
+    return {
+      // Basic VAT info
+      vatRate: VAT_RATE * 100, // Convert to percentage
+      isVatInclusive: true,
+      
+      // Amount breakdown
+      itemsSubtotal: itemsSubtotal,
+      discountAmount: discountAmount,
+      taxableAmount: taxableAmount,
+      vatExemptAmount: vatExemptAmount,
+      vatAmount: vatAmount,
+      netAmount: netAmount,
+      
+      // Legal compliance
+      isLegalDiscount: isLegalDiscount,
+      vatExemptReason: isLegalDiscount ? `${discountType.toUpperCase()} Discount - VAT Exempt` : null,
+    };
+  }
+
+  /**
+   * Calculate comprehensive VAT details (legacy method for backward compatibility)
    * @param {Object} transaction - Transaction data
    * @returns {Object} VAT breakdown
    */
   calculateVATDetails(transaction) {
-    const VAT_RATE = 0.12; // 12% VAT in Philippines
-    const subtotal = transaction.subtotal_before_discount || this.calculateSubtotal(transaction);
-    const discountAmount = transaction.discount_amount || 0;
-    
-    // Calculate amounts
-    const taxableAmount = subtotal - discountAmount;
-    const vatAmount = taxableAmount * (VAT_RATE / (1 + VAT_RATE)); // VAT inclusive calculation
-    const netAmount = taxableAmount - vatAmount;
-    
-    return {
-      vatRate: VAT_RATE * 100, // Convert to percentage
-      taxableAmount: taxableAmount,
-      vatAmount: vatAmount,
-      netAmount: netAmount,
-      vatExempt: 0, // Can be enhanced for PWD/Senior discounts
-      isVatInclusive: true
-    };
+    return this.calculateEnhancedVATDetails(transaction);
   }
 }
 

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Receipt Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-box { border: 1px solid #ccc; padding: 15px; margin: 10px 0; background: #f9f9f9; }
+        .error { color: red; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>POS Receipt Debug Test</h1>
+    
+    <div class="debug-box">
+        <h3>Current Receipt Format (From Image)</h3>
+        <p><strong>Issues Found:</strong></p>
+        <ul>
+            <li class="error">❌ No discount amount shown</li>
+            <li class="error">❌ No PWD/Senior ID information</li>
+            <li class="error">❌ Only shows: AMOUNT, VAT, TOTAL AMOUNT</li>
+        </ul>
+        
+        <p><strong>Expected Format:</strong></p>
+        <ul>
+            <li class="success">✅ AMOUNT: ₱30.00</li>
+            <li class="success">✅ DISCOUNT (20%): -₱6.00</li>
+            <li class="success">✅ VAT (12%): ₱2.88</li>
+            <li class="success">✅ TOTAL AMOUNT: ₱26.88</li>
+            <li class="success">✅ PWD/Senior ID: [ID Number]</li>
+            <li class="success">✅ PWD/Senior Holder: [Name]</li>
+        </ul>
+    </div>
+
+    <div class="debug-box">
+        <h3>Debug Steps</h3>
+        <ol>
+            <li>Open browser console (F12)</li>
+            <li>Go to POS page: <a href="http://localhost:5174/pos" target="_blank">http://localhost:5174/pos</a></li>
+            <li>Add an item to cart</li>
+            <li>Try to apply PWD discount</li>
+            <li>Check console for debug messages starting with "🎯 [POSPage]"</li>
+            <li>Complete transaction and check receipt</li>
+        </ol>
+    </div>
+
+    <div class="debug-box">
+        <h3>Console Debug Messages to Look For</h3>
+        <pre>
+🎯 [POSPage] Discount data received: {type: "pwd", percentage: 20, ...}
+🔍 [ReceiptService] generateReceiptData called with discount: {...}
+💰 [POSPage] Updating payment amount: {...}
+        </pre>
+    </div>
+
+    <script>
+        // Simple test to check if the development server is running
+        fetch('http://localhost:5174/')
+            .then(response => {
+                if (response.ok) {
+                    document.body.insertAdjacentHTML('afterbegin', 
+                        '<div class="debug-box success">✅ Development server is running at http://localhost:5174/</div>'
+                    );
+                } else {
+                    throw new Error('Server not responding');
+                }
+            })
+            .catch(error => {
+                document.body.insertAdjacentHTML('afterbegin', 
+                    '<div class="debug-box error">❌ Development server not running. Please start with: npm run dev</div>'
+                );
+            });
+    </script>
+</body>
+</html>

@@ -52,6 +52,16 @@ const DiscountSelector = ({ onDiscountChange, subtotal = 0 }) => {
   const handleDiscountUpdate = useCallback(() => {
     const newErrors = {};
 
+    console.log("🔄 [DiscountSelector] Updating discount:", {
+      discountType,
+      subtotal,
+      selectedOption: selectedOption?.label,
+      percentage: selectedOption?.percentage,
+      discountAmount,
+      idNumber: idNumber.trim(),
+      holderName: customerName.trim(),
+    });
+
     if (discountType !== "none") {
       if (!idNumber.trim()) {
         newErrors.idNumber = `${selectedOption.label} ID is required`;
@@ -60,9 +70,9 @@ const DiscountSelector = ({ onDiscountChange, subtotal = 0 }) => {
       }
 
       if (!customerName.trim()) {
-        newErrors.customerName = "Customer name is required for discounts";
+        newErrors.customerName = `${discountType === 'pwd' ? 'PWD holder' : 'Senior citizen'} name is required for discounts`;
       } else if (customerName.trim().length < 2) {
-        newErrors.customerName = "Customer name must be at least 2 characters";
+        newErrors.customerName = `${discountType === 'pwd' ? 'PWD holder' : 'Senior citizen'} name must be at least 2 characters`;
       }
     }
 
@@ -76,13 +86,22 @@ const DiscountSelector = ({ onDiscountChange, subtotal = 0 }) => {
       subtotal: subtotal,
       finalTotal: finalTotal,
       idNumber: idNumber.trim(),
-      customerName: customerName.trim(),
+      holderName: customerName.trim(), // This is the PWD/Senior holder name (can be different from customer)
+      customerName: customerName.trim(), // Keep for backward compatibility
       isValid:
         isValid &&
         (discountType === "none" || (idNumber.trim() && customerName.trim())),
       label: selectedOption.label,
       description: selectedOption.description,
     };
+
+    console.log("📤 [DiscountSelector] Sending discount data:", discountData);
+    console.log("🔍 [DiscountSelector] Holder name details:", {
+      customerName_input: customerName,
+      customerName_trimmed: customerName.trim(),
+      holderName_in_data: discountData.holderName,
+      idNumber: idNumber.trim(),
+    });
 
     if (onDiscountChange) {
       onDiscountChange(discountData);
@@ -199,13 +218,16 @@ const DiscountSelector = ({ onDiscountChange, subtotal = 0 }) => {
           {/* Customer Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Customer Name *
+              {discountType === "pwd" ? "PWD Holder Name" : "Senior Citizen Name"} *
+              <span className="text-xs text-gray-500 block">
+                (Name of the person with {discountType === "pwd" ? "PWD" : "Senior Citizen"} ID)
+              </span>
             </label>
             <input
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Enter customer's full name"
+              placeholder={`Enter ${discountType === "pwd" ? "PWD holder's" : "senior citizen's"} full name`}
               className={`
                 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500
                 ${

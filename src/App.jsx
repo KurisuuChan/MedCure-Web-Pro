@@ -42,6 +42,9 @@ const CustomerInformationPage = React.lazy(() =>
 const BatchManagementPage = React.lazy(() =>
   import("./pages/BatchManagementPage")
 );
+const DiscountDebugTest = React.lazy(() =>
+  import("./components/debug/DiscountDebugTest")
+);
 
 // Create a client
 const queryClient = new QueryClient({
@@ -286,6 +289,18 @@ function AppContent() {
           <PageErrorBoundary title="Settings Error">
             <ProtectedRoute>
               <SystemSettingsPage />
+            </ProtectedRoute>
+          </PageErrorBoundary>
+        }
+      />
+
+      {/* Debug routes for development */}
+      <Route
+        path="/debug/discount"
+        element={
+          <PageErrorBoundary title="Discount Debug Error">
+            <ProtectedRoute>
+              <DiscountDebugTest />
             </ProtectedRoute>
           </PageErrorBoundary>
         }

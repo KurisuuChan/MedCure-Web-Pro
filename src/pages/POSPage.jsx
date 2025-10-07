@@ -102,6 +102,12 @@ export default function POSPage() {
 
   const handleDiscountChange = useCallback(
     (discountData) => {
+      console.log("🎯 [POSPage] Discount data received:", discountData);
+      console.log("🔍 [POSPage] Holder name from discount:", {
+        holderName: discountData.holderName,
+        customerName: discountData.customerName,
+        idNumber: discountData.idNumber,
+      });
       setDiscount(discountData);
 
       // Update payment amount if checkout is open
@@ -110,6 +116,12 @@ export default function POSPage() {
         const currentCartSummary = getCartSummary();
         const subtotalBeforeDiscount = currentCartSummary.total;
         const finalTotal = subtotalBeforeDiscount - discountData.amount;
+
+        console.log("💰 [POSPage] Updating payment amount:", {
+          subtotalBeforeDiscount,
+          discountAmount: discountData.amount,
+          finalTotal,
+        });
 
         setPaymentData((prev) => ({
           ...prev,
@@ -129,15 +141,30 @@ export default function POSPage() {
         );
       }
 
+      console.log("🔍 [POSPage] Current discount state:", discount);
+      console.log("🔍 [POSPage] Cart summary:", cartSummary);
+
       // Ensure we have user authentication for the cashier ID
       const paymentDataWithCashier = {
         ...paymentData,
         cashier_name: user?.first_name || "Unknown",
-        customer_name: discount.customerName || paymentData.customer_name,
+        customer_name: paymentData.customer_name, // This is the registered customer name
         customer_type: paymentData.customerType, // Add customer type
         customer_email: paymentData.customer_email, // Add customer email
         customer_address: paymentData.customer_address, // Add customer address
+        // ✅ ADD DISCOUNT DATA
+        discount_type: discount.type,
+        discount_percentage: discount.percentage,
+        discount_amount: discount.amount,
+        subtotal_before_discount: cartSummary.total,
+        pwd_senior_id: discount.idNumber,
+        pwd_senior_holder_name: discount.holderName, // PWD/Senior holder name (separate from customer)
       };
+
+      console.log("🔍 [DEBUG] Holder name being sent:", {
+        from_discount_object: discount.holderName,
+        in_payment_data: paymentDataWithCashier.pwd_senior_holder_name,
+      });
 
       console.log(
         "💳 POS Page - Processing payment with discount data:",
@@ -194,6 +221,15 @@ export default function POSPage() {
           // Don't fail the transaction if customer stats update fails
         }
       }
+
+      console.log("🧾 [POSPage] Transaction received from processPayment:", transaction);
+      console.log("🔍 [POSPage] Discount data in transaction:", {
+        discount_type: transaction.discount_type,
+        discount_percentage: transaction.discount_percentage,
+        discount_amount: transaction.discount_amount,
+        pwd_senior_id: transaction.pwd_senior_id,
+        pwd_senior_holder_name: transaction.pwd_senior_holder_name,
+      });
 
       setLastTransaction(transaction);
       setShowCheckout(false);
