@@ -347,7 +347,11 @@ const AnalyticsReportsPage = () => {
         csvContent += `ROI,${(reportData.roi || 0).toFixed(2)}%\n`;
       }
 
-      const blob = new Blob([csvContent], { type: "text/csv" });
+      // Add BOM for UTF-8 encoding to ensure proper display of special characters (₱)
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvContent], {
+        type: "text/csv;charset=utf-8;",
+      });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
