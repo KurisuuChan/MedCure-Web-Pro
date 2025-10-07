@@ -13,8 +13,9 @@ COMMENT ON COLUMN public.sales.pwd_senior_holder_name IS 'Name of the PWD/Senior
 
 -- Step 2: Drop and recreate the create_sale_with_items function
 DROP FUNCTION IF EXISTS public.create_sale_with_items(jsonb, jsonb[]);
+DROP FUNCTION IF EXISTS public.create_sale_with_items(jsonb[], jsonb);
 
-CREATE FUNCTION public.create_sale_with_items(sale_data jsonb, items jsonb[])
+CREATE FUNCTION public.create_sale_with_items(sale_data jsonb, sale_items jsonb[])
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -74,7 +75,7 @@ BEGIN
     SELECT customer_id INTO customer_id_result FROM public.sales WHERE id = sale_id;
 
     -- Insert sale items
-    FOR item_data IN SELECT unnest(items)
+    FOR item_data IN SELECT unnest(sale_items)
     LOOP
         INSERT INTO public.sale_items (
             sale_id,
@@ -86,10 +87,10 @@ BEGIN
         ) VALUES (
             sale_id,
             (item_data->>'product_id')::UUID,
-            (item_data->>'quantity_in_pieces')::INTEGER,
-            item_data->>'unit_type',
-            (item_data->>'price_per_unit')::DECIMAL,
-            (item_data->>'total_price')::DECIMAL
+            COALESCE((item_data->>'quantity_in_pieces')::INTEGER, (item_data->>'quantity')::INTEGER),
+            COALESCE(item_data->>'unit_type', 'piece'),
+            COALESCE((item_data->>'price_per_unit')::DECIMAL, (item_data->>'unit_price')::DECIMAL, (item_data->>'price_per_piece')::DECIMAL),
+            COALESCE((item_data->>'total_price')::DECIMAL, (item_data->>'totalPrice')::DECIMAL)
         );
     END LOOP;
 
