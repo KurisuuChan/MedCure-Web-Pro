@@ -1,0 +1,10 @@
+# Ignore debug and test utilities, and large auto-generated or legacy test folders
+debug/**
+test/**
+widgets/**
+
+# Ignore top-level debug artifacts
+*.log
+
+# Keep dist ignored as well
+dist/

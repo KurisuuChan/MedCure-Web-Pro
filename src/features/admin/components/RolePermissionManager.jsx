@@ -13,7 +13,9 @@ import {
 import { UserManagementService } from "../../../services/domains/auth/userManagementService";
 
 const RolePermissionManager = () => {
-  const [selectedRole, setSelectedRole] = useState("staff");
+  const [selectedRole, setSelectedRole] = useState(
+    UserManagementService.ROLES.ADMIN
+  );
   const [rolePermissions, setRolePermissions] = useState({});
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -26,6 +28,8 @@ const RolePermissionManager = () => {
     setRolePermissions(UserManagementService.ROLE_PERMISSIONS);
   };
 
+  // Permission categories that map to the actual permissions defined in
+  // src/services/domains/auth/userManagementService.js
   const permissionCategories = {
     "User Management": [
       "create_users",
@@ -40,7 +44,7 @@ const RolePermissionManager = () => {
       "delete_products",
       "view_inventory",
       "manage_stock",
-      "approve_orders",
+      "manage_batches",
     ],
     "Sales & POS": [
       "process_sales",
@@ -49,44 +53,18 @@ const RolePermissionManager = () => {
       "view_sales_reports",
       "manage_discounts",
     ],
-    Financial: [
-      "view_financial_reports",
-      "manage_pricing",
-      "view_profit_margins",
-      "export_financial_data",
-    ],
-    "System Administration": [
-      "manage_settings",
-      "view_audit_logs",
-      "manage_notifications",
-      "backup_restore",
-    ],
-    "Customer Management": [
-      "create_customers",
-      "edit_customers",
-      "view_customer_data",
-      "manage_loyalty",
-    ],
-    "Supplier Management": [
-      "create_suppliers",
-      "edit_suppliers",
-      "manage_purchase_orders",
-      "view_supplier_reports",
-    ],
+    Financial: ["view_financial_reports", "manage_pricing"],
+    "Customer Management": ["view_customers", "manage_customers"],
+    System: ["view_activity_logs"],
   };
 
   const roleDescriptions = {
-    super_admin:
-      "Complete system access with all permissions. Can manage everything including other administrators.",
-    admin:
-      "Administrative access with user management and system configuration capabilities.",
-    manager:
-      "Management-level access for business operations, reporting, and staff supervision.",
-    pharmacist:
-      "Professional access for pharmacy operations, customer service, and inventory management.",
-    cashier:
-      "Point-of-sale focused access for customer transactions and basic inventory viewing.",
-    staff: "Basic access limited to essential functions and customer service.",
+    [UserManagementService.ROLES.ADMIN]:
+      "Administrative access with full system control, user management and configuration capabilities.",
+    [UserManagementService.ROLES.PHARMACIST]:
+      "Pharmacist access: inventory, batch management, sales, and customer handling.",
+    [UserManagementService.ROLES.EMPLOYEE]:
+      "Employee access: basic sales, inventory viewing and customer lookup.",
   };
 
   const hasPermission = (role, permission) => {
@@ -105,7 +83,7 @@ const RolePermissionManager = () => {
       delete_products: "Remove products from inventory",
       view_inventory: "View product inventory and stock levels",
       manage_stock: "Update stock quantities and manage inventory",
-      approve_orders: "Approve purchase orders and stock requests",
+      manage_batches: "Manage product batch information (FEFO/expiry)",
       process_sales: "Process customer transactions and sales",
       handle_returns: "Process returns and refunds",
       void_transactions: "Cancel or void transactions",
@@ -113,20 +91,9 @@ const RolePermissionManager = () => {
       manage_discounts: "Apply discounts and promotional pricing",
       view_financial_reports: "Access financial analytics and reports",
       manage_pricing: "Set and modify product pricing",
-      view_profit_margins: "View profit analysis and margins",
-      export_financial_data: "Export financial data and reports",
-      manage_settings: "Configure system settings and preferences",
-      view_audit_logs: "Access system audit trails and logs",
-      manage_notifications: "Configure system notifications and alerts",
-      backup_restore: "Perform system backup and restore operations",
-      create_customers: "Add new customer profiles",
-      edit_customers: "Modify customer information",
-      view_customer_data: "Access customer profiles and history",
-      manage_loyalty: "Manage customer loyalty programs",
-      create_suppliers: "Add new supplier profiles",
-      edit_suppliers: "Modify supplier information",
-      manage_purchase_orders: "Create and manage purchase orders",
-      view_supplier_reports: "Access supplier performance reports",
+      view_customers: "Access customer profiles and history",
+      manage_customers: "Create and update customer profiles",
+      view_activity_logs: "Access system activity logs and audit trails",
     };
     return (
       descriptions[permission] || permission.replace("_", " ").toUpperCase()
@@ -135,24 +102,27 @@ const RolePermissionManager = () => {
 
   const getRoleIcon = (role) => {
     const icons = {
-      super_admin: <Shield className="h-5 w-5 text-purple-600" />,
-      admin: <Key className="h-5 w-5 text-red-600" />,
-      manager: <Users className="h-5 w-5 text-blue-600" />,
-      pharmacist: <Lock className="h-5 w-5 text-green-600" />,
-      cashier: <Unlock className="h-5 w-5 text-yellow-600" />,
-      staff: <Users className="h-5 w-5 text-gray-600" />,
+      [UserManagementService.ROLES.ADMIN]: (
+        <Shield className="h-5 w-5 text-red-600" />
+      ),
+      [UserManagementService.ROLES.PHARMACIST]: (
+        <Lock className="h-5 w-5 text-green-600" />
+      ),
+      [UserManagementService.ROLES.EMPLOYEE]: (
+        <Users className="h-5 w-5 text-gray-600" />
+      ),
     };
     return icons[role] || <Users className="h-5 w-5 text-gray-600" />;
   };
 
   const getRoleColor = (role) => {
     const colors = {
-      super_admin: "bg-purple-100 text-purple-800 border-purple-200",
-      admin: "bg-red-100 text-red-800 border-red-200",
-      manager: "bg-blue-100 text-blue-800 border-blue-200",
-      pharmacist: "bg-green-100 text-green-800 border-green-200",
-      cashier: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      staff: "bg-gray-100 text-gray-800 border-gray-200",
+      [UserManagementService.ROLES.ADMIN]:
+        "bg-red-100 text-red-800 border-red-200",
+      [UserManagementService.ROLES.PHARMACIST]:
+        "bg-green-100 text-green-800 border-green-200",
+      [UserManagementService.ROLES.EMPLOYEE]:
+        "bg-gray-100 text-gray-800 border-gray-200",
     };
     return colors[role] || "bg-gray-100 text-gray-800 border-gray-200";
   };
@@ -328,15 +298,12 @@ const RolePermissionManager = () => {
                 <span>Role Hierarchy</span>
               </h4>
               <p className="text-sm text-blue-800">
-                <strong>Super Admin</strong> has all permissions and can manage
-                other administrators.
-                <strong> Admin</strong> can manage users and most system
-                functions.
-                <strong> Manager</strong> focuses on business operations.
-                <strong> Pharmacist</strong> handles professional pharmacy
-                duties.
-                <strong> Cashier</strong> processes transactions.
-                <strong> Staff</strong> has basic access for daily tasks.
+                <strong>Admin</strong> has full administrative access including
+                user management and system configuration.
+                <strong> Pharmacist</strong> is responsible for inventory, batch
+                management, sales operations, and customer handling.
+                <strong> Employee</strong> has limited access for day-to-day
+                tasks such as processing sales and viewing inventory.
               </p>
             </div>
 
