@@ -49,6 +49,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
       });
 
       console.log("🔍 [DEBUG] Full transaction object keys:", Object.keys(transaction));
+      console.log("🔍 [DEBUG] Transaction object:", transaction);
 
       // Validate transaction data
       if (!transaction) {
@@ -472,22 +473,25 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
               </div>
 
               {/* PWD/Senior Discount Information - Simple text format */}
-              {receiptData.pwdSenior && (receiptData.pwdSenior.isValid || receiptData.financial.discount.amount > 0) && (
+              {((receiptData.pwdSenior && (receiptData.pwdSenior.isValid || receiptData.financial.discount.amount > 0)) || 
+               (receiptData.financial.discount.amount > 0 && (receiptData.financial.discount.type === 'pwd' || receiptData.financial.discount.type === 'senior'))) && (
                 <div className="mt-4 pt-3 border-t border-gray-200">
                   <p className="text-sm">
                     <span className="text-gray-600">
-                      {receiptData.pwdSenior.type === 'pwd' ? 'PWD ID:' : receiptData.pwdSenior.type === 'senior' ? 'Senior ID:' : 'Discount ID:'}
+                      {receiptData.financial.discount.type === 'pwd' ? 'PWD ID:' : 
+                       receiptData.financial.discount.type === 'senior' ? 'Senior ID:' : 'Discount ID:'}
                     </span>{" "}
                     <span className="font-medium font-mono">
-                      {receiptData.pwdSenior.idNumber || 'No ID'}
+                      {receiptData.pwdSenior?.idNumber || 'Not Available'}
                     </span>
                   </p>
                   <p className="text-sm">
                     <span className="text-gray-600">
-                      {receiptData.pwdSenior.type === 'pwd' ? 'PWD Holder:' : receiptData.pwdSenior.type === 'senior' ? 'Senior Holder:' : 'Holder:'}
+                      {receiptData.financial.discount.type === 'pwd' ? 'PWD Holder:' : 
+                       receiptData.financial.discount.type === 'senior' ? 'Senior Holder:' : 'Holder:'}
                     </span>{" "}
                     <span className="font-medium">
-                      {receiptData.pwdSenior.holderName || 'Not Specified'}
+                      {receiptData.pwdSenior?.holderName || 'Not Available'}
                     </span>
                   </p>
                   <p className="text-sm">
@@ -499,8 +503,9 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                 </div>
               )}
 
+              {/* Temporarily disabled DEBUG section */}
               {/* DEBUG: Show PWD/Senior data even if isValid is false */}
-              {receiptData.pwdSenior && !receiptData.pwdSenior.isValid && (
+              {false && receiptData.pwdSenior && !receiptData.pwdSenior.isValid && (
                 <div className="mt-4 pt-3 border-t border-red-200 bg-red-50 p-2">
                   <p className="text-xs text-red-600">DEBUG: PWD/Senior data exists but isValid=false</p>
                   <p className="text-xs">Type: {receiptData.pwdSenior.type}</p>

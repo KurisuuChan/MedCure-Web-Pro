@@ -230,6 +230,7 @@ export default function POSPage() {
         pwd_senior_id: transaction.pwd_senior_id,
         pwd_senior_holder_name: transaction.pwd_senior_holder_name,
       });
+      console.log("🔍 [POSPage] Complete transaction object keys:", Object.keys(transaction));
 
       setLastTransaction(transaction);
       setShowCheckout(false);

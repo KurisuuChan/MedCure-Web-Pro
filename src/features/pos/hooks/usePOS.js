@@ -218,6 +218,15 @@ export function usePOS() {
           status: "completed",
         };
 
+        console.log("🔍 [usePOS] Backend transaction result:", transaction);
+        console.log("🔍 [usePOS] PWD fields in backend response:", {
+          pwd_senior_id: transaction.pwd_senior_id,
+          pwd_senior_holder_name: transaction.pwd_senior_holder_name,
+          discount_type: transaction.discount_type,
+          discount_percentage: transaction.discount_percentage,
+          discount_amount: transaction.discount_amount,
+        });
+
         // Enhance transaction with additional data (preserve customer information)
         const enhancedTransaction = {
           ...transaction, // Keep all original transaction data including customer_id and customer info
@@ -254,6 +263,13 @@ export function usePOS() {
           pwd_senior_id: transaction.pwd_senior_id || saleData.pwd_senior_id,
           pwd_senior_holder_name: transaction.pwd_senior_holder_name || saleData.pwd_senior_holder_name,
         };
+
+        console.log("🔍 [usePOS] Enhanced transaction created:", {
+          original_pwd_senior_holder_name: transaction.pwd_senior_holder_name,
+          fallback_pwd_senior_holder_name: saleData.pwd_senior_holder_name,
+          final_pwd_senior_holder_name: enhancedTransaction.pwd_senior_holder_name,
+          using_fallback: !transaction.pwd_senior_holder_name && saleData.pwd_senior_holder_name,
+        });
 
         // Save transaction
         setLastTransaction(enhancedTransaction);

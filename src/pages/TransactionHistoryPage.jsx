@@ -213,14 +213,41 @@ const TransactionHistoryPage = () => {
       "📋 [TransactionHistory] Current selectedTransaction:",
       selectedTransaction?.id
     );
+    console.log("🔍 [TransactionHistory] Raw transaction from database:", transaction);
+    console.log("🔍 [TransactionHistory] PWD fields in raw transaction:", {
+      pwd_senior_id: transaction.pwd_senior_id,
+      pwd_senior_holder_name: transaction.pwd_senior_holder_name,
+      discount_type: transaction.discount_type,
+      discount_percentage: transaction.discount_percentage,
+      discount_amount: transaction.discount_amount,
+    });
+    
     try {
       // Clear any existing selection first
       setSelectedTransaction(null);
       setShowReceipt(false);
 
-      // Then set the new transaction
+      // ✅ ENHANCE TRANSACTION - Add missing discount data for proper receipt display
+      const enhancedTransaction = {
+        ...transaction,
+        // Ensure discount fields are properly set
+        discount_type: transaction.discount_type || 
+          (transaction.discount_amount > 0 && transaction.discount_percentage === 20 ? 'pwd' : 
+           transaction.discount_amount > 0 && transaction.discount_percentage === 20 ? 'senior' : 'none'),
+        discount_percentage: transaction.discount_percentage || 
+          (transaction.discount_amount > 0 ? 20 : 0),
+        // For PWD/Senior fields, if missing but discount exists, show appropriate message
+        pwd_senior_id: transaction.pwd_senior_id || 
+          (transaction.discount_amount > 0 ? 'ID Not Recorded' : null),
+        pwd_senior_holder_name: transaction.pwd_senior_holder_name || 
+          (transaction.discount_amount > 0 ? 'Holder Name Not Recorded' : null),
+      };
+
+      console.log("🔄 [TransactionHistory] Enhanced transaction:", enhancedTransaction);
+
+      // Then set the enhanced transaction
       setTimeout(() => {
-        setSelectedTransaction(transaction);
+        setSelectedTransaction(enhancedTransaction);
         setShowReceipt(true);
         console.log(
           "✅ [TransactionHistory] Receipt modal should now be open for:",
