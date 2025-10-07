@@ -813,10 +813,15 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         </label>
                         <input
                           type="number"
-                          required
+                          required={!product} // Only required for new products
                           value={formData.stock_in_pieces}
-                          readOnly
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 bg-gray-50 text-gray-700 cursor-not-allowed rounded"
+                          onChange={(e) =>
+                            setFormData({ ...formData, stock_in_pieces: e.target.value })
+                          }
+                          readOnly={!!product} // Only readonly when editing existing product
+                          className={`w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500 ${
+                            product ? 'bg-gray-50 text-gray-700 cursor-not-allowed' : ''
+                          }`}
                           placeholder="0"
                         />
                       </div>
@@ -827,8 +832,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         <input
                           type="number"
                           value={formData.reorder_level}
-                          readOnly
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 bg-gray-50 text-gray-700 cursor-not-allowed rounded"
+                          onChange={(e) =>
+                            setFormData({ ...formData, reorder_level: e.target.value })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                           placeholder="10"
                         />
                       </div>
@@ -841,8 +848,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         <input
                           type="number"
                           value={formData.pieces_per_sheet}
-                          readOnly
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 bg-gray-50 text-gray-700 cursor-not-allowed rounded"
+                          onChange={(e) =>
+                            setFormData({ ...formData, pieces_per_sheet: e.target.value })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                           placeholder="10"
                         />
                       </div>
@@ -853,8 +862,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         <input
                           type="number"
                           value={formData.sheets_per_box}
-                          readOnly
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 bg-gray-50 text-gray-700 cursor-not-allowed rounded"
+                          onChange={(e) =>
+                            setFormData({ ...formData, sheets_per_box: e.target.value })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                           placeholder="10"
                         />
                       </div>
@@ -875,8 +886,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         <input
                           type="text"
                           value={formData.supplier}
-                          readOnly
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 bg-gray-50 text-gray-700 cursor-not-allowed rounded"
+                          onChange={(e) =>
+                            setFormData({ ...formData, supplier: e.target.value })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
                           placeholder="Enter supplier name"
                         />
                       </div>
@@ -888,21 +901,28 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                           <input
                             type="date"
                             value={formData.expiry_date}
-                            readOnly
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 bg-gray-50 text-gray-700 cursor-not-allowed rounded"
+                            onChange={(e) =>
+                              setFormData({ ...formData, expiry_date: e.target.value })
+                            }
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
                           />
                         </div>
                         <div>
                           <label className="flex items-center justify-between text-xs font-semibold text-gray-700 mb-1">
                             <span>Batch Number *</span>
-                            <span className="text-xs text-gray-500 italic">Read-only</span>
+                            {product && <span className="text-xs text-gray-500 italic">Read-only when editing</span>}
                           </label>
                           <input
                             type="text"
                             required
                             value={formData.batch_number}
-                            readOnly
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 bg-gray-50 text-gray-700 cursor-not-allowed rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                            onChange={(e) =>
+                              setFormData({ ...formData, batch_number: e.target.value })
+                            }
+                            readOnly={!!product} // Only readonly when editing existing product
+                            className={`w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${
+                              product ? 'bg-gray-50 text-gray-700 cursor-not-allowed' : ''
+                            }`}
                             placeholder="BT010125-123"
                           />
                         </div>
