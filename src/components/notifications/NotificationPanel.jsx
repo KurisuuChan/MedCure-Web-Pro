@@ -18,7 +18,7 @@
  * @date 2025-10-05
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   X,
@@ -40,9 +40,12 @@ import {
   NOTIFICATION_TYPE,
   NOTIFICATION_CATEGORY,
 } from "../../services/notifications/NotificationService.js";
+import { logger } from "../../utils/logger.js";
 
 const NotificationPanel = ({ userId, onClose }) => {
   const navigate = useNavigate();
+  const panelRef = useRef(null);
+  const closeButtonRef = useRef(null);
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
@@ -53,6 +56,41 @@ const NotificationPanel = ({ userId, onClose }) => {
   const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
   const [isDismissingAll, setIsDismissingAll] = useState(false);
   const [processingItems, setProcessingItems] = useState(new Set());
+
+  // ✅ Auto-focus close button when panel opens (accessibility)
+  useEffect(() => {
+    if (closeButtonRef.current) {
+      closeButtonRef.current.focus();
+    }
+  }, []);
+
+  // ✅ Keyboard navigation - Escape to close, Tab trap
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      onClose();
+      return;
+    }
+
+    // Focus trap: Keep focus inside panel
+    if (e.key === "Tab" && panelRef.current) {
+      const focusableElements = panelRef.current.querySelectorAll(
+        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    }
+  };
 
   // Load notifications
   useEffect(() => {
@@ -113,12 +151,19 @@ const NotificationPanel = ({ userId, onClose }) => {
     };
   }, [userId, page]);
 
-  // Handle mark as read
+  // ✅ Handle mark as read with OPTIMISTIC UI UPDATE
   const handleMarkAsRead = async (notificationId, e) => {
     e.stopPropagation();
 
     // Add to processing set
     setProcessingItems((prev) => new Set([...prev, notificationId]));
+
+    // ✅ OPTIMISTIC UPDATE: Update UI immediately
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.id === notificationId ? { ...n, is_read: true } : n
+      )
+    );
 
     try {
       const result = await notificationService.markAsRead(
@@ -126,16 +171,25 @@ const NotificationPanel = ({ userId, onClose }) => {
         userId
       );
 
-      if (result.success) {
+      if (!result.success) {
+        // ✅ ROLLBACK: Revert optimistic update on failure
         setNotifications((prev) =>
           prev.map((n) =>
-            n.id === notificationId ? { ...n, is_read: true } : n
+            n.id === notificationId ? { ...n, is_read: false } : n
           )
         );
-      } else {
-        console.error("Failed to mark as read:", result.error);
-        alert(`Failed to mark notification as read: ${result.error}`);
+        logger.error("Failed to mark as read:", result.error);
+        alert(`Failed to mark notification as read. Please try again.`);
       }
+    } catch (error) {
+      // ✅ ROLLBACK: Revert on error
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notificationId ? { ...n, is_read: false } : n
+        )
+      );
+      logger.error("Error marking as read:", error);
+      alert(`Failed to mark notification as read. Please try again.`);
     } finally {
       // Remove from processing set
       setProcessingItems((prev) => {
@@ -146,46 +200,58 @@ const NotificationPanel = ({ userId, onClose }) => {
     }
   };
 
-  // Handle mark all as read
+  // ✅ Handle mark all as read with OPTIMISTIC UI UPDATE
   const handleMarkAllAsRead = async () => {
     setIsMarkingAllAsRead(true);
+
+    // Save original state for rollback
+    const originalNotifications = [...notifications];
+
+    // ✅ OPTIMISTIC UPDATE: Update UI immediately
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
 
     try {
       const result = await notificationService.markAllAsRead(userId);
 
       if (result.success) {
-        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-
         // Show success feedback
         if (result.count > 0) {
-          console.log(`✅ Marked ${result.count} notification(s) as read`);
+          logger.success(`Marked ${result.count} notification(s) as read`);
         }
       } else {
-        console.error("Failed to mark all as read:", result.error);
-        alert(`Failed to mark all notifications as read: ${result.error}`);
+        // ✅ ROLLBACK: Restore original state on failure
+        setNotifications(originalNotifications);
+        logger.error("Failed to mark all as read:", result.error);
+        alert(`Failed to mark all notifications as read. Please try again.`);
       }
     } catch (error) {
-      console.error("Unexpected error marking all as read:", error);
-      alert(`Unexpected error: ${error.message}`);
+      // ✅ ROLLBACK: Restore original state on error
+      setNotifications(originalNotifications);
+      logger.error("Unexpected error marking all as read:", error);
+      alert(`Failed to mark all notifications as read. Please try again.`);
     } finally {
       setIsMarkingAllAsRead(false);
     }
   };
 
-  // Handle dismiss
+  // ✅ Handle dismiss with OPTIMISTIC UI UPDATE
   const handleDismiss = async (notificationId, e) => {
     e.stopPropagation();
 
     // Add to processing set
     setProcessingItems((prev) => new Set([...prev, notificationId]));
 
+    // Save dismissed notification for rollback
+    const dismissedNotification = notifications.find((n) => n.id === notificationId);
+    const dismissedIndex = notifications.findIndex((n) => n.id === notificationId);
+
+    // ✅ OPTIMISTIC UPDATE: Remove from UI immediately
+    setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+
     try {
       const result = await notificationService.dismiss(notificationId, userId);
 
       if (result.success) {
-        // Filter out dismissed notification
-        setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
-
         // Check if page is now empty
         const remainingCount = notifications.length - 1;
         if (remainingCount === 0 && page > 1) {
@@ -204,9 +270,24 @@ const NotificationPanel = ({ userId, onClose }) => {
           setHasMore(reloadResult.hasMore);
         }
       } else {
-        console.error("Failed to dismiss:", result.error);
-        alert(`Failed to dismiss notification: ${result.error}`);
+        // ✅ ROLLBACK: Restore dismissed notification on failure
+        setNotifications((prev) => {
+          const newNotifications = [...prev];
+          newNotifications.splice(dismissedIndex, 0, dismissedNotification);
+          return newNotifications;
+        });
+        logger.error("Failed to dismiss:", result.error);
+        alert(`Failed to dismiss notification. Please try again.`);
       }
+    } catch (error) {
+      // ✅ ROLLBACK: Restore dismissed notification on error
+      setNotifications((prev) => {
+        const newNotifications = [...prev];
+        newNotifications.splice(dismissedIndex, 0, dismissedNotification);
+        return newNotifications;
+      });
+      logger.error("Error dismissing notification:", error);
+      alert(`Failed to dismiss notification. Please try again.`);
     } finally {
       // Remove from processing set
       setProcessingItems((prev) => {
@@ -217,7 +298,7 @@ const NotificationPanel = ({ userId, onClose }) => {
     }
   };
 
-  // Handle dismiss all
+  // ✅ Handle dismiss all with OPTIMISTIC UI UPDATE
   const handleDismissAll = async () => {
     // Confirmation dialog
     const count = notifications.length;
@@ -232,25 +313,39 @@ const NotificationPanel = ({ userId, onClose }) => {
 
     setIsDismissingAll(true);
 
+    // Save original state for rollback
+    const originalNotifications = [...notifications];
+    const originalPage = page;
+    const originalHasMore = hasMore;
+
+    // ✅ OPTIMISTIC UPDATE: Clear UI immediately
+    setNotifications([]);
+    setPage(1);
+    setHasMore(false);
+
     try {
       const result = await notificationService.dismissAll(userId);
 
       if (result.success) {
-        setNotifications([]);
-        setPage(1); // Reset to page 1
-        setHasMore(false);
-
         // Show success feedback
         if (result.count > 0) {
-          console.log(`✅ Cleared ${result.count} notification(s)`);
+          logger.success(`Cleared ${result.count} notification(s)`);
         }
       } else {
-        console.error("Failed to dismiss all:", result.error);
-        alert(`Failed to clear all notifications: ${result.error}`);
+        // ✅ ROLLBACK: Restore original state on failure
+        setNotifications(originalNotifications);
+        setPage(originalPage);
+        setHasMore(originalHasMore);
+        logger.error("Failed to dismiss all:", result.error);
+        alert(`Failed to clear all notifications. Please try again.`);
       }
     } catch (error) {
-      console.error("Unexpected error dismissing all:", error);
-      alert(`Unexpected error: ${error.message}`);
+      // ✅ ROLLBACK: Restore original state on error
+      setNotifications(originalNotifications);
+      setPage(originalPage);
+      setHasMore(originalHasMore);
+      logger.error("Unexpected error dismissing all:", error);
+      alert(`Failed to clear all notifications. Please try again.`);
     } finally {
       setIsDismissingAll(false);
     }
@@ -334,7 +429,12 @@ const NotificationPanel = ({ userId, onClose }) => {
 
   return (
     <div
+      ref={panelRef}
       className="notification-panel"
+      onKeyDown={handleKeyDown}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Notifications Panel"
       style={{
         position: "absolute",
         top: "calc(100% + 8px)",
@@ -372,6 +472,7 @@ const NotificationPanel = ({ userId, onClose }) => {
           Notifications
         </h3>
         <button
+          ref={closeButtonRef}
           onClick={onClose}
           style={{
             background: "transparent",
