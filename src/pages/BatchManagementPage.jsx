@@ -537,24 +537,6 @@ const BatchManagementPage = () => {
               <span>Analytics</span>
             </button>
             <button
-              onClick={handleQuarantineExpired}
-              disabled={refreshing}
-              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-              title="Quarantine expired batches"
-            >
-              <Shield className="h-4 w-4" />
-              <span>Quarantine Expired</span>
-            </button>
-            <button
-              onClick={handleRunMaintenance}
-              disabled={refreshing}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-              title="Run batch maintenance"
-            >
-              <Settings className="h-4 w-4" />
-              <span>Maintenance</span>
-            </button>
-            <button
               onClick={() => setShowBulkImportModal(true)}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
               title="Bulk import batches from CSV"
