@@ -235,12 +235,49 @@ export const ReportsService = {
         endDate = new Date().toISOString(),
       } = dateRange;
 
+      // Ensure we're using the full day range (start of day to end of day)
+      const startDateTime = new Date(startDate);
+      startDateTime.setHours(0, 0, 0, 0);
+      const endDateTime = new Date(endDate);
+      endDateTime.setHours(23, 59, 59, 999);
+
+      const adjustedStartDate = startDateTime.toISOString();
+      const adjustedEndDate = endDateTime.toISOString();
+
       console.log(
         "🔍 [ReportsService] Querying sales from",
-        startDate,
+        adjustedStartDate,
         "to",
-        endDate
+        adjustedEndDate
       );
+
+      // First, check if there are ANY sales in the database for diagnostics
+      const { data: allSales, error: checkError } = await supabase
+        .from("sales")
+        .select("id, created_at, status, total_amount")
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (checkError) {
+        console.error("❌ [ReportsService] Error checking sales:", checkError);
+      } else {
+        console.log(
+          "📊 [ReportsService] Recent sales in database:",
+          allSales?.length || 0,
+          "records"
+        );
+        if (allSales && allSales.length > 0) {
+          console.log("📋 [ReportsService] Most recent sale:", {
+            date: allSales[0].created_at,
+            status: allSales[0].status,
+            amount: allSales[0].total_amount,
+          });
+          console.log("📋 [ReportsService] Oldest in recent 10:", {
+            date: allSales[allSales.length - 1].created_at,
+            status: allSales[allSales.length - 1].status,
+          });
+        }
+      }
 
       // Use the SAME query structure as transactionService.getTransactions()
       // This ensures we get the same data that works in Transaction History
@@ -267,8 +304,8 @@ export const ReportsService = {
           )
         `
         )
-        .gte("created_at", startDate)
-        .lte("created_at", endDate)
+        .gte("created_at", adjustedStartDate)
+        .lte("created_at", adjustedEndDate)
         .order("created_at", { ascending: false });
 
       const { data: salesData, error: salesError } = await query;
@@ -535,6 +572,38 @@ export const ReportsService = {
         endDate
       );
 
+      // Ensure we're using the full day range
+      const startDateTime = new Date(startDate);
+      startDateTime.setHours(0, 0, 0, 0);
+      const endDateTime = new Date(endDate);
+      endDateTime.setHours(23, 59, 59, 999);
+
+      const adjustedStartDate = startDateTime.toISOString();
+      const adjustedEndDate = endDateTime.toISOString();
+
+      console.log(
+        "📊 [ReportsService] Adjusted date range:",
+        adjustedStartDate,
+        "to",
+        adjustedEndDate
+      );
+
+      // First, check what sales exist
+      const { data: recentSales } = await supabase
+        .from("sales")
+        .select("id, created_at, status")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      console.log(
+        "🔍 [ReportsService] Recent sales check:",
+        recentSales?.length || 0,
+        "found"
+      );
+      if (recentSales && recentSales.length > 0) {
+        console.log("📅 Most recent sale:", recentSales[0].created_at);
+      }
+
       // Use the SAME query structure as transactionService for consistency
       const [salesResult, productsResult] = await Promise.all([
         supabase
@@ -559,8 +628,8 @@ export const ReportsService = {
             )
           `
           )
-          .gte("created_at", startDate)
-          .lte("created_at", endDate),
+          .gte("created_at", adjustedStartDate)
+          .lte("created_at", adjustedEndDate),
 
         supabase
           .from("products")
