@@ -4,6 +4,7 @@ import { inventoryService } from "../../../services/domains/inventory/inventoryS
 import transactionService from "../../../services/domains/sales/transactionService";
 import { useAuth } from "../../../hooks/useAuth";
 import notificationService from "../../../services/notifications/NotificationService";
+import { supabase } from "../../../config/supabase";
 
 export function usePOS() {
   const { user } = useAuth();
@@ -117,14 +118,27 @@ export function usePOS() {
     return getCartTotal();
   }, [getCartTotal]);
 
-  // Calculate cart tax (12% VAT)
-  const getCartTax = useCallback(() => {
-    return getCartSubtotal() * 0.12;
+  // Calculate cart tax (12% VAT) - should be calculated after discount
+  const getCartTax = useCallback((afterDiscount = false, discountAmount = 0) => {
+    const subtotal = getCartSubtotal();
+    if (afterDiscount) {
+      const discountedSubtotal = subtotal - discountAmount;
+      return discountedSubtotal * 0.12;
+    }
+    return subtotal * 0.12;
   }, [getCartSubtotal]);
 
-  // Calculate cart total (subtotal + tax)
-  const getCartTotalWithTax = useCallback(() => {
-    return getCartSubtotal() + getCartTax();
+  // Calculate cart total (subtotal + tax) - handle discount properly
+  const getCartTotalWithTax = useCallback((discountAmount = 0) => {
+    const subtotal = getCartSubtotal();
+    if (discountAmount > 0) {
+      // Apply discount first, then calculate VAT on discounted amount
+      const discountedSubtotal = subtotal - discountAmount;
+      const vatOnDiscounted = discountedSubtotal * 0.12;
+      return discountedSubtotal + vatOnDiscounted;
+    }
+    // Normal calculation without discount
+    return subtotal + getCartTax();
   }, [getCartSubtotal, getCartTax]);
 
   // Handle clearing cart
@@ -138,6 +152,62 @@ export function usePOS() {
     }
   }, [clearCart]);
 
+  // Validate cart items against current product database
+  const validateCartItems = useCallback(async () => {
+    if (cartItems.length === 0) {
+      return { isValid: true, issues: [] };
+    }
+
+    const productIds = cartItems.map(item => item.productId);
+    const issues = [];
+
+    try {
+      // Check if products still exist and are available
+      const { data: currentProducts, error } = await supabase
+        .from("products")
+        .select("id, brand_name, generic_name, is_active, is_archived, stock_in_pieces")
+        .in("id", productIds);
+
+      if (error) {
+        console.error("Error validating cart items:", error);
+        return { isValid: false, issues: ["Failed to validate cart items"] };
+      }
+
+      const foundProductIds = new Set(currentProducts.map(p => p.id));
+
+      // Check each cart item
+      for (const cartItem of cartItems) {
+        const product = currentProducts.find(p => p.id === cartItem.productId);
+        
+        if (!product) {
+          issues.push(`${cartItem.name || 'Unknown Product'} no longer exists`);
+          continue;
+        }
+
+        if (!product.is_active) {
+          issues.push(`${product.brand_name || product.generic_name} is no longer active`);
+          continue;
+        }
+
+        if (product.is_archived) {
+          issues.push(`${product.brand_name || product.generic_name} has been archived`);
+          continue;
+        }
+
+        if ((product.stock_in_pieces || 0) < cartItem.quantityInPieces) {
+          issues.push(
+            `${product.brand_name || product.generic_name}: requested ${cartItem.quantityInPieces}, available ${product.stock_in_pieces || 0}`
+          );
+        }
+      }
+
+      return { isValid: issues.length === 0, issues };
+    } catch (err) {
+      console.error("Error validating cart items:", err);
+      return { isValid: false, issues: ["Failed to validate cart items"] };
+    }
+  }, [cartItems]);
+
   // Process payment
   const processPayment = useCallback(
     async (paymentData) => {
@@ -150,10 +220,32 @@ export function usePOS() {
           throw new Error("Cart is empty");
         }
 
-        // Validate payment amount
-        const total = getCartTotalWithTax();
-        const finalTotalAfterDiscount =
-          total - (paymentData.discount_amount || 0);
+        // Pre-validate cart items to catch stale products early
+        console.log("🔍 Pre-validating cart items...");
+        const validation = await validateCartItems();
+        if (!validation.isValid) {
+          console.warn("⚠️ Cart validation failed:", validation.issues);
+          
+          // Refresh product list and try validation again
+          await loadAvailableProducts();
+          const retryValidation = await validateCartItems();
+          
+          if (!retryValidation.isValid) {
+            throw new Error(
+              `Cart validation failed: ${retryValidation.issues.join("; ")}. ` +
+              "Please remove invalid items and try again."
+            );
+          }
+          
+          console.log("✅ Cart validation passed after product refresh");
+        } else {
+          console.log("✅ Cart validation passed");
+        }
+
+        // Validate payment amount - use correct discount calculation
+        const subtotal = getCartSubtotal();
+        const discountAmount = paymentData.discount_amount || 0;
+        const finalTotalAfterDiscount = getCartTotalWithTax(discountAmount);
 
         if (paymentData.amount < finalTotalAfterDiscount) {
           throw new Error(
@@ -167,13 +259,16 @@ export function usePOS() {
         const saleData = {
           items: cartItems.map((item) => ({
             product_id: item.productId,
-            quantity_in_pieces: item.quantityInPieces,
+            quantity: item.quantityInPieces, // Use pieces as base quantity
             unit_type: item.unit,
-            unit_quantity: item.quantity,
-            price_per_unit: item.pricePerUnit,
+            unit_price: item.pricePerPiece, // Use price per piece (base unit)
             total_price: item.totalPrice,
+            // Additional fields for debugging/display
+            display_quantity: item.quantity,
+            display_unit: item.unit,
+            price_per_unit: item.pricePerUnit,
           })),
-          total: finalTotalAfterDiscount, // ✅ FIXED: Use actual sale total after discount
+          total: finalTotalAfterDiscount, // ✅ FIXED: Use correctly calculated total
           paymentMethod: paymentData.method,
           customer: paymentData.customer || null,
           cashierId: user?.id || null,
@@ -187,8 +282,7 @@ export function usePOS() {
           discount_type: paymentData.discount_type || "none",
           discount_percentage: paymentData.discount_percentage || 0,
           discount_amount: paymentData.discount_amount || 0,
-          subtotal_before_discount:
-            paymentData.subtotal_before_discount || total,
+          subtotal_before_discount: subtotal,
           pwd_senior_id: paymentData.pwd_senior_id || null,
           pwd_senior_holder_name: paymentData.pwd_senior_holder_name || null,
         };
@@ -237,6 +331,10 @@ export function usePOS() {
             amount: paymentData.amount,
             change: paymentData.amount - finalTotalAfterDiscount, // ✅ FIXED: Use correct total for change calculation
           },
+          // Add payment fields that receipt service expects
+          amount_paid: paymentData.amount,
+          change_amount: paymentData.amount - finalTotalAfterDiscount,
+          payment_method: paymentData.method,
           // Override items with cart data for receipt display
           sale_items: cartItems.map((item) => ({
             id: item.productId,
@@ -249,7 +347,7 @@ export function usePOS() {
             totalPrice: item.totalPrice,
           })),
           subtotal: getCartSubtotal(),
-          tax: getCartTax(),
+          tax: getCartTax(true, paymentData.discount_amount || 0), // Use tax on discounted amount
           // Explicitly preserve customer data to ensure it's not lost
           customer_id: transaction.customer_id,
           customer_name: transaction.customer_name,
@@ -338,7 +436,31 @@ export function usePOS() {
         return enhancedTransaction;
       } catch (err) {
         console.error("Payment processing error:", err);
-        setError(err.message);
+        
+        // Check if the error is related to stale products
+        if (err.message && (
+          err.message.includes("no longer exist in the database") ||
+          err.message.includes("not available for sale") ||
+          err.message.includes("Please refresh the product list")
+        )) {
+          console.log("🔄 Product validation error detected, refreshing product list...");
+          
+          // Automatically refresh the product list
+          try {
+            await loadAvailableProducts();
+            setError(
+              `${err.message}\n\n✅ Product list has been refreshed. Please review your cart and try again.`
+            );
+          } catch (refreshError) {
+            console.error("Failed to refresh product list:", refreshError);
+            setError(
+              `${err.message}\n\n⚠️ Failed to refresh product list. Please refresh the page and try again.`
+            );
+          }
+        } else {
+          setError(err.message);
+        }
+        
         throw err;
       } finally {
         setIsProcessing(false);
@@ -358,8 +480,7 @@ export function usePOS() {
   // Calculate change
   const calculateChange = useCallback(
     (amountPaid, discountAmount = 0) => {
-      const total = getCartTotalWithTax();
-      const finalTotal = total - discountAmount;
+      const finalTotal = getCartTotalWithTax(discountAmount);
       return Math.max(0, amountPaid - finalTotal);
     },
     [getCartTotalWithTax]
@@ -378,9 +499,7 @@ export function usePOS() {
         errors.amount = "Payment amount is required";
       }
 
-      const total = getCartTotalWithTax();
-      const finalTotalAfterDiscount =
-        total - (paymentData.discount_amount || 0);
+      const finalTotalAfterDiscount = getCartTotalWithTax(paymentData.discount_amount || 0);
       if (paymentData.amount < finalTotalAfterDiscount) {
         errors.amount = `Insufficient payment amount. Need ₱${finalTotalAfterDiscount.toFixed(
           2
@@ -396,12 +515,12 @@ export function usePOS() {
   );
 
   // Get cart summary
-  const getCartSummary = useCallback(() => {
+  const getCartSummary = useCallback((discountAmount = 0) => {
     return {
       itemCount: getCartItemCount(),
       subtotal: getCartSubtotal(),
-      tax: getCartTax(),
-      total: getCartTotalWithTax(),
+      tax: getCartTax(discountAmount > 0, discountAmount),
+      total: getCartTotalWithTax(discountAmount),
     };
   }, [getCartItemCount, getCartSubtotal, getCartTax, getCartTotalWithTax]);
 
@@ -427,6 +546,7 @@ export function usePOS() {
     // Helpers
     calculateChange,
     validatePayment,
+    validateCartItems,
     getCartSummary,
 
     // Clear error
