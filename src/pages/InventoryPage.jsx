@@ -448,6 +448,26 @@ export default function InventoryPage() {
 
 // Product Modal Component - Ultra-Compact Crosswise Design
 function ProductModal({ title, product, categories, onClose, onSave }) {
+  // Predefined options for dropdowns
+  const dosageFormOptions = [
+    "Tablet", "Capsule", "Syrup", "Suspension", "Injection", "Cream", "Ointment", 
+    "Gel", "Drops", "Inhaler", "Patch", "Suppository", "Powder", "Solution", 
+    "Lotion", "Spray", "Granules", "Emulsion"
+  ];
+
+  const dosageStrengthOptions = [
+    "5mg", "10mg", "25mg", "50mg", "100mg", "250mg", "500mg", "750mg", "1000mg",
+    "1g", "2g", "5g", "10g", "1ml", "2ml", "5ml", "10ml", "15ml", "30ml", "60ml",
+    "100ml", "120ml", "250ml", "500ml", "1L", "5%", "10%", "15%", "20%", "25%"
+  ];
+
+  const drugClassificationOptions = [
+    "OTC (Over-the-Counter)", "Prescription", "Controlled Substance", 
+    "Generic", "Brand", "Antibiotic", "Analgesic", "Antacid", "Vitamin", 
+    "Supplement", "Antiseptic", "Anti-inflammatory", "Antihypertensive",
+    "Antihistamine", "Antidiabetic", "Schedule I", "Schedule II", "Schedule III"
+  ];
+
   // Smart batch number generation
   const generateSmartBatchNumber = (productName, category, expiryDate) => {
     const now = new Date();
@@ -687,44 +707,59 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
                         <label className="block text-xs font-semibold text-gray-700 mb-1">
                           Dosage Form
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={formData.dosage_form}
                           onChange={(e) =>
                             setFormData({ ...formData, dosage_form: e.target.value })
                           }
                           className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                          placeholder="e.g. Tablet, Capsule"
-                        />
+                        >
+                          <option value="">Select dosage form</option>
+                          {dosageFormOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1">
                           Dosage Strength
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={formData.dosage_strength}
                           onChange={(e) =>
                             setFormData({ ...formData, dosage_strength: e.target.value })
                           }
                           className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                          placeholder="e.g. 500mg, 10ml"
-                        />
+                        >
+                          <option value="">Select dosage strength</option>
+                          {dosageStrengthOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                     <div className="mt-2">
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
                         Drug Classification
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={formData.drug_classification}
                         onChange={(e) =>
                           setFormData({ ...formData, drug_classification: e.target.value })
                         }
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                        placeholder="e.g. OTC, Prescription, Controlled"
-                      />
+                      >
+                        <option value="">Select drug classification</option>
+                        {drugClassificationOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
