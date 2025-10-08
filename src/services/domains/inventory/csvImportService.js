@@ -58,13 +58,13 @@ export class CSVImportService {
   static ENUM_VALUES = {
     dosage_form: [
       "SACHET",
-      "TABLETS", 
+      "TABLETS",
       "SYRUP",
       "CAPSULES",
       "DROPS",
       "INHALER",
       "NEBULIZER",
-      "SUSPENSION"
+      "SUSPENSION",
     ],
     drug_classification: [
       "Prescription (Rx)",
@@ -81,35 +81,35 @@ export class CSVImportService {
       units: ["ml", "bottle"],
       primary_pricing_unit: "bottle", // Price per bottle, not per ml
       has_sheets: false,
-      has_boxes: false
+      has_boxes: false,
     },
-    
+
     // Solid forms - full hierarchy with sheets and boxes
     SOLIDS: {
       forms: ["TABLETS", "CAPSULES"],
       units: ["piece", "sheet", "box"],
       primary_pricing_unit: "piece", // Can price per piece, sheet, or box
       has_sheets: true,
-      has_boxes: true
+      has_boxes: true,
     },
-    
+
     // Sachets - pieces and boxes only (no sheets)
     SACHETS: {
       forms: ["SACHET"],
       units: ["piece", "box"],
       primary_pricing_unit: "piece", // Price per sachet or per box
       has_sheets: false,
-      has_boxes: true
+      has_boxes: true,
     },
-    
+
     // Devices - single units only
     DEVICES: {
       forms: ["INHALER", "NEBULIZER"],
       units: ["piece"],
       primary_pricing_unit: "piece", // Price per device only
       has_sheets: false,
-      has_boxes: false
-    }
+      has_boxes: false,
+    },
   };
 
   // Required fields for validation
@@ -133,8 +133,20 @@ export class CSVImportService {
       enum: "drug_classification",
       auto_create: true,
     },
-    { name: "pieces_per_sheet", required: false, type: "number", min: 1, conditional: true },
-    { name: "sheets_per_box", required: false, type: "number", min: 1, conditional: true },
+    {
+      name: "pieces_per_sheet",
+      required: false,
+      type: "number",
+      min: 1,
+      conditional: true,
+    },
+    {
+      name: "sheets_per_box",
+      required: false,
+      type: "number",
+      min: 1,
+      conditional: true,
+    },
     { name: "reorder_level", required: false, type: "number", min: 0 },
     { name: "cost_price", required: false, type: "number", min: 0 },
     { name: "base_price", required: false, type: "number", min: 0 },
@@ -147,7 +159,7 @@ export class CSVImportService {
    * @param {string} productName - Product name for pattern matching
    * @returns {Object} Unit configuration for the product
    */
-  static detectProductUnits(dosageForm, productName = '') {
+  static detectProductUnits(dosageForm, productName = "") {
     // Default fallback
     const defaultConfig = {
       units: ["piece"],
@@ -155,28 +167,32 @@ export class CSVImportService {
       has_sheets: false,
       has_boxes: false,
       pieces_per_sheet: 1,
-      sheets_per_box: 1
+      sheets_per_box: 1,
     };
 
     if (!dosageForm) {
       // Try to detect from product name if dosage form is missing
       const nameUpper = productName.toUpperCase();
-      if (nameUpper.includes('SYRUP') || nameUpper.includes('LIQUID') || nameUpper.includes('ML')) {
-        dosageForm = 'SYRUP';
-      } else if (nameUpper.includes('TABLET') || nameUpper.includes('TAB')) {
-        dosageForm = 'TABLETS';
-      } else if (nameUpper.includes('CAPSULE') || nameUpper.includes('CAP')) {
-        dosageForm = 'CAPSULES';
-      } else if (nameUpper.includes('DROPS') || nameUpper.includes('DROP')) {
-        dosageForm = 'DROPS';
-      } else if (nameUpper.includes('INHALER')) {
-        dosageForm = 'INHALER';
-      } else if (nameUpper.includes('SACHET')) {
-        dosageForm = 'SACHET';
+      if (
+        nameUpper.includes("SYRUP") ||
+        nameUpper.includes("LIQUID") ||
+        nameUpper.includes("ML")
+      ) {
+        dosageForm = "SYRUP";
+      } else if (nameUpper.includes("TABLET") || nameUpper.includes("TAB")) {
+        dosageForm = "TABLETS";
+      } else if (nameUpper.includes("CAPSULE") || nameUpper.includes("CAP")) {
+        dosageForm = "CAPSULES";
+      } else if (nameUpper.includes("DROPS") || nameUpper.includes("DROP")) {
+        dosageForm = "DROPS";
+      } else if (nameUpper.includes("INHALER")) {
+        dosageForm = "INHALER";
+      } else if (nameUpper.includes("SACHET")) {
+        dosageForm = "SACHET";
       }
     }
 
-    const formUpper = dosageForm ? dosageForm.toUpperCase() : '';
+    const formUpper = dosageForm ? dosageForm.toUpperCase() : "";
 
     // Find matching rule
     for (const [category, rules] of Object.entries(this.SMART_UNIT_RULES)) {
@@ -186,7 +202,7 @@ export class CSVImportService {
           primary_pricing_unit: rules.primary_pricing_unit,
           has_sheets: rules.has_sheets,
           has_boxes: rules.has_boxes,
-          category: category
+          category: category,
         };
 
         // Set default package structure based on unit type
@@ -210,7 +226,9 @@ export class CSVImportService {
       }
     }
 
-    logDebug(`⚠️ No unit rule found for dosage form: ${dosageForm}, using default`);
+    logDebug(
+      `⚠️ No unit rule found for dosage form: ${dosageForm}, using default`
+    );
     return defaultConfig;
   }
 
@@ -478,22 +496,39 @@ export class CSVImportService {
       const rowNumber = index + 2; // +2 because index is 0-based and we skip header
 
       // 🎯 Get unit config for this product to determine what fields are relevant
-      const dosageForm = row.dosage_form ? row.dosage_form.trim() : '';
-      const productName = row.generic_name ? row.generic_name.trim() : '';
+      const dosageForm = row.dosage_form ? row.dosage_form.trim() : "";
+      const productName = row.generic_name ? row.generic_name.trim() : "";
       const unitConfig = this.detectProductUnits(dosageForm, productName);
 
       // Validate all fields
       allFields.forEach(
-        ({ name, required, type, min, max, enum: enumType, auto_create, conditional }) => {
+        ({
+          name,
+          required,
+          type,
+          min,
+          max,
+          enum: enumType,
+          auto_create,
+          conditional,
+        }) => {
           const value = row[name];
           const cleanValue = typeof value === "string" ? value.trim() : value;
 
           // 🎯 SMART CONDITIONAL VALIDATION - Skip sheet/box fields for products that don't need them
-          if (conditional && name === "pieces_per_sheet" && !unitConfig.has_sheets) {
+          if (
+            conditional &&
+            name === "pieces_per_sheet" &&
+            !unitConfig.has_sheets
+          ) {
             // Skip validation - this product doesn't use sheets
             return;
           }
-          if (conditional && name === "sheets_per_box" && !unitConfig.has_boxes) {
+          if (
+            conditional &&
+            name === "sheets_per_box" &&
+            !unitConfig.has_boxes
+          ) {
             // Skip validation - this product doesn't use boxes
             return;
           }
@@ -642,8 +677,11 @@ export class CSVImportService {
     const dosageForm = cleanString(row.dosage_form);
     const productName = cleanString(row.generic_name);
     const unitConfig = this.detectProductUnits(dosageForm, productName);
-    
-    logDebug(`🧠 Smart unit detection for "${productName}" (${dosageForm}):`, unitConfig);
+
+    logDebug(
+      `🧠 Smart unit detection for "${productName}" (${dosageForm}):`,
+      unitConfig
+    );
 
     // Parse pricing fields
     const pricePerPiece = safeParseFloat(row.price_per_piece, 1.0);
@@ -659,10 +697,11 @@ export class CSVImportService {
 
     // 🎯 SMART PACKAGE STRUCTURE - Use detected unit config or CSV values
     let pieces_per_sheet, sheets_per_box;
-    
+
     if (unitConfig.has_sheets) {
       // Use CSV values if provided, otherwise use smart defaults
-      pieces_per_sheet = safeParseInt(row.pieces_per_sheet) || unitConfig.pieces_per_sheet || 10;
+      pieces_per_sheet =
+        safeParseInt(row.pieces_per_sheet) || unitConfig.pieces_per_sheet || 10;
     } else {
       // For liquids, devices, etc. - no sheets
       pieces_per_sheet = 1;
@@ -670,7 +709,8 @@ export class CSVImportService {
 
     if (unitConfig.has_boxes) {
       // Use CSV values if provided, otherwise use smart defaults
-      sheets_per_box = safeParseInt(row.sheets_per_box) || unitConfig.sheets_per_box || 10;
+      sheets_per_box =
+        safeParseInt(row.sheets_per_box) || unitConfig.sheets_per_box || 10;
     } else {
       // For devices that don't come in boxes
       sheets_per_box = 1;
@@ -703,15 +743,19 @@ export class CSVImportService {
       // 🎯 SMART PACKAGE STRUCTURE - Based on intelligent unit detection
       pieces_per_sheet: Math.max(pieces_per_sheet, 1),
       sheets_per_box: Math.max(sheets_per_box, 1),
-      
-      // 🎯 SMART UNIT METADATA - Store for frontend use
-      unit_config: {
-        detected_units: unitConfig.units,
-        primary_pricing_unit: unitConfig.primary_pricing_unit,
-        has_sheets: unitConfig.has_sheets,
-        has_boxes: unitConfig.has_boxes,
-        category: unitConfig.category,
-        auto_detected: true
+
+      // 🎯 SMART UNIT METADATA - Store in import_metadata JSONB column
+      import_metadata: {
+        unit_config: {
+          detected_units: unitConfig.units,
+          primary_pricing_unit: unitConfig.primary_pricing_unit,
+          has_sheets: unitConfig.has_sheets,
+          has_boxes: unitConfig.has_boxes,
+          category: unitConfig.category,
+          auto_detected: true,
+        },
+        imported_at: new Date().toISOString(),
+        import_source: "csv",
       },
 
       // Inventory fields
@@ -741,7 +785,7 @@ export class CSVImportService {
       has_boxes: unitConfig.has_boxes,
       pieces_per_sheet: transformed.pieces_per_sheet,
       sheets_per_box: transformed.sheets_per_box,
-      primary_pricing: unitConfig.primary_pricing_unit
+      primary_pricing: unitConfig.primary_pricing_unit,
     });
 
     return transformed;
@@ -824,7 +868,7 @@ export class CSVImportService {
         "",
         "",
         "50",
-        "10", 
+        "10",
         "70.00",
         "77.50",
         "2025-06-30",

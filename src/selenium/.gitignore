@@ -1,0 +1,25 @@
+# Selenium Test Artifacts
+
+# Screenshots
+screenshots/*.png
+screenshots/*.jpg
+
+# Test Reports
+reports/
+*.html
+*.xml
+*.json
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

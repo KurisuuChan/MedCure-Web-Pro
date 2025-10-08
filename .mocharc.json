@@ -1,0 +1,6 @@
+{
+  "spec": "src/selenium/tests/**/*.test.js",
+  "timeout": 30000,
+  "reporter": "spec",
+  "exit": true
+}

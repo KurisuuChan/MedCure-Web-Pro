@@ -221,7 +221,31 @@ export class UnifiedCategoryService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Handle duplicate key violation
+        if (
+          error.code === "23505" ||
+          error.message?.includes("duplicate key")
+        ) {
+          console.log(
+            `ℹ️ [UnifiedCategory] Category "${normalizedData.name}" already exists (caught duplicate key error)`
+          );
+
+          // Try to fetch the existing category
+          const existingResult = await this.getCategoryByName(
+            normalizedData.name
+          );
+          if (existingResult.success && existingResult.data) {
+            return {
+              success: true,
+              data: existingResult.data,
+              action: "existing",
+              message: `Category "${existingResult.data.name}" already exists`,
+            };
+          }
+        }
+        throw error;
+      }
 
       // Log creation for audit trail
       await this.logCategoryActivity("category_created", data.id, {
@@ -1298,7 +1322,13 @@ export class UnifiedCategoryService {
           );
         } else {
           console.error(
-            `❌ [UnifiedCategory] Failed to create category: ${category.name}`
+            `❌ [UnifiedCategory] Failed to create category: ${category.name}`,
+            {
+              error: result.error,
+              message: result.message,
+              action: result.action,
+              fullResult: result,
+            }
           );
         }
       }
@@ -1391,28 +1421,40 @@ export class UnifiedCategoryService {
               );
             } else {
               // Auto-create missing category
-              console.log(`🆕 [UnifiedCategory] Auto-creating category: "${item.category}"`);
+              console.log(
+                `🆕 [UnifiedCategory] Auto-creating category: "${item.category}"`
+              );
               try {
-                const result = await this.createCategory({
-                  name: item.category,
-                  description: `Auto-created from import: ${item.category}`,
-                  color: '#6B7280', // Default gray color
-                  icon: 'Package'
-                }, { source: 'auto_import' });
-                
+                const result = await this.createCategory(
+                  {
+                    name: item.category,
+                    description: `Auto-created from import: ${item.category}`,
+                    color: "#6B7280", // Default gray color
+                    icon: "Package",
+                  },
+                  { source: "auto_import" }
+                );
+
                 if (result.success) {
                   categoryId = result.data.id;
                   // Add to maps for subsequent items
                   categoryMap.set(originalCategory, categoryId);
                   normalizedMap.set(normalizedCategory, categoryId);
-                  console.log(`✅ [UnifiedCategory] Successfully created category: "${item.category}" (ID: ${categoryId})`);
+                  console.log(
+                    `✅ [UnifiedCategory] Successfully created category: "${item.category}" (ID: ${categoryId})`
+                  );
                 } else {
-                  console.error(`❌ [UnifiedCategory] Failed to create category: "${item.category}"`);
+                  console.error(
+                    `❌ [UnifiedCategory] Failed to create category: "${item.category}"`
+                  );
                   unmappedCategories.add(item.category);
                   mappingStats.unmapped++;
                 }
               } catch (createError) {
-                console.error(`❌ [UnifiedCategory] Error creating category "${item.category}":`, createError);
+                console.error(
+                  `❌ [UnifiedCategory] Error creating category "${item.category}":`,
+                  createError
+                );
                 unmappedCategories.add(item.category);
                 mappingStats.unmapped++;
               }
