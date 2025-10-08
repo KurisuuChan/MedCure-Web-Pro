@@ -46,14 +46,25 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
       // Get all products with current stock levels
       const allProducts = await ProductService.getProducts();
       
+      console.log(`📦 Total products fetched: ${allProducts.length}`);
+      console.log('🔍 Sample product structure:', allProducts[0]);
+      
       // Filter for low stock and out of stock items
       const lowStockItems = allProducts.filter(product => {
-        const currentStock = product.current_stock || 0;
-        const minimumStock = product.minimum_stock_level || 10; // Default minimum
+        const currentStock = product.stock_in_pieces || product.stock_quantity || 0;
+        const minimumStock = product.reorder_level || 10; // Default minimum
         
-        // Out of stock or low stock
-        return currentStock === 0 || currentStock <= minimumStock;
+        const isLowStock = currentStock === 0 || currentStock <= minimumStock;
+        
+        // Debug logging for first few products
+        if (allProducts.indexOf(product) < 5) {
+          console.log(`🔍 ${product.generic_name}: stock=${currentStock}, min=${minimumStock}, isLowStock=${isLowStock}`);
+        }
+        
+        return isLowStock;
       });
+      
+      console.log(`🎯 Found ${lowStockItems.length} low stock items out of ${allProducts.length} total products`);
 
       // Create CSV header with complete details
       const headers = [
@@ -72,12 +83,13 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
       const csvRows = [headers.join(',')];
       
       if (lowStockItems.length === 0) {
-        // If no low stock items, add a sample row
-        csvRows.push('No low stock items found,All items well stocked,0,0,OUT_OF_STOCK,,100,2025-12-31,');
+        // If no low stock items, create a CSV with instructions
+        csvRows.push('"No items need restocking","All medicines are well stocked",0,0,"WELL_STOCKED","N/A",0,"2025-12-31",""');
+        csvRows.push('"Instructions: ","All medicines have sufficient stock levels above their reorder points",,,,,,,""');
       } else {
         lowStockItems.forEach(product => {
-          const currentStock = product.current_stock || 0;
-          const minimumStock = product.minimum_stock_level || 10;
+          const currentStock = product.stock_in_pieces || product.stock_quantity || 0;
+          const minimumStock = product.reorder_level || 10;
           const stockStatus = currentStock === 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK';
           
           // Calculate suggested quantity (bring to minimum + buffer)
