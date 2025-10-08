@@ -381,24 +381,23 @@ export default function POSPage() {
         {/* Product Selector - Left Column (2/3 width) */}
         <div className="lg:col-span-2">
           {isLoadingProducts ? (
-            /* Loading State */
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <LoadingSpinner size="xl" color="blue" />
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                    Loading Products
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Please wait while we fetch available products...
-                  </p>
-                </div>
-                {/* Skeleton loader for visual feedback */}
-                <div className="w-full max-w-md space-y-3 mt-6">
-                  <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-5/6"></div>
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-4/6"></div>
-                </div>
+            /* Loading State - Same style as Inventory Page */
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+            </div>
+          ) : availableProducts.length === 0 ? (
+            /* Empty State */
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+              <div className="text-center py-12">
+                <ShoppingCart className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No products available
+                </h3>
+                <p className="text-gray-500">
+                  Products are currently being loaded or no items are in stock.
+                </p>
               </div>
             </div>
           ) : (
