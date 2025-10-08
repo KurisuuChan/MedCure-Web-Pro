@@ -21,9 +21,7 @@ import {
   Zap,
   Upload,
   Settings,
-  BarChart3,
   Shield,
-  TrendingUp,
 } from "lucide-react";
 import { ProductService } from "../services/domains/inventory/productService";
 import { EnhancedBatchService } from "../services/domains/inventory/enhancedBatchService";
@@ -41,7 +39,6 @@ const BatchManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [analytics, setAnalytics] = useState(null);
 
   // Filter and Search States
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,7 +61,6 @@ const BatchManagementPage = () => {
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [selectedProductForStock, setSelectedProductForStock] = useState(null);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Product Grid Search State
@@ -107,9 +103,7 @@ const BatchManagementPage = () => {
           console.log("⚠️ No batch data returned from EnhancedBatchService");
         }
 
-        // Load analytics if enhanced service is available
-        const analyticsData = await EnhancedBatchService.getBatchAnalytics();
-        setAnalytics(analyticsData);
+
       } catch (enhancedError) {
         console.warn(
           "⚠️ Enhanced batch service not available, using basic service:",
@@ -465,7 +459,7 @@ const BatchManagementPage = () => {
         alert(
           `Maintenance completed successfully:\n- Quarantined: ${
             result.quarantined?.quarantined_batches || 0
-          } batches\n- Total batches: ${result.analytics?.totalBatches || 0}`
+          } batches`
         );
       }
 
@@ -529,14 +523,6 @@ const BatchManagementPage = () => {
 
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => setShowAnalytics(!showAnalytics)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              title="View batch analytics"
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span>Analytics</span>
-            </button>
-            <button
               onClick={() => setShowBulkImportModal(true)}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
               title="Bulk import batches from CSV"
@@ -558,69 +544,7 @@ const BatchManagementPage = () => {
         </div>
       </div>
 
-      {/* Enhanced Analytics Dashboard */}
-      {showAnalytics && analytics && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              Batch Analytics Dashboard
-            </h3>
-            <button
-              onClick={() => setShowAnalytics(false)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              ×
-            </button>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
-                {analytics.totalBatches}
-              </div>
-              <div className="text-sm text-blue-800">Total Batches</div>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
-                {analytics.activeBatches}
-              </div>
-              <div className="text-sm text-green-800">Active Batches</div>
-            </div>
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-orange-600">
-                {analytics.expiringBatches}
-              </div>
-              <div className="text-sm text-orange-800">Expiring Soon</div>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">
-                {analytics.expiredBatches}
-              </div>
-              <div className="text-sm text-red-800">Expired Batches</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-lg font-semibold text-gray-900">
-                Total Inventory Value
-              </div>
-              <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(analytics.totalValue)}
-              </div>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-lg font-semibold text-gray-900">
-                Average Utilization
-              </div>
-              <div className="text-2xl font-bold text-blue-600">
-                {analytics.averageUtilization.toFixed(1)}%
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Primary Action: Add New Stock Section */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-200">

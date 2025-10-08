@@ -41,21 +41,87 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
     reader.readAsText(file);
   };
 
-  const downloadTemplate = () => {
-    const template = `product_id,product_name,quantity,expiry_date,supplier,notes
-"Enter product ID or leave blank to match by name","Product Name for Reference",100,"2025-12-31","Supplier Name","Optional notes"
-"","Paracetamol 500mg",50,"2025-06-30","PharmaCorp","Example entry"
-"","Amoxicillin 250mg",25,"2025-09-15","MediSupply","Another example"`;
+  const downloadTemplate = async () => {
+    try {
+      // Get all products with current stock levels
+      const allProducts = await ProductService.getProducts();
+      
+      // Filter for low stock and out of stock items
+      const lowStockItems = allProducts.filter(product => {
+        const currentStock = product.current_stock || 0;
+        const minimumStock = product.minimum_stock_level || 10; // Default minimum
+        
+        // Out of stock or low stock
+        return currentStock === 0 || currentStock <= minimumStock;
+      });
 
-    const blob = new Blob([template], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'batch_import_template.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+      // Create CSV header with complete details
+      const headers = [
+        'generic_name',
+        'brand_name', 
+        'current_stock',
+        'minimum_stock',
+        'stock_status',
+        'last_batch_expiry',
+        'suggested_quantity',
+        'expiry_date',
+        'quantity_to_add'
+      ];
+
+      // Generate CSV rows
+      const csvRows = [headers.join(',')];
+      
+      if (lowStockItems.length === 0) {
+        // If no low stock items, add a sample row
+        csvRows.push('No low stock items found,All items well stocked,0,0,OUT_OF_STOCK,,100,2025-12-31,');
+      } else {
+        lowStockItems.forEach(product => {
+          const currentStock = product.current_stock || 0;
+          const minimumStock = product.minimum_stock_level || 10;
+          const stockStatus = currentStock === 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK';
+          
+          // Calculate suggested quantity (bring to minimum + buffer)
+          const suggestedQty = Math.max((minimumStock * 2) - currentStock, 50);
+          
+          // Default expiry date (6 months from now)
+          const defaultExpiry = new Date();
+          defaultExpiry.setMonth(defaultExpiry.getMonth() + 6);
+          const expiryDate = defaultExpiry.toISOString().split('T')[0];
+          
+          const row = [
+            `"${product.generic_name || product.name || 'Unknown'}"`,
+            `"${product.brand_name || 'Generic'}"`,
+            currentStock,
+            minimumStock,
+            stockStatus,
+            product.last_batch_expiry || 'N/A',
+            suggestedQty,
+            expiryDate,
+            '' // Empty quantity_to_add for user to fill
+          ];
+          
+          csvRows.push(row.join(','));
+        });
+      }
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `restock_template_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Show success message
+      alert(`Downloaded restock template with ${lowStockItems.length} items that need restocking!`);
+
+    } catch (error) {
+      console.error('Error generating smart template:', error);
+      alert('Failed to generate smart template: ' + error.message);
+    }
   };
 
   const handleImport = async () => {
@@ -102,46 +168,60 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
                 rowData[header] = values[index] || '';
               });
 
-              // Find product by ID or name
-              let productId = rowData.product_id;
-              if (!productId && rowData.product_name) {
-                const matchedProduct = allProducts.find(p => 
-                  p.name.toLowerCase().includes(rowData.product_name.toLowerCase()) ||
-                  rowData.product_name.toLowerCase().includes(p.name.toLowerCase())
-                );
-                if (matchedProduct) {
-                  productId = matchedProduct.id;
-                } else {
-                  throw new Error(`Product not found: ${rowData.product_name}`);
-                }
+              // Handle both simple and smart template formats
+              const quantityToAdd = rowData.quantity_to_add || rowData.stock_to_add;
+              
+              // Skip empty rows or rows with no quantity to add
+              if (!quantityToAdd || quantityToAdd.toString().trim() === '') {
+                console.log(`Skipping row ${rowNum}: No quantity specified`);
+                continue;
               }
 
-              if (!productId) {
-                throw new Error('Product ID is required or product name must match existing product');
+              // Validate required CSV columns
+              if (!rowData.generic_name || !rowData.brand_name || !rowData.expiry_date) {
+                throw new Error('Missing required fields. Need: generic_name, brand_name, expiry_date');
               }
 
-              // Validate required fields
-              const quantity = parseInt(rowData.quantity);
+              // Find product by generic name and brand name combination
+              const matchedProduct = allProducts.find(p => {
+                const productGeneric = (p.generic_name || '').toLowerCase().trim();
+                const productBrand = (p.brand_name || '').toLowerCase().trim();
+                const csvGeneric = rowData.generic_name.toLowerCase().trim();
+                const csvBrand = rowData.brand_name.toLowerCase().trim();
+                
+                return productGeneric === csvGeneric && productBrand === csvBrand;
+              });
+
+              if (!matchedProduct) {
+                throw new Error(`Medicine not found in system: ${rowData.generic_name} (${rowData.brand_name})`);
+              }
+
+              // Validate stock quantity
+              const quantity = parseInt(quantityToAdd);
               if (!quantity || quantity <= 0) {
-                throw new Error('Valid quantity is required');
+                throw new Error('Quantity to add must be a positive number');
               }
 
-              // Parse expiry date
-              let expiryDate = null;
-              if (rowData.expiry_date && rowData.expiry_date !== '') {
-                expiryDate = new Date(rowData.expiry_date);
-                if (isNaN(expiryDate.getTime())) {
-                  throw new Error('Invalid expiry date format. Use YYYY-MM-DD');
-                }
+              // Parse and validate expiry date
+              const expiryDate = new Date(rowData.expiry_date);
+              if (isNaN(expiryDate.getTime())) {
+                throw new Error('Invalid expiry date format. Use YYYY-MM-DD');
+              }
+
+              // Check if expiry date is not in the past
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              if (expiryDate < today) {
+                throw new Error('Expiry date cannot be in the past');
               }
 
               // Add the batch (batch_number will be auto-generated)
               const batchData = {
-                productId: productId,
+                productId: matchedProduct.id,
                 quantity: quantity,
-                expiryDate: expiryDate ? expiryDate.toISOString().split('T')[0] : null,
-                supplier: rowData.supplier || null,
-                notes: rowData.notes || `Bulk import - Row ${rowNum}`
+                expiryDate: expiryDate.toISOString().split('T')[0],
+                supplier: null, // Not included in simple template
+                notes: `Bulk import - ${rowData.generic_name} (${rowData.brand_name})`
               };
 
               await ProductService.addProductBatch(batchData);
@@ -194,7 +274,7 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-gray-900">Bulk Batch Import</h3>
-              <p className="text-sm text-gray-600">Import multiple product batches from CSV file</p>
+              <p className="text-sm text-gray-600">Smart template shows low-stock items ready for restocking</p>
             </div>
           </div>
           <button
@@ -214,12 +294,12 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
               Import Instructions
             </h4>
             <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Use the template CSV format with required columns</li>
-              <li>• Product ID can be left blank if product name matches exactly</li>
-              <li>• Quantity must be a positive number</li>
-              <li>• Expiry date format: YYYY-MM-DD (optional)</li>
-              <li>• Batch numbers are automatically generated (BT + Date + ID)</li>
-              <li>• Supplier and notes are optional for tracking purposes</li>
+              <li>• <strong>Smart Template:</strong> Downloads with actual low-stock and out-of-stock medicines</li>
+              <li>• Shows current stock, minimum stock, and suggested quantities</li>
+              <li>• Fill in the <strong>quantity_to_add</strong> column with amount to restock</li>
+              <li>• Leave quantity_to_add empty to skip that medicine</li>
+              <li>• Adjust expiry_date if needed (format: YYYY-MM-DD)</li>
+              <li>• Batch numbers are automatically generated</li>
             </ul>
           </div>
 
@@ -230,7 +310,7 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Download className="h-4 w-4" />
-              <span>Download CSV Template</span>
+              <span>Download Smart Restock Template</span>
             </button>
           </div>
 
