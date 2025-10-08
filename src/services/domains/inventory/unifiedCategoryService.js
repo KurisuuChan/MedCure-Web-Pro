@@ -152,6 +152,7 @@ export class UnifiedCategoryService {
   /**
    * Create new category with enhanced duplicate detection
    * Used by: Management Page, Auto-import system
+   * ENHANCED: Uses database function for atomic, safe creation
    */
   static async createCategory(categoryData, context = {}) {
     try {
@@ -163,7 +164,76 @@ export class UnifiedCategoryService {
       // Normalize and validate data
       const normalizedData = await this.normalizeCategoryData(categoryData);
 
-      // Enhanced duplicate checking with similarity detection
+      // Try using the safe database function first (if available)
+      try {
+        const { data: dbResult, error: dbError } = await supabase.rpc(
+          "create_category_safe",
+          {
+            p_name: normalizedData.name,
+            p_description:
+              normalizedData.description ||
+              `Auto-created category: ${normalizedData.name}`,
+            p_color: normalizedData.color,
+            p_icon: normalizedData.icon,
+            p_metadata: {
+              created_by: context.userId || "system",
+              creation_source: context.source || "manual",
+              creation_context:
+                context.description || "Standard category creation",
+              similarity_checked: true,
+              original_name: categoryData.name,
+              ...normalizedData.metadata,
+            },
+          }
+        );
+
+        if (!dbError && dbResult && dbResult.length > 0) {
+          const result = dbResult[0];
+
+          // Fetch the full category data
+          const { data: fullCategory, error: fetchError } = await supabase
+            .from("categories")
+            .select("*")
+            .eq("id", result.category_id)
+            .single();
+
+          if (!fetchError && fullCategory) {
+            const action = result.was_created ? "created" : "existing";
+
+            console.log(
+              `✅ [UnifiedCategory] Category ${action}: ${fullCategory.name}`
+            );
+
+            // Log creation for audit trail
+            if (result.was_created) {
+              await this.logCategoryActivity(
+                "category_created",
+                fullCategory.id,
+                {
+                  ...context,
+                  original_name: categoryData.name,
+                  normalized_name: normalizedData.name,
+                }
+              );
+            }
+
+            return {
+              success: true,
+              data: fullCategory,
+              action,
+              message: result.message || `Category ${action} successfully`,
+            };
+          }
+        }
+      } catch (rpcError) {
+        console.warn(
+          "⚠️ [UnifiedCategory] Safe function not available, using fallback method:",
+          rpcError
+        );
+        // Fall through to manual creation below
+      }
+
+      // Fallback: Manual creation with enhanced duplicate checking
       const existingCheck = await this.getCategoryByName(normalizedData.name);
 
       if (existingCheck.success && existingCheck.data) {
@@ -664,6 +734,7 @@ export class UnifiedCategoryService {
 
   /**
    * Normalize category name with intelligent mapping and enhanced validation
+   * ENHANCED: Added more pharmacy-specific category mappings
    */
   static normalizeCategoryName(name) {
     if (!name || typeof name !== "string") {
@@ -672,56 +743,83 @@ export class UnifiedCategoryService {
 
     // Enhanced category mapping for intelligent normalization
     const mappings = {
+      // Pain & Fever Relief
       "pain relief": "Pain Relief",
       "pain reliever": "Pain Relief",
+      "pain relief & fever": "Pain Relief",
+      "pain & fever": "Pain Relief",
       analgesics: "Pain Relief",
       "anti-inflammatory": "Pain Relief",
       ibuprofen: "Pain Relief",
       paracetamol: "Pain Relief",
       aspirin: "Pain Relief",
 
+      // Antibiotics & Antimicrobials
       antibiotics: "Antibiotics",
       antibiotic: "Antibiotics",
       antimicrobial: "Antibiotics",
       penicillin: "Antibiotics",
       amoxicillin: "Antibiotics",
 
+      // Antihistamines & Allergies
+      antihistamines: "Antihistamines",
+      antihistamine: "Antihistamines",
+      allergy: "Antihistamines",
+      allergies: "Antihistamines",
+      "anti-histamine": "Antihistamines",
+
+      // Antifungal
+      antifungal: "Antifungal",
+      "anti-fungal": "Antifungal",
+      fungal: "Antifungal",
+
+      // Cardiovascular
       cardiovascular: "Cardiovascular",
       cardio: "Cardiovascular",
       heart: "Cardiovascular",
       "blood pressure": "Cardiovascular",
       hypertension: "Cardiovascular",
 
-      digestive: "Digestive Health",
-      "digestive health": "Digestive Health",
-      stomach: "Digestive Health",
-      gastrointestinal: "Digestive Health",
-      antacid: "Digestive Health",
+      // Digestive & Gastrointestinal
+      digestive: "Gastrointestinal",
+      "digestive health": "Gastrointestinal",
+      stomach: "Gastrointestinal",
+      gastrointestinal: "Gastrointestinal",
+      antacid: "Gastrointestinal",
+      "anti-diarrheal": "Gastrointestinal",
 
+      // Respiratory
       respiratory: "Respiratory",
       breathing: "Respiratory",
       cough: "Respiratory",
       cold: "Respiratory",
+      "cough & cold": "Respiratory",
       flu: "Respiratory",
       asthma: "Respiratory",
 
+      // Vitamins & Supplements
       vitamins: "Vitamins & Supplements",
       vitamin: "Vitamins & Supplements",
       supplements: "Vitamins & Supplements",
+      "vitamins & supplements": "Vitamins & Supplements",
       multivitamin: "Vitamins & Supplements",
       minerals: "Vitamins & Supplements",
 
-      diabetes: "Diabetes Care",
-      diabetic: "Diabetes Care",
-      "blood sugar": "Diabetes Care",
-      insulin: "Diabetes Care",
+      // Diabetes
+      diabetes: "Antidiabetic",
+      diabetic: "Antidiabetic",
+      antidiabetic: "Antidiabetic",
+      "blood sugar": "Antidiabetic",
+      insulin: "Antidiabetic",
 
+      // Dermatology
       skin: "Dermatology",
       dermatology: "Dermatology",
       topical: "Dermatology",
       cream: "Dermatology",
       ointment: "Dermatology",
 
+      // Eye Care
       eye: "Eye Care",
       eyes: "Eye Care",
       ophthalmology: "Eye Care",
@@ -733,21 +831,26 @@ export class UnifiedCategoryService {
 
     // Check direct mappings first
     if (mappings[normalized]) {
+      console.log(`🔄 [Normalize] "${name}" → "${mappings[normalized]}"`);
       return mappings[normalized];
     }
 
     // Check partial matches with fuzzy logic
     for (const [key, value] of Object.entries(mappings)) {
       if (normalized.includes(key) || key.includes(normalized)) {
+        console.log(`🔄 [Normalize] "${name}" ~→ "${value}" (fuzzy match)`);
         return value;
       }
     }
 
     // Clean and format the original name
-    return name
+    const titleCased = name
       .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ");
+
+    console.log(`🔄 [Normalize] "${name}" → "${titleCased}" (title case)`);
+    return titleCased;
   }
 
   /**
@@ -1292,6 +1395,7 @@ export class UnifiedCategoryService {
   /**
    * Create approved categories automatically
    * Migrated from SmartCategoryService
+   * ENHANCED: Better error tracking and reporting
    */
   static async createApprovedCategories(approvedCategories, userId) {
     try {
@@ -1301,41 +1405,90 @@ export class UnifiedCategoryService {
       );
 
       const createdCategories = [];
-      for (const category of approvedCategories) {
-        const result = await this.createCategory(
-          {
-            name: category.name,
-            description: `Auto-created from import by system`,
-            color: category.color,
-            icon: category.icon,
-          },
-          {
-            userId,
-            source: "import_approval",
-          }
-        );
+      const failedCategories = [];
+      const skippedCategories = [];
 
-        if (result.success) {
-          createdCategories.push(result.data);
-          console.log(
-            `✅ [UnifiedCategory] Created category: ${category.name}`
-          );
-        } else {
-          console.error(
-            `❌ [UnifiedCategory] Failed to create category: ${category.name}`,
+      for (const category of approvedCategories) {
+        try {
+          const result = await this.createCategory(
             {
-              error: result.error,
-              message: result.message,
-              action: result.action,
-              fullResult: result,
+              name: category.name,
+              description: `Auto-created from import by system`,
+              color: category.color,
+              icon: category.icon,
+            },
+            {
+              userId,
+              source: "import_approval",
             }
+          );
+
+          if (result.success) {
+            if (result.action === "created") {
+              createdCategories.push(result.data);
+              console.log(
+                `✅ [UnifiedCategory] Created category: ${category.name}`
+              );
+            } else if (result.action === "existing") {
+              skippedCategories.push({
+                name: category.name,
+                reason: "Already exists",
+                data: result.data,
+              });
+              console.log(
+                `ℹ️ [UnifiedCategory] Category already exists: ${category.name}`
+              );
+            }
+          } else {
+            failedCategories.push({
+              name: category.name,
+              error: result.error || result.message,
+              action: result.action,
+            });
+            console.error(
+              `❌ [UnifiedCategory] Failed to create category: ${category.name}`,
+              {
+                error: result.error,
+                message: result.message,
+                action: result.action,
+                fullResult: result,
+              }
+            );
+          }
+        } catch (categoryError) {
+          failedCategories.push({
+            name: category.name,
+            error: categoryError.message,
+          });
+          console.error(
+            `❌ [UnifiedCategory] Exception creating category: ${category.name}`,
+            categoryError
           );
         }
       }
 
+      const hasFailures = failedCategories.length > 0;
+      const summary = {
+        total: approvedCategories.length,
+        created: createdCategories.length,
+        skipped: skippedCategories.length,
+        failed: failedCategories.length,
+        failedCategories,
+        skippedCategories,
+      };
+
+      console.log("📊 [UnifiedCategory] Creation summary:", summary);
+
       return {
-        success: true,
+        success: !hasFailures, // Only success if NO failures
         data: createdCategories,
+        summary,
+        hasFailures,
+        error: hasFailures
+          ? `Failed to create ${
+              failedCategories.length
+            } categories: ${failedCategories.map((f) => f.name).join(", ")}`
+          : null,
       };
     } catch (error) {
       console.error("❌ [UnifiedCategory] Error creating categories:", error);
@@ -1343,6 +1496,12 @@ export class UnifiedCategoryService {
         success: false,
         error: error.message,
         data: [],
+        summary: {
+          total: approvedCategories.length,
+          created: 0,
+          skipped: 0,
+          failed: approvedCategories.length,
+        },
       };
     }
   }

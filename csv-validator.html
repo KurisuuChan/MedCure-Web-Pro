@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MedCure CSV Validator</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #2563eb;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        color: #666;
+        margin-bottom: 30px;
+      }
+      .upload-area {
+        border: 3px dashed #cbd5e1;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        margin-bottom: 30px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      .upload-area:hover {
+        border-color: #2563eb;
+        background: #f0f9ff;
+      }
+      .upload-area.dragover {
+        border-color: #2563eb;
+        background: #dbeafe;
+      }
+      #fileInput {
+        display: none;
+      }
+      .results {
+        margin-top: 30px;
+      }
+      .result-item {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border-left: 4px solid;
+      }
+      .success {
+        background: #f0fdf4;
+        border-color: #22c55e;
+        color: #166534;
+      }
+      .error {
+        background: #fef2f2;
+        border-color: #ef4444;
+        color: #991b1b;
+      }
+      .warning {
+        background: #fffbeb;
+        border-color: #f59e0b;
+        color: #92400e;
+      }
+      .info {
+        background: #eff6ff;
+        border-color: #3b82f6;
+        color: #1e40af;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+      }
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      th {
+        background: #f9fafb;
+        font-weight: 600;
+        color: #374151;
+      }
+      .btn {
+        background: #2563eb;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-top: 20px;
+      }
+      .btn:hover {
+        background: #1d4ed8;
+      }
+      .icon {
+        font-size: 48px;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🏥 MedCure CSV Validator</h1>
+      <p class="subtitle">Upload your DATA_PHARMACY.csv to check for issues</p>
+
+      <div class="upload-area" id="uploadArea">
+        <div class="icon">📁</div>
+        <h3>Drop your CSV file here or click to browse</h3>
+        <p>Supports .csv files only</p>
+        <input type="file" id="fileInput" accept=".csv" />
+      </div>
+
+      <div id="results" class="results"></div>
+    </div>
+
+    <script>
+      const uploadArea = document.getElementById("uploadArea");
+      const fileInput = document.getElementById("fileInput");
+      const results = document.getElementById("results");
+
+      const REQUIRED_HEADERS = [
+        "generic_name",
+        "brand_name",
+        "category_name",
+        "stock_in_pieces",
+        "price_per_piece",
+      ];
+
+      const OPTIONAL_HEADERS = [
+        "supplier_name",
+        "description",
+        "dosage_strength",
+        "dosage_form",
+        "drug_classification",
+        "pieces_per_sheet",
+        "sheets_per_box",
+        "reorder_level",
+        "cost_price",
+        "base_price",
+        "expiry_date",
+        "batch_number",
+      ];
+
+      uploadArea.addEventListener("click", () => fileInput.click());
+
+      uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+      });
+
+      uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("dragover");
+      });
+
+      uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+        const file = e.dataTransfer.files[0];
+        if (file) validateCSV(file);
+      });
+
+      fileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) validateCSV(file);
+      });
+
+      function validateCSV(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          analyzeCSV(text);
+        };
+        reader.readAsText(file);
+      }
+
+      function analyzeCSV(text) {
+        results.innerHTML = "<h2>📊 Validation Results</h2>";
+        const lines = text.split("\n").filter((line) => line.trim());
+        const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+
+        let issues = [];
+        let warnings = [];
+        let info = [];
+
+        // Check header names
+        const missingHeaders = REQUIRED_HEADERS.filter(
+          (h) => !headers.includes(h.toLowerCase())
+        );
+        if (missingHeaders.length > 0) {
+          issues.push(`Missing required columns: ${missingHeaders.join(", ")}`);
+        } else {
+          info.push(`✅ All required columns found`);
+        }
+
+        // Check for common mistakes
+        const commonMistakes = [
+          { wrong: "stock", correct: "stock_in_pieces" },
+          { wrong: "quantity", correct: "stock_in_pieces" },
+          { wrong: "category", correct: "category_name" },
+          { wrong: "name", correct: "generic_name" },
+          { wrong: "brand", correct: "brand_name" },
+          { wrong: "price", correct: "price_per_piece" },
+        ];
+
+        commonMistakes.forEach((mistake) => {
+          if (
+            headers.includes(mistake.wrong) &&
+            !headers.includes(mistake.correct)
+          ) {
+            warnings.push(
+              `Found "${mistake.wrong}" but need "${mistake.correct}"`
+            );
+          }
+        });
+
+        // Analyze data rows
+        const dataRows = lines.slice(1, Math.min(11, lines.length)); // Check first 10 rows
+        let emptyStockCount = 0;
+        let emptyCategories = [];
+        let suspiciousCategories = [];
+
+        const stockIndex = headers.indexOf("stock_in_pieces");
+        const categoryIndex = headers.indexOf("category_name");
+        const genericNameIndex = headers.indexOf("generic_name");
+
+        dataRows.forEach((row, idx) => {
+          const cols = row.split(",").map((c) => c.trim());
+
+          // Check stock
+          if (
+            stockIndex >= 0 &&
+            (!cols[stockIndex] || cols[stockIndex] === "")
+          ) {
+            emptyStockCount++;
+          }
+
+          // Check category
+          if (categoryIndex >= 0) {
+            const category = cols[categoryIndex];
+            if (!category || category === "") {
+              emptyCategories.push(idx + 2);
+            } else if (genericNameIndex >= 0) {
+              const genericName = cols[genericNameIndex];
+              if (category.toLowerCase().includes(genericName.toLowerCase())) {
+                suspiciousCategories.push({
+                  row: idx + 2,
+                  generic: genericName,
+                  category,
+                });
+              }
+            }
+          }
+        });
+
+        if (emptyStockCount > 0) {
+          warnings.push(
+            `${emptyStockCount} products have empty stock_in_pieces (will default to 100 now)`
+          );
+        }
+
+        if (emptyCategories.length > 0) {
+          issues.push(
+            `Rows with empty categories: ${emptyCategories.join(", ")}`
+          );
+        }
+
+        if (suspiciousCategories.length > 0) {
+          issues.push(`Suspicious categories (look like product names):`);
+          suspiciousCategories.forEach((s) => {
+            issues.push(
+              `  Row ${s.row}: "${s.category}" for product "${s.generic}"`
+            );
+          });
+        }
+
+        // Display results
+        issues.forEach((issue) => {
+          results.innerHTML += `<div class="result-item error">❌ ${issue}</div>`;
+        });
+
+        warnings.forEach((warning) => {
+          results.innerHTML += `<div class="result-item warning">⚠️ ${warning}</div>`;
+        });
+
+        info.forEach((i) => {
+          results.innerHTML += `<div class="result-item success">${i}</div>`;
+        });
+
+        // Show header mapping
+        results.innerHTML += `
+                <div class="result-item info">
+                    <h3>📋 Found Headers:</h3>
+                    <p>${headers.join(", ")}</p>
+                </div>
+            `;
+
+        // Show sample data
+        results.innerHTML += `
+                <div class="result-item info">
+                    <h3>📄 First 5 Rows Preview:</h3>
+                    <table>
+                        <thead>
+                            <tr>${headers
+                              .map((h) => `<th>${h}</th>`)
+                              .join("")}</tr>
+                        </thead>
+                        <tbody>
+                            ${dataRows
+                              .slice(0, 5)
+                              .map(
+                                (row) =>
+                                  `<tr>${row
+                                    .split(",")
+                                    .map(
+                                      (c) => `<td>${c || "<em>empty</em>"}</td>`
+                                    )
+                                    .join("")}</tr>`
+                              )
+                              .join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+        if (issues.length === 0) {
+          results.innerHTML += `
+                    <div class="result-item success">
+                        <h2>✅ CSV looks good!</h2>
+                        <p>Your file should import correctly. If you still have issues, check the category names match the system's expected values.</p>
+                    </div>
+                `;
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -20,41 +20,47 @@ const navigationItems = [
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["admin", "manager", "cashier", "staff", "viewer"],
+    // All roles can access dashboard
+    roles: ["admin", "pharmacist", "employee"],
     category: "main",
   },
   {
     name: "Point of Sale",
     href: "/pos",
     icon: ShoppingCart,
-    roles: ["admin", "manager", "cashier"],
+    // All roles can access POS (employee can process sales)
+    roles: ["admin", "pharmacist", "employee"],
     category: "main",
   },
   {
     name: "Drug Inventory",
     href: "/inventory",
     icon: Package,
-    roles: ["admin", "manager", "staff"],
+    // All roles can view inventory (admin & pharmacist can manage)
+    roles: ["admin", "pharmacist", "employee"],
     category: "main",
   },
   {
     name: "Batch Management",
     href: "/batch-management",
     icon: Box,
-    roles: ["admin", "manager", "staff"],
+    // Admin and Pharmacist only (management function)
+    roles: ["admin", "pharmacist"],
     category: "main",
   },
   {
     name: "Staff Management",
     href: "/user-management",
     icon: UserCheck,
-    roles: ["super_admin", "admin"],
+    // Admin only (user management is sensitive)
+    roles: ["admin"],
     category: "admin",
   },
   {
     name: "System Settings",
     href: "/system-settings",
     icon: Settings,
+    // Admin only (system configuration)
     roles: ["admin"],
     category: "admin",
   },

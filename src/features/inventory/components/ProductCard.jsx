@@ -26,6 +26,15 @@ export default function ProductCard({
   onDelete,
   showActions = true,
 }) {
+  // 🔍 DEBUG: Log product stock data
+  if (import.meta.env.DEV) {
+    console.log(`🃏 ProductCard for "${product.generic_name}":`, {
+      stock_in_pieces: product.stock_in_pieces,
+      stock_quantity: product.stock_quantity,
+      reorder_level: product.reorder_level,
+    });
+  }
+
   const stockBadge = getStockStatusBadge(product);
   const expiryBadge = getExpiryStatusBadge(product);
 
@@ -44,42 +53,44 @@ export default function ProductCard({
 
   const getDrugClassificationBadge = (classification) => {
     switch (classification) {
-      case 'Prescription (Rx)':
+      case "Prescription (Rx)":
         return {
           icon: ShieldAlert,
-          bgColor: 'bg-red-100',
-          textColor: 'text-red-800',
-          borderColor: 'border-red-200',
-          label: 'Prescription'
+          bgColor: "bg-red-100",
+          textColor: "text-red-800",
+          borderColor: "border-red-200",
+          label: "Prescription",
         };
-      case 'Over-the-Counter (OTC)':
+      case "Over-the-Counter (OTC)":
         return {
           icon: ShieldCheck,
-          bgColor: 'bg-green-100',
-          textColor: 'text-green-800',
-          borderColor: 'border-green-200',
-          label: 'Over-the-Counter'
+          bgColor: "bg-green-100",
+          textColor: "text-green-800",
+          borderColor: "border-green-200",
+          label: "Over-the-Counter",
         };
-      case 'Controlled Substance':
+      case "Controlled Substance":
         return {
           icon: Shield,
-          bgColor: 'bg-purple-100',
-          textColor: 'text-purple-800',
-          borderColor: 'border-purple-200',
-          label: 'Controlled Substance'
+          bgColor: "bg-purple-100",
+          textColor: "text-purple-800",
+          borderColor: "border-purple-200",
+          label: "Controlled Substance",
         };
       default:
         return {
           icon: Pill,
-          bgColor: 'bg-gray-100',
-          textColor: 'text-gray-800',
-          borderColor: 'border-gray-200',
-          label: 'N/A'
+          bgColor: "bg-gray-100",
+          textColor: "text-gray-800",
+          borderColor: "border-gray-200",
+          label: "N/A",
         };
     }
   };
 
-  const classificationBadge = getDrugClassificationBadge(product.drug_classification);
+  const classificationBadge = getDrugClassificationBadge(
+    product.drug_classification
+  );
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
@@ -95,22 +106,24 @@ export default function ProductCard({
                 </span>
               )}
               {/* Drug Classification Badge */}
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold border ${classificationBadge.bgColor} ${classificationBadge.textColor} ${classificationBadge.borderColor}`}>
+              <span
+                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold border ${classificationBadge.bgColor} ${classificationBadge.textColor} ${classificationBadge.borderColor}`}
+              >
                 <classificationBadge.icon className="h-3 w-3 mr-1" />
                 {classificationBadge.label}
               </span>
             </div>
-            
+
             {/* Brand Name - Large and Prominent */}
             <h3 className="font-bold text-gray-900 text-xl leading-tight truncate mb-1">
-              {product.brand_name || product.brand || 'Unknown Brand'}
+              {product.brand_name || product.brand || "Unknown Brand"}
             </h3>
-            
+
             {/* Generic Name - Below Brand Name */}
             <p className="text-gray-600 font-medium text-base mb-2 truncate">
-              {product.generic_name || product.name || 'Unknown Generic'}
+              {product.generic_name || product.name || "Unknown Generic"}
             </p>
-            
+
             {/* Dosage Strength - Subtle */}
             {product.dosage_strength && (
               <div className="mb-1">
@@ -119,7 +132,7 @@ export default function ProductCard({
                 </span>
               </div>
             )}
-            
+
             {/* Dosage Form - Highlighted */}
             {product.dosage_form && (
               <div className="flex items-center space-x-1 mb-2">
@@ -133,7 +146,9 @@ export default function ProductCard({
             {/* Category */}
             <div className="flex items-center space-x-3 text-sm">
               <span className="text-gray-500">Category:</span>
-              <span className="font-medium text-gray-700">{product.category}</span>
+              <span className="font-medium text-gray-700">
+                {product.category}
+              </span>
             </div>
           </div>
 

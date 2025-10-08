@@ -172,6 +172,15 @@ export class ProductService {
 
       if (data && data.length > 0) {
         console.log("📦 Sample product:", data[0]);
+        console.log("🔍 Stock field check for first 5 products:");
+        data.slice(0, 5).forEach((p, i) => {
+          console.log(
+            `  ${i + 1}. ${p.generic_name}: stock_in_pieces=${
+              p.stock_in_pieces
+            }, stock_quantity=${p.stock_quantity}`
+          );
+        });
+
         // Log low stock items
         const lowStockItems = data.filter((product) => {
           const stockLevel = product.stock_in_pieces || 0;
@@ -319,24 +328,34 @@ export class ProductService {
 
       // Auto-create enum values if they don't exist
       if (product.dosage_form) {
-        console.log(`🔧 Auto-creating dosage form if needed: ${product.dosage_form}`);
+        console.log(
+          `🔧 Auto-creating dosage form if needed: ${product.dosage_form}`
+        );
         try {
-          await supabase.rpc('add_dosage_form_value', {
-            new_value: product.dosage_form
+          await supabase.rpc("add_dosage_form_value", {
+            new_value: product.dosage_form,
           });
         } catch (enumError) {
-          console.warn(`⚠️ Could not auto-create dosage form "${product.dosage_form}":`, enumError);
+          console.warn(
+            `⚠️ Could not auto-create dosage form "${product.dosage_form}":`,
+            enumError
+          );
         }
       }
 
       if (product.drug_classification) {
-        console.log(`🔧 Auto-creating drug classification if needed: ${product.drug_classification}`);
+        console.log(
+          `🔧 Auto-creating drug classification if needed: ${product.drug_classification}`
+        );
         try {
-          await supabase.rpc('add_drug_classification_value', {
-            new_value: product.drug_classification
+          await supabase.rpc("add_drug_classification_value", {
+            new_value: product.drug_classification,
           });
         } catch (enumError) {
-          console.warn(`⚠️ Could not auto-create drug classification "${product.drug_classification}":`, enumError);
+          console.warn(
+            `⚠️ Could not auto-create drug classification "${product.drug_classification}":`,
+            enumError
+          );
         }
       }
 
@@ -361,6 +380,18 @@ export class ProductService {
         updated_at: new Date().toISOString(),
       };
 
+      // 🔧 CRITICAL FIX: Sync stock_quantity with stock_in_pieces AFTER spread
+      // This ensures stock_quantity matches stock_in_pieces for all imports
+      if (
+        productData.stock_in_pieces !== undefined &&
+        productData.stock_in_pieces !== null
+      ) {
+        productData.stock_quantity = productData.stock_in_pieces;
+        console.log(
+          `📦 Syncing stock fields: stock_in_pieces=${productData.stock_in_pieces} → stock_quantity=${productData.stock_quantity}`
+        );
+      }
+
       // Clean up undefined fields to avoid sending them to database
       Object.keys(productData).forEach((key) => {
         if (productData[key] === undefined) {
@@ -380,7 +411,10 @@ export class ProductService {
         throw error;
       }
 
-      logDebug("✅ Successfully added product with new medicine schema", data[0]);
+      logDebug(
+        "✅ Successfully added product with new medicine schema",
+        data[0]
+      );
       return data[0];
     } catch (error) {
       console.error("❌ ProductService.addProduct() failed:", error);
