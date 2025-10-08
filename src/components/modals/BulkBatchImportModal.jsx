@@ -66,15 +66,12 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
       
       console.log(`🎯 Found ${lowStockItems.length} low stock items out of ${allProducts.length} total products`);
 
-      // Create CSV header with complete details
+      // Create CSV header with simplified details
       const headers = [
         'generic_name',
         'brand_name', 
         'current_stock',
-        'minimum_stock',
         'stock_status',
-        'last_batch_expiry',
-        'suggested_quantity',
         'expiry_date',
         'quantity_to_add'
       ];
@@ -84,31 +81,19 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
       
       if (lowStockItems.length === 0) {
         // If no low stock items, create a CSV with instructions
-        csvRows.push('"No items need restocking","All medicines are well stocked",0,0,"WELL_STOCKED","N/A",0,"2025-12-31",""');
-        csvRows.push('"Instructions: ","All medicines have sufficient stock levels above their reorder points",,,,,,,""');
+        csvRows.push('"No items need restocking","All medicines are well stocked",0,"WELL_STOCKED","",""');
+        csvRows.push('"Instructions: ","All medicines have sufficient stock levels",,,"",""');
       } else {
         lowStockItems.forEach(product => {
           const currentStock = product.stock_in_pieces || product.stock_quantity || 0;
-          const minimumStock = product.reorder_level || 10;
           const stockStatus = currentStock === 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK';
-          
-          // Calculate suggested quantity (bring to minimum + buffer)
-          const suggestedQty = Math.max((minimumStock * 2) - currentStock, 50);
-          
-          // Default expiry date (6 months from now)
-          const defaultExpiry = new Date();
-          defaultExpiry.setMonth(defaultExpiry.getMonth() + 6);
-          const expiryDate = defaultExpiry.toISOString().split('T')[0];
           
           const row = [
             `"${product.generic_name || product.name || 'Unknown'}"`,
             `"${product.brand_name || 'Generic'}"`,
             currentStock,
-            minimumStock,
             stockStatus,
-            product.last_batch_expiry || 'N/A',
-            suggestedQty,
-            expiryDate,
+            '', // Empty expiry_date for user to fill
             '' // Empty quantity_to_add for user to fill
           ];
           
@@ -121,14 +106,14 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `restock_template_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `low_stock_items_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
       // Show success message
-      alert(`Downloaded restock template with ${lowStockItems.length} items that need restocking!`);
+      alert(`Downloaded CSV with ${lowStockItems.length} low stock items!\nFill in expiry_date (MMDDYY format) and quantity_to_add columns.`);
 
     } catch (error) {
       console.error('Error generating smart template:', error);
@@ -214,10 +199,28 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
                 throw new Error('Quantity to add must be a positive number');
               }
 
-              // Parse and validate expiry date
-              const expiryDate = new Date(rowData.expiry_date);
+              // Parse and validate expiry date (MMDDYY format)
+              const expiryDateStr = rowData.expiry_date.trim();
+              if (expiryDateStr.length !== 6 || !/^\d{6}$/.test(expiryDateStr)) {
+                throw new Error('Invalid expiry date format. Use MMDDYY (6 digits, example: 123125 for Dec 31, 2025)');
+              }
+              
+              // Parse MMDDYY format
+              const month = parseInt(expiryDateStr.substring(0, 2));
+              const day = parseInt(expiryDateStr.substring(2, 4));
+              const year = parseInt('20' + expiryDateStr.substring(4, 6)); // Assume 20xx
+              
+              // Validate month and day
+              if (month < 1 || month > 12) {
+                throw new Error('Invalid month in expiry date. Month must be 01-12');
+              }
+              if (day < 1 || day > 31) {
+                throw new Error('Invalid day in expiry date. Day must be 01-31');
+              }
+              
+              const expiryDate = new Date(year, month - 1, day); // month is 0-indexed
               if (isNaN(expiryDate.getTime())) {
-                throw new Error('Invalid expiry date format. Use YYYY-MM-DD');
+                throw new Error('Invalid expiry date. Please check the date values');
               }
 
               // Check if expiry date is not in the past
@@ -306,11 +309,11 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
               Import Instructions
             </h4>
             <ul className="text-sm text-blue-800 space-y-1">
-              <li>• <strong>Smart Template:</strong> Downloads with actual low-stock and out-of-stock medicines</li>
-              <li>• Shows current stock, minimum stock, and suggested quantities</li>
-              <li>• Fill in the <strong>quantity_to_add</strong> column with amount to restock</li>
+              <li>• <strong>Get Low Stock Items:</strong> Automatically finds medicines that need restocking</li>
+              <li>• Shows current stock and stock status (OUT_OF_STOCK or LOW_STOCK)</li>
+              <li>• Fill in <strong>expiry_date</strong> (format: MMDDYY - example: 123125 for Dec 31, 2025)</li>
+              <li>• Fill in <strong>quantity_to_add</strong> with amount to restock</li>
               <li>• Leave quantity_to_add empty to skip that medicine</li>
-              <li>• Adjust expiry_date if needed (format: YYYY-MM-DD)</li>
               <li>• Batch numbers are automatically generated</li>
             </ul>
           </div>
@@ -322,7 +325,7 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Download className="h-4 w-4" />
-              <span>Download Smart Restock Template</span>
+              <span>Get Low Stock Items</span>
             </button>
           </div>
 

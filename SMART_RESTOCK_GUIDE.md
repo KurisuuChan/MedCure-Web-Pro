@@ -1,41 +1,34 @@
-# Smart Restock CSV Template Guide
+# Low Stock Items CSV Guide
 
-## 🚀 What's New: Smart Template
+## 🚀 What's New: Get Low Stock Items
 
-Your CSV template now **automatically shows all medicines that need restocking**! No more guessing what's low or out of stock.
+Your system now **automatically finds all medicines that need restocking**! No more guessing what's low or out of stock.
 
-## 📊 Smart Template Columns
+## 📊 Low Stock Items CSV Columns
 
-When you download the template, you'll get:
+When you click "Get Low Stock Items", you'll get:
 
 | Column | Description | Example |
 |--------|-------------|---------|
 | `generic_name` | Medicine generic name | Paracetamol 500mg |
 | `brand_name` | Medicine brand name | Biogesic |
 | `current_stock` | Current quantity in stock | 5 |
-| `minimum_stock` | Minimum required level | 20 |
 | `stock_status` | OUT_OF_STOCK or LOW_STOCK | LOW_STOCK |
-| `last_batch_expiry` | When last batch expires | 2025-03-15 |
-| `suggested_quantity` | System suggested amount | 150 |
-| `expiry_date` | New batch expiry (pre-filled) | 2025-12-31 |
+| `expiry_date` | **YOU FILL THIS** (MMDDYY) | 123125 |
 | `quantity_to_add` | **YOU FILL THIS** | 100 |
 
 ## ✅ How to Use
 
-### 1. **Download Smart Template**
-- Click "Download Smart Restock Template"
+### 1. **Get Low Stock Items**
+- Click "Get Low Stock Items" button
 - File automatically contains all medicines needing restock
-- Shows current stock levels and suggestions
+- Shows current stock levels and status
 
-### 2. **Review & Fill Quantities**
-- Look at `current_stock` vs `minimum_stock` 
-- Check `suggested_quantity` for recommendations
+### 2. **Fill Required Information**
+- Review `current_stock` and `stock_status` 
+- **Fill `expiry_date`** (format: MMDDYY - example: 123125 for Dec 31, 2025)
 - **Fill `quantity_to_add`** with amount you want to add
-- Leave empty to skip that medicine
-
-### 3. **Adjust Details (Optional)**
-- Modify `expiry_date` if needed (keep YYYY-MM-DD format)
-- All other columns are for reference only
+- Leave quantity_to_add empty to skip that medicine
 
 ### 4. **Upload & Import**
 - Upload your completed CSV
@@ -45,10 +38,10 @@ When you download the template, you'll get:
 ## 🎯 Example Template Output
 
 ```csv
-generic_name,brand_name,current_stock,minimum_stock,stock_status,last_batch_expiry,suggested_quantity,expiry_date,quantity_to_add
-"Paracetamol 500mg","Biogesic",5,20,LOW_STOCK,2025-03-15,75,2025-12-31,100
-"Amoxicillin 250mg","Amoxil",0,15,OUT_OF_STOCK,N/A,50,2025-11-30,200
-"Metformin 500mg","Glucophage",8,25,LOW_STOCK,2025-04-20,100,2026-01-15,150
+generic_name,brand_name,current_stock,stock_status,expiry_date,quantity_to_add
+"Paracetamol 500mg","Biogesic",5,LOW_STOCK,123125,100
+"Amoxicillin 250mg","Amoxil",0,OUT_OF_STOCK,063026,200
+"Metformin 500mg","Glucophage",8,LOW_STOCK,040126,150
 ```
 
 ## 💡 Smart Features
@@ -58,14 +51,14 @@ generic_name,brand_name,current_stock,minimum_stock,stock_status,last_batch_expi
 - Finds all LOW_STOCK medicines (current_stock ≤ minimum_stock)
 - No manual searching needed!
 
-### 🧮 **Intelligent Suggestions**
-- `suggested_quantity` calculated to reach double minimum stock
-- `expiry_date` pre-filled with 6 months from today
-- Shows current stock status for informed decisions
+### 🧮 **Clean & Simple**
+- Shows only essential information: stock and status
+- `expiry_date` and `quantity_to_add` are empty for you to fill
+- No clutter - just what you need to make restocking decisions
 
 ### 🎛️ **Flexible Usage**
-- Fill only medicines you want to restock
-- Adjust quantities based on your needs
+- See current stock and status for informed decisions
+- Fill expiry dates and quantities based on your needs
 - Skip items by leaving `quantity_to_add` empty
 
 ## 🔍 What Happens During Import
@@ -80,8 +73,8 @@ generic_name,brand_name,current_stock,minimum_stock,stock_status,last_batch_expi
 
 - **Save Time**: No manual stock checking needed
 - **Never Miss**: Automatically finds everything needing restock  
-- **Smart Suggestions**: Calculated recommendations
-- **Complete Picture**: See current vs minimum stock levels
+- **Clean & Simple**: Only essential information shown
+- **Your Control**: You decide expiry dates and quantities
 - **Flexible**: Choose what to restock and how much
 
 Your restocking process is now **fully automated and intelligent**! 🎉
