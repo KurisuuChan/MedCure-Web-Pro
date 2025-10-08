@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useDebounce } from "../hooks/useDebounce";
 import unifiedTransactionService from "../services/domains/sales/transactionService";
 import SimpleReceipt from "../components/ui/SimpleReceipt";
 import {
@@ -32,6 +33,7 @@ const TransactionHistoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300); // Debounce search for better performance
   const [dateFilter, setDateFilter] = useState("today");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -129,21 +131,21 @@ const TransactionHistoryPage = () => {
 
     return transactions.filter((transaction) => {
       const matchesSearch =
-        searchTerm === "" ||
-        transaction.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        debouncedSearchTerm === "" ||
+        transaction.id?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         transaction.customer_name
           ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
+          .includes(debouncedSearchTerm.toLowerCase()) ||
         transaction.cashier_name
           ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
+          .includes(debouncedSearchTerm.toLowerCase()) ||
         transaction.payment_method
           ?.toLowerCase()
-          .includes(searchTerm.toLowerCase());
+          .includes(debouncedSearchTerm.toLowerCase());
 
       return matchesSearch;
     });
-  }, [transactions, searchTerm]);
+  }, [transactions, debouncedSearchTerm]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);

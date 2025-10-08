@@ -6,6 +6,7 @@ import React, {
   useRef,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDebounce } from "../hooks/useDebounce";
 import {
   Users,
   Search,
@@ -125,6 +126,7 @@ const CustomerInformationPage = () => {
 
   // Search and sort state
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300); // Debounce customer search
   const [sortConfig, setSortConfig] = useState({
     key: "customer_name",
     direction: "asc",
@@ -148,6 +150,7 @@ const CustomerInformationPage = () => {
   const [customerTransactions, setCustomerTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [transactionSearchTerm, setTransactionSearchTerm] = useState("");
+  const debouncedTransactionSearch = useDebounce(transactionSearchTerm, 300); // Debounce transaction search
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
@@ -252,13 +255,13 @@ const CustomerInformationPage = () => {
   const displayCustomers = useMemo(() => {
     let filtered = customers;
 
-    // Search filter
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
+    // Search filter - using debounced search term
+    if (debouncedSearchTerm.trim()) {
+      const searchLower = debouncedSearchTerm.toLowerCase();
       filtered = customers.filter(
         (customer) =>
           customer.customer_name?.toLowerCase().includes(searchLower) ||
-          customer.phone?.includes(searchTerm) ||
+          customer.phone?.includes(debouncedSearchTerm) ||
           customer.email?.toLowerCase().includes(searchLower)
       );
     }
@@ -278,7 +281,7 @@ const CustomerInformationPage = () => {
     }
 
     return filtered;
-  }, [customers, searchTerm, sortConfig]);
+  }, [customers, debouncedSearchTerm, sortConfig]);
 
   // Basic metrics
   const metrics = useMemo(
@@ -1745,9 +1748,9 @@ const CustomerInformationPage = () => {
                     <div className="space-y-4">
                       {customerTransactions
                         .filter((transaction) => {
-                          if (!transactionSearchTerm) return true;
+                          if (!debouncedTransactionSearch) return true;
                           const searchLower =
-                            transactionSearchTerm.toLowerCase();
+                            debouncedTransactionSearch.toLowerCase();
                           return (
                             transaction.id
                               ?.toLowerCase()

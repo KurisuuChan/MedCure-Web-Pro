@@ -11,7 +11,6 @@ import {
   Receipt,
   History,
   Users,
-  X,
   ShoppingCart,
 } from "lucide-react";
 import ProductSelector from "../features/pos/components/ProductSelector";
@@ -27,7 +26,7 @@ import { useToast } from "../components/ui/Toast";
 export default function POSPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { success: showSuccess, error: showError, info: showInfo } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
   const {
     cartItems,
     availableProducts,
@@ -183,29 +182,18 @@ export default function POSPage() {
 
       const transaction = await processPayment(paymentDataWithCashier);
 
-      // Show success toast for sale completion
+      // Calculate final total for notification
       const finalTotal = cartSummary.total - discount.amount;
       const customerName = paymentData.customer_name || "Walk-in Customer";
-      
-      showSuccess(
-        `🎉 Sale completed successfully! ₱${finalTotal.toFixed(2)} from ${customerName}`,
-        {
-          duration: 5000,
-          action: {
-            label: "View Receipt",
-            onClick: () => {
-              // Receipt logic will be handled by the existing receipt modal
-            }
-          }
-        }
-      );
 
       // Trigger sale notification
       try {
         await notificationService.create({
           userId: user?.id,
           title: "Sale Completed",
-          message: `₱${finalTotal.toFixed(2)} - ${cartItems.length} items - ${customerName}`,
+          message: `₱${finalTotal.toFixed(2)} - ${
+            cartItems.length
+          } items - ${customerName}`,
           type: "success",
           priority: 2,
           category: "sales",
@@ -239,7 +227,10 @@ export default function POSPage() {
         }
       }
 
-      console.log("🧾 [POSPage] Transaction received from processPayment:", transaction);
+      console.log(
+        "🧾 [POSPage] Transaction received from processPayment:",
+        transaction
+      );
       console.log("🔍 [POSPage] Discount data in transaction:", {
         discount_type: transaction.discount_type,
         discount_percentage: transaction.discount_percentage,
@@ -247,11 +238,29 @@ export default function POSPage() {
         pwd_senior_id: transaction.pwd_senior_id,
         pwd_senior_holder_name: transaction.pwd_senior_holder_name,
       });
-      console.log("🔍 [POSPage] Complete transaction object keys:", Object.keys(transaction));
+      console.log(
+        "🔍 [POSPage] Complete transaction object keys:",
+        Object.keys(transaction)
+      );
 
       setLastTransaction(transaction);
       setShowCheckout(false);
-      setShowReceipt(true);
+
+      // Show success toast immediately with View Receipt action
+      showSuccess(
+        `🎉 Sale completed successfully! ₱${finalTotal.toFixed(
+          2
+        )} from ${customerName}`,
+        {
+          duration: 5000,
+          action: {
+            label: "View Receipt",
+            onClick: () => {
+              setShowReceipt(true);
+            },
+          },
+        }
+      );
 
       // Reset form data
       setPaymentData({
@@ -493,9 +502,7 @@ export default function POSPage() {
 
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between py-1">
-                      <span className="text-gray-600">
-                        Subtotal
-                      </span>
+                      <span className="text-gray-600">Subtotal</span>
                       <span className="font-medium">
                         {formatCurrency(cartSummary.subtotal)}
                       </span>
@@ -594,13 +601,19 @@ export default function POSPage() {
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <span className="text-gray-500 font-medium text-xl">₱</span>
+                      <span className="text-gray-500 font-medium text-xl">
+                        ₱
+                      </span>
                     </div>
                     <input
                       id="amount-received"
                       type="text"
                       inputMode="decimal"
-                      value={paymentData.amount === 0 ? "" : paymentData.amount.toString()}
+                      value={
+                        paymentData.amount === 0
+                          ? ""
+                          : paymentData.amount.toString()
+                      }
                       onChange={(e) => {
                         const inputValue = e.target.value;
 
@@ -624,7 +637,10 @@ export default function POSPage() {
                           // Allow partial typing like "50." or "5"
                           setPaymentData((prev) => ({
                             ...prev,
-                            amount: inputValue === "" ? 0 : parseFloat(inputValue) || 0,
+                            amount:
+                              inputValue === ""
+                                ? 0
+                                : parseFloat(inputValue) || 0,
                           }));
                         }
                       }}
@@ -638,14 +654,17 @@ export default function POSPage() {
                     />
                   </div>
 
-
-
                   {/* Payment Status */}
                   {paymentData.amount > 0 && (
                     <div className="mt-4 text-center">
-                      {paymentData.amount >= cartSummary.total - discount.amount && (
+                      {paymentData.amount >=
+                        cartSummary.total - discount.amount && (
                         <p className="text-gray-700 text-lg">
-                          Change: {formatCurrency(paymentData.amount - (cartSummary.total - discount.amount))}
+                          Change:{" "}
+                          {formatCurrency(
+                            paymentData.amount -
+                              (cartSummary.total - discount.amount)
+                          )}
                         </p>
                       )}
                     </div>
@@ -771,7 +790,10 @@ export default function POSPage() {
                             value={newCustomer.phone}
                             onChange={(e) => {
                               // Allow only numbers, spaces, dashes, parentheses, plus
-                              const value = e.target.value.replace(/[^0-9\s\-\(\)\+\.]/g, '');
+                              const value = e.target.value.replace(
+                                /[^0-9\s\-\(\)\+\.]/g,
+                                ""
+                              );
                               setNewCustomer((prev) => ({
                                 ...prev,
                                 phone: value,
@@ -781,21 +803,23 @@ export default function POSPage() {
                           />
                           {newCustomer.phone &&
                             (() => {
-                              const validation = PhoneValidator.validatePhone(newCustomer.phone);
+                              const validation = PhoneValidator.validatePhone(
+                                newCustomer.phone
+                              );
 
-                              if (validation.type === 'error') {
+                              if (validation.type === "error") {
                                 return (
                                   <p className="mt-1 text-sm text-red-600 flex items-center">
                                     ❌ {validation.message}
                                   </p>
                                 );
-                              } else if (validation.type === 'warning') {
+                              } else if (validation.type === "warning") {
                                 return (
                                   <p className="mt-1 text-sm text-amber-600 flex items-center">
                                     ⚠️ {validation.message}
                                   </p>
                                 );
-                              } else if (validation.type === 'success') {
+                              } else if (validation.type === "success") {
                                 return (
                                   <p className="mt-1 text-sm text-green-600 flex items-center">
                                     ✅ {validation.message}
@@ -819,11 +843,12 @@ export default function POSPage() {
                           required
                           maxLength={255}
                         />
-                        {newCustomer.address && newCustomer.address.length < 5 && (
-                          <p className="mt-1 text-sm text-amber-600 flex items-center">
-                            ⚠️ Address must be at least 5 characters long
-                          </p>
-                        )}
+                        {newCustomer.address &&
+                          newCustomer.address.length < 5 && (
+                            <p className="mt-1 text-sm text-amber-600 flex items-center">
+                              ⚠️ Address must be at least 5 characters long
+                            </p>
+                          )}
                         <input
                           type="email"
                           placeholder="Email (Optional)"
@@ -863,7 +888,7 @@ export default function POSPage() {
                               email: "",
                               address: "",
                             });
-                            
+
                             // Show success toast for new customer creation
                             showSuccess(
                               `👤 Customer "${savedCustomer.customer_name}" created and selected for this sale!`,
@@ -871,14 +896,16 @@ export default function POSPage() {
                                 duration: 4000,
                                 action: {
                                   label: "View Customer",
-                                  onClick: () => {}
-                                }
+                                  onClick: () => {},
+                                },
                               }
                             );
                           } catch (error) {
                             console.error("Failed to create customer:", error);
                             showError(
-                              `Failed to create customer: ${error.message || "Please try again"}`,
+                              `Failed to create customer: ${
+                                error.message || "Please try again"
+                              }`,
                               { duration: 5000 }
                             );
                           }
@@ -888,7 +915,8 @@ export default function POSPage() {
                           !newCustomer.phone ||
                           !newCustomer.address ||
                           newCustomer.address.length < 5 ||
-                          !PhoneValidator.validatePhone(newCustomer.phone).isValid
+                          !PhoneValidator.validatePhone(newCustomer.phone)
+                            .isValid
                         }
                       >
                         Save Customer

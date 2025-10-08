@@ -48,16 +48,19 @@ const DiscountDebugTest = React.lazy(() =>
   import("./components/debug/DiscountDebugTest")
 );
 
-// Create a client
+// Create a client with optimized cache settings for better performance
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      cacheTime: 1000 * 60 * 10, // 10 minutes
+      // Optimized stale times for different data types
+      staleTime: 1000 * 60 * 10, // Default: 10 minutes (good for most data)
+      gcTime: 1000 * 60 * 30, // Cache for 30 minutes (formerly cacheTime)
       retry: (failureCount, error) => {
         if (error.status === 404) return false;
         return failureCount < 2;
       },
+      refetchOnWindowFocus: false, // Prevent unnecessary refetches
+      refetchOnMount: false, // Only fetch if data is stale
     },
   },
 });
@@ -355,7 +358,8 @@ function App() {
             </AuthProvider>
           </SettingsProvider>
         </Router>
-        <ReactQueryDevtools initialIsOpen={false} />
+        {/* Only load React Query Devtools in development */}
+        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </ErrorBoundary>
   );

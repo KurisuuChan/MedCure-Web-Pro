@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import { X, Download, FileText, Database } from "lucide-react";
 import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 const ExportModal = ({ isOpen, onClose, products, categories }) => {
   const [isExporting, setIsExporting] = useState(false);
@@ -263,7 +261,7 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
     document.body.removeChild(link);
   };
 
-  const downloadPDF = (
+  const downloadPDF = async (
     data,
     filename = "export",
     title = "Medicine Inventory Report"
@@ -277,6 +275,12 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
     }
 
     try {
+      // Lazy load jspdf and autotable
+      const jsPDFModule = await import("jspdf");
+      const autoTableModule = await import("jspdf-autotable");
+      const jsPDF = jsPDFModule.default;
+      const autoTable = autoTableModule.default;
+
       // Create new PDF document
       const doc = new jsPDF({
         orientation: "landscape",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import {
   Search,
   Package,
@@ -18,29 +18,33 @@ import { formatCurrency } from "../../../utils/formatting";
 import { UnifiedCategoryService } from "../../../services/domains/inventory/unifiedCategoryService";
 import { EnhancedProductSearchService } from "../../../services/domains/inventory/enhancedProductSearchService";
 import VariantSelectionModal from "./VariantSelectionModal";
+import { useDebounce } from "../../../hooks/useDebounce";
 
-export default function ProductSelector({
+function ProductSelector({
   products = [],
   onAddToCart,
   cartItems = [],
   className = "",
 }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300); // Debounce search for better performance
   const [filteredProducts, setFilteredProducts] = useState(products);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showVariantModal, setShowVariantModal] = useState(false);
-  
+
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedDrugClassification, setSelectedDrugClassification] = useState("all");
+  const [selectedDrugClassification, setSelectedDrugClassification] =
+    useState("all");
   const [selectedDosageForm, setSelectedDosageForm] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
   const [priceRange, setPriceRange] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Filter options
   const [availableCategories, setAvailableCategories] = useState([]);
-  const [availableDrugClassifications, setAvailableDrugClassifications] = useState([]);
+  const [availableDrugClassifications, setAvailableDrugClassifications] =
+    useState([]);
   const [availableDosageForms, setAvailableDosageForms] = useState([]);
   const [intelligentCategories, setIntelligentCategories] = useState([]);
 
@@ -63,7 +67,8 @@ export default function ProductSelector({
   useEffect(() => {
     const loadDrugClassifications = async () => {
       try {
-        const result = await EnhancedProductSearchService.getDistinctDrugClassifications();
+        const result =
+          await EnhancedProductSearchService.getDistinctDrugClassifications();
         if (result.success) {
           setAvailableDrugClassifications(result.data);
         }
@@ -76,8 +81,12 @@ export default function ProductSelector({
 
   // Extract unique categories, dosage forms from products
   useEffect(() => {
-    const categories = [...new Set(products.map((p) => p.category))].filter(Boolean);
-    const dosageForms = [...new Set(products.map((p) => p.dosage_form))].filter(Boolean);
+    const categories = [...new Set(products.map((p) => p.category))].filter(
+      Boolean
+    );
+    const dosageForms = [...new Set(products.map((p) => p.dosage_form))].filter(
+      Boolean
+    );
 
     // Sort categories by intelligent category insights (value-based)
     const sortedCategories = categories.sort((a, b) => {
@@ -98,32 +107,44 @@ export default function ProductSelector({
 
     // Filter by category
     if (selectedCategory !== "all") {
-      filtered = filtered.filter(product => product.category === selectedCategory);
+      filtered = filtered.filter(
+        (product) => product.category === selectedCategory
+      );
     }
 
     // Filter by drug classification
     if (selectedDrugClassification !== "all") {
-      filtered = filtered.filter(product => product.drug_classification === selectedDrugClassification);
+      filtered = filtered.filter(
+        (product) => product.drug_classification === selectedDrugClassification
+      );
     }
 
     // Filter by dosage form
     if (selectedDosageForm !== "all") {
-      filtered = filtered.filter(product => product.dosage_form === selectedDosageForm);
+      filtered = filtered.filter(
+        (product) => product.dosage_form === selectedDosageForm
+      );
     }
 
     // Filter by stock status
     if (stockFilter !== "all") {
-      filtered = filtered.filter(product => {
+      filtered = filtered.filter((product) => {
         const cartQuantity = cartItems
-          .filter(item => item.productId === product.id)
+          .filter((item) => item.productId === product.id)
           .reduce((total, item) => total + item.quantityInPieces, 0);
-        const availableStock = Math.max(0, product.stock_in_pieces - cartQuantity);
-        
+        const availableStock = Math.max(
+          0,
+          product.stock_in_pieces - cartQuantity
+        );
+
         switch (stockFilter) {
           case "in-stock":
             return availableStock > 0;
           case "low-stock":
-            return availableStock > 0 && availableStock <= (product.reorder_level || 0);
+            return (
+              availableStock > 0 &&
+              availableStock <= (product.reorder_level || 0)
+            );
           case "out-of-stock":
             return availableStock === 0;
           default:
@@ -134,7 +155,7 @@ export default function ProductSelector({
 
     // Filter by price range
     if (priceRange !== "all") {
-      filtered = filtered.filter(product => {
+      filtered = filtered.filter((product) => {
         const price = product.price_per_piece || product.price || 0;
         switch (priceRange) {
           case "under-10":
@@ -152,20 +173,34 @@ export default function ProductSelector({
     }
 
     // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(product =>
-        (product.generic_name && product.generic_name.toLowerCase().includes(term)) ||
-        (product.brand && product.brand.toLowerCase().includes(term)) ||
-        (product.brand_name && product.brand_name.toLowerCase().includes(term)) ||
-        (product.category && product.category.toLowerCase().includes(term)) ||
-        (product.dosage_form && product.dosage_form.toLowerCase().includes(term)) ||
-        (product.drug_classification && product.drug_classification.toLowerCase().includes(term))
+    if (debouncedSearchTerm) {
+      const term = debouncedSearchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (product) =>
+          (product.generic_name &&
+            product.generic_name.toLowerCase().includes(term)) ||
+          (product.brand && product.brand.toLowerCase().includes(term)) ||
+          (product.brand_name &&
+            product.brand_name.toLowerCase().includes(term)) ||
+          (product.category && product.category.toLowerCase().includes(term)) ||
+          (product.dosage_form &&
+            product.dosage_form.toLowerCase().includes(term)) ||
+          (product.drug_classification &&
+            product.drug_classification.toLowerCase().includes(term))
       );
     }
 
     setFilteredProducts(filtered);
-  }, [searchTerm, selectedCategory, selectedDrugClassification, selectedDosageForm, stockFilter, priceRange, products, cartItems]);
+  }, [
+    debouncedSearchTerm,
+    selectedCategory,
+    selectedDrugClassification,
+    selectedDosageForm,
+    stockFilter,
+    priceRange,
+    products,
+    cartItems,
+  ]);
 
   const handleProductClick = (product) => {
     if (product.stock_in_pieces > 0) {
@@ -176,7 +211,9 @@ export default function ProductSelector({
 
   const handleAddToCart = (product, quantity, selectedVariant) => {
     console.log("🔄 ProductSelector - Received:", {
-      product: `${product.brand_name || 'Generic'} - ${product.generic_name || 'Unknown Medicine'}`,
+      product: `${product.brand_name || "Generic"} - ${
+        product.generic_name || "Unknown Medicine"
+      }`,
       generic_name: product.generic_name,
       brand_name: product.brand_name,
       quantity,
@@ -206,43 +243,53 @@ export default function ProductSelector({
   };
 
   const getDrugClassificationStyle = (classification) => {
-    if (!classification) return { bg: "bg-gray-50", text: "text-gray-500", label: "" };
-    
+    if (!classification)
+      return { bg: "bg-gray-50", text: "text-gray-500", label: "" };
+
     const normalizedClassification = classification.toLowerCase();
-    
-    if (normalizedClassification.includes("prescription") || normalizedClassification.includes("rx")) {
-      return { 
-        bg: "bg-red-50", 
-        text: "text-red-600", 
-        label: "Rx"
+
+    if (
+      normalizedClassification.includes("prescription") ||
+      normalizedClassification.includes("rx")
+    ) {
+      return {
+        bg: "bg-red-50",
+        text: "text-red-600",
+        label: "Rx",
       };
-    } else if (normalizedClassification.includes("otc") || normalizedClassification.includes("over-the-counter")) {
-      return { 
-        bg: "bg-green-50", 
-        text: "text-green-600", 
-        label: "OTC"
+    } else if (
+      normalizedClassification.includes("otc") ||
+      normalizedClassification.includes("over-the-counter")
+    ) {
+      return {
+        bg: "bg-green-50",
+        text: "text-green-600",
+        label: "OTC",
       };
     } else if (normalizedClassification.includes("controlled")) {
-      return { 
-        bg: "bg-orange-50", 
-        text: "text-orange-600", 
-        label: "Controlled"
+      return {
+        bg: "bg-orange-50",
+        text: "text-orange-600",
+        label: "Controlled",
       };
     } else {
-      return { 
-        bg: "bg-blue-50", 
-        text: "text-blue-600", 
-        label: classification.length > 12 ? classification.substring(0, 12) + "..." : classification
+      return {
+        bg: "bg-blue-50",
+        text: "text-blue-600",
+        label:
+          classification.length > 12
+            ? classification.substring(0, 12) + "..."
+            : classification,
       };
     }
   };
 
   const activeFiltersCount = [
     selectedCategory !== "all",
-    selectedDrugClassification !== "all", 
+    selectedDrugClassification !== "all",
     selectedDosageForm !== "all",
     stockFilter !== "all",
-    priceRange !== "all"
+    priceRange !== "all",
   ].filter(Boolean).length;
 
   return (
@@ -268,7 +315,11 @@ export default function ProductSelector({
                 {activeFiltersCount}
               </span>
             )}
-            <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${
+                showFilters ? "rotate-180" : ""
+              }`}
+            />
           </button>
         </div>
 
@@ -299,7 +350,7 @@ export default function ProductSelector({
                 </button>
               )}
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Category Filter */}
               <div>
@@ -329,7 +380,9 @@ export default function ProductSelector({
                 </label>
                 <select
                   value={selectedDrugClassification}
-                  onChange={(e) => setSelectedDrugClassification(e.target.value)}
+                  onChange={(e) =>
+                    setSelectedDrugClassification(e.target.value)
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="all">All Classifications</option>
@@ -426,7 +479,10 @@ export default function ProductSelector({
               const cartQuantity = cartItems
                 .filter((item) => item.productId === product.id)
                 .reduce((total, item) => total + item.quantityInPieces, 0);
-              const availableStock = Math.max(0, product.stock_in_pieces - cartQuantity);
+              const availableStock = Math.max(
+                0,
+                product.stock_in_pieces - cartQuantity
+              );
               const isLowStock = availableStock <= (product.reorder_level || 0);
 
               return (
@@ -457,12 +513,12 @@ export default function ProductSelector({
                   <div className="p-4">
                     {/* Brand Name */}
                     <h3 className="font-bold text-gray-900 text-base leading-tight mb-1 line-clamp-1">
-                      {product.brand_name || product.brand || 'Unknown Brand'}
+                      {product.brand_name || product.brand || "Unknown Brand"}
                     </h3>
 
                     {/* Generic Name */}
                     <p className="text-gray-600 text-sm font-medium mb-3 line-clamp-2">
-                      {product.generic_name || 'Unknown Medicine'}
+                      {product.generic_name || "Unknown Medicine"}
                     </p>
 
                     {/* Dosage Info & Drug Classification */}
@@ -478,10 +534,22 @@ export default function ProductSelector({
                         </span>
                       )}
                       {product.drug_classification && (
-                        <span className={`text-xs px-2 py-1 rounded-md font-medium ${
-                          getDrugClassificationStyle(product.drug_classification).bg
-                        } ${getDrugClassificationStyle(product.drug_classification).text}`}>
-                          {getDrugClassificationStyle(product.drug_classification).label}
+                        <span
+                          className={`text-xs px-2 py-1 rounded-md font-medium ${
+                            getDrugClassificationStyle(
+                              product.drug_classification
+                            ).bg
+                          } ${
+                            getDrugClassificationStyle(
+                              product.drug_classification
+                            ).text
+                          }`}
+                        >
+                          {
+                            getDrugClassificationStyle(
+                              product.drug_classification
+                            ).label
+                          }
                         </span>
                       )}
                     </div>
@@ -489,17 +557,24 @@ export default function ProductSelector({
                     {/* Price */}
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xl font-bold text-green-600">
-                        {formatCurrency(product.price_per_piece || product.price || 0)}
+                        {formatCurrency(
+                          product.price_per_piece || product.price || 0
+                        )}
                       </span>
                       <span className="text-xs text-gray-500">per piece</span>
                     </div>
 
                     {/* Stock Info */}
                     <div className="flex items-center justify-between text-sm">
-                      <span className={`font-medium ${
-                        availableStock === 0 ? 'text-red-600' : 
-                        isLowStock ? 'text-amber-600' : 'text-gray-700'
-                      }`}>
+                      <span
+                        className={`font-medium ${
+                          availableStock === 0
+                            ? "text-red-600"
+                            : isLowStock
+                            ? "text-amber-600"
+                            : "text-gray-700"
+                        }`}
+                      >
                         Stock: {availableStock}
                       </span>
                       {cartQuantity > 0 && (
@@ -534,3 +609,6 @@ export default function ProductSelector({
     </div>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default memo(ProductSelector);
