@@ -601,7 +601,7 @@ const BatchManagementPage = () => {
           )}
           itemsPerPage={12}
           gridCols="grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          gap="gap-6"
+          gap="gap-5"
           emptyState={
             <div className="text-center py-12">
               <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />

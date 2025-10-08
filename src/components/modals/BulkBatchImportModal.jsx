@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { Upload, Download, X, FileText, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
+import { 
+  X, 
+  Upload, 
+  Download, 
+  FileText, 
+  AlertCircle, 
+  CheckCircle2, 
+  Info,
+  ChevronRight,
+  AlertTriangle
+} from 'lucide-react';
+import { useToast } from '../ui/Toast';
 import { ProductService } from '../../services/domains/inventory/productService';
 
 const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
@@ -8,6 +19,7 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
   const [results, setResults] = useState(null);
   const [errors, setErrors] = useState([]);
   const [previewData, setPreviewData] = useState([]);
+  const { success: showSuccess, info: showInfo } = useToast();
 
   const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
@@ -112,8 +124,28 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      // Show success message
-      alert(`Downloaded CSV with ${lowStockItems.length} low stock items!\nFill in expiry_date (MMDDYY format) and quantity_to_add columns.`);
+      // Show success toast
+      showSuccess(
+        `Successfully downloaded CSV with ${lowStockItems.length} low stock items ready for restocking!`,
+        {
+          duration: 6000,
+          action: {
+            label: "Got it!",
+            onClick: () => {}
+          }
+        }
+      );
+      
+      // Show additional info toast with instructions
+      setTimeout(() => {
+        showInfo(
+          "📝 Next steps: Fill in expiry_date (MM-DD-YY format) and quantity_to_add columns, then upload the file back here",
+          {
+            duration: 8000,
+            persistent: false
+          }
+        );
+      }, 1000);
 
     } catch (error) {
       console.error('Error generating smart template:', error);
@@ -199,16 +231,17 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
                 throw new Error('Quantity to add must be a positive number');
               }
 
-              // Parse and validate expiry date (MMDDYY format)
+              // Parse and validate expiry date (MM-DD-YY format)
               const expiryDateStr = rowData.expiry_date.trim();
-              if (expiryDateStr.length !== 6 || !/^\d{6}$/.test(expiryDateStr)) {
-                throw new Error('Invalid expiry date format. Use MMDDYY (6 digits, example: 123125 for Dec 31, 2025)');
+              if (expiryDateStr.length !== 8 || !/^\d{2}-\d{2}-\d{2}$/.test(expiryDateStr)) {
+                throw new Error('Invalid expiry date format. Use MM-DD-YY (example: 12-31-25 for Dec 31, 2025)');
               }
               
-              // Parse MMDDYY format
-              const month = parseInt(expiryDateStr.substring(0, 2));
-              const day = parseInt(expiryDateStr.substring(2, 4));
-              const year = parseInt('20' + expiryDateStr.substring(4, 6)); // Assume 20xx
+              // Parse MM-DD-YY format
+              const [monthStr, dayStr, yearStr] = expiryDateStr.split('-');
+              const month = parseInt(monthStr);
+              const day = parseInt(dayStr);
+              const year = parseInt('20' + yearStr); // Assume 20xx
               
               // Validate month and day
               if (month < 1 || month > 12) {
@@ -300,121 +333,123 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 max-h-96 overflow-y-auto">
-          {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
-              <FileText className="h-4 w-4 mr-2" />
-              Import Instructions
-            </h4>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• <strong>Get Low Stock Items:</strong> Automatically finds medicines that need restocking</li>
-              <li>• Shows current stock and stock status (OUT_OF_STOCK or LOW_STOCK)</li>
-              <li>• Fill in <strong>expiry_date</strong> (format: MMDDYY - example: 123125 for Dec 31, 2025)</li>
-              <li>• Fill in <strong>quantity_to_add</strong> with amount to restock</li>
-              <li>• Leave quantity_to_add empty to skip that medicine</li>
-              <li>• Batch numbers are automatically generated</li>
-            </ul>
-          </div>
-
-          {/* Template Download */}
-          <div className="mb-6">
-            <button
-              onClick={downloadTemplate}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              <span>Get Low Stock Items</span>
-            </button>
-          </div>
-
-          {/* File Upload */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select CSV File
-            </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileSelect}
-                className="hidden"
-                id="csv-upload"
-              />
-              <label
-                htmlFor="csv-upload"
-                className="cursor-pointer flex flex-col items-center"
-              >
-                <Upload className="h-12 w-12 text-gray-400 mb-2" />
-                <span className="text-gray-600">
-                  {file ? file.name : 'Click to select CSV file or drag and drop'}
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {/* Preview */}
-          {previewData.length > 0 && (
-            <div className="mb-6">
-              <h4 className="font-semibold text-gray-900 mb-2">Preview (First 5 rows)</h4>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-200 rounded-lg">
-                  <tbody>
-                    {previewData.map((row, i) => (
-                      <tr key={i} className={i === 0 ? 'bg-gray-50 font-medium' : 'hover:bg-gray-50'}>
-                        {row.map((cell, j) => (
-                          <td key={j} className="px-3 py-2 border-r border-gray-200 text-sm">
-                            {cell}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Errors */}
-          {errors.length > 0 && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-              <h4 className="font-semibold text-red-900 mb-2 flex items-center">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Errors
-              </h4>
-              <ul className="text-sm text-red-800 space-y-1">
-                {errors.map((error, i) => (
-                  <li key={i}>• {error}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Results */}
-          {results && (
-            <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-semibold text-green-900 mb-2 flex items-center">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Import Results
-              </h4>
-              <div className="text-sm text-green-800 space-y-1">
-                <p>• Total rows processed: {results.total}</p>
-                <p>• Successfully imported: {results.successful}</p>
-                <p>• Failed: {results.failed}</p>
-              </div>
-              {results.errors.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-sm font-medium text-red-800 mb-1">Import Errors:</p>
-                  <ul className="text-xs text-red-700 space-y-1 max-h-32 overflow-y-auto">
-                    {results.errors.map((error, i) => (
-                      <li key={i}>• {error}</li>
-                    ))}
+        {/* Main Content */}
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-6">
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-blue-900 mb-2">Quick Import Instructions</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Download the smart template to get all low-stock items</li>
+                    <li>• Update the quantities you want to add to each medicine</li>
+                    <li>• Upload the completed CSV file for bulk batch creation</li>
+                    <li>• Date format: MM-DD-YY (e.g., 12-31-25 for Dec 31, 2025)</li>
                   </ul>
                 </div>
-              )}
+              </div>
             </div>
-          )}
+
+            {/* Template Download */}
+            <div className="mb-6">
+              <button
+                onClick={downloadTemplate}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                <span>Get Low Stock Items</span>
+              </button>
+            </div>
+
+            {/* File Upload */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select CSV File
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="csv-upload"
+                />
+                <label
+                  htmlFor="csv-upload"
+                  className="cursor-pointer flex flex-col items-center"
+                >
+                  <Upload className="h-12 w-12 text-gray-400 mb-2" />
+                  <span className="text-gray-600">
+                    {file ? file.name : 'Click to select CSV file or drag and drop'}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Preview */}
+            {previewData.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-900 mb-2">Preview (First 5 rows)</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border border-gray-200 rounded-lg">
+                    <tbody>
+                      {previewData.map((row, i) => (
+                        <tr key={i} className={i === 0 ? 'bg-gray-50 font-medium' : 'hover:bg-gray-50'}>
+                          {row.map((cell, j) => (
+                            <td key={j} className="px-3 py-2 border-r border-gray-200 text-sm">
+                              {cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Errors */}
+            {errors.length > 0 && (
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                <h4 className="font-semibold text-red-900 mb-2 flex items-center">
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Errors
+                </h4>
+                <ul className="text-sm text-red-800 space-y-1">
+                  {errors.map((error, i) => (
+                    <li key={i}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Results */}
+            {results && (
+              <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-semibold text-green-900 mb-2 flex items-center">
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Import Results
+                </h4>
+                <div className="text-sm text-green-800 space-y-1">
+                  <p>• Total rows processed: {results.total}</p>
+                  <p>• Successfully imported: {results.successful}</p>
+                  <p>• Failed: {results.failed}</p>
+                </div>
+                {results.errors.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-sm font-medium text-red-800 mb-1">Import Errors:</p>
+                    <ul className="text-xs text-red-700 space-y-1 max-h-32 overflow-y-auto">
+                      {results.errors.map((error, i) => (
+                        <li key={i}>• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
@@ -441,7 +476,7 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
             >
               {importing ? (
                 <>
-                  <Loader className="h-4 w-4 animate-spin" />
+                  <AlertCircle className="h-4 w-4 animate-spin" />
                   <span>Importing...</span>
                 </>
               ) : (
