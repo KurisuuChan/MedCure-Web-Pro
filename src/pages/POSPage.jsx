@@ -565,20 +565,26 @@ export default function POSPage() {
 
                 {/* Amount Input */}
                 <div>
-                  <label
-                    htmlFor="amount-received"
-                    className="block text-lg font-medium text-gray-900 mb-3"
-                  >
-                    Amount Received
-                  </label>
+                  <div className="flex items-center justify-between mb-3">
+                    <label
+                      htmlFor="amount-received"
+                      className="text-lg font-medium text-gray-900"
+                    >
+                      Amount Received
+                    </label>
+                    <div className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                      Total: ₱{(cartSummary.total - discount.amount).toFixed(2)}
+                    </div>
+                  </div>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500 text-lg">₱</span>
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <span className="text-gray-500 font-medium text-xl">₱</span>
                     </div>
                     <input
                       id="amount-received"
-                      type="number"
-                      value={paymentData.amount === 0 ? "" : paymentData.amount}
+                      type="text"
+                      inputMode="decimal"
+                      value={paymentData.amount === 0 ? "" : paymentData.amount.toString()}
                       onChange={(e) => {
                         const inputValue = e.target.value;
 
@@ -591,12 +597,18 @@ export default function POSPage() {
                           return;
                         }
 
+                        // Allow decimal numbers and basic validation
                         const value = parseFloat(inputValue);
-                        // Allow unlimited payment amounts for professional use
                         if (!isNaN(value) && value >= 0 && value <= 999999.99) {
                           setPaymentData((prev) => ({
                             ...prev,
                             amount: value,
+                          }));
+                        } else if (inputValue.match(/^\d*\.?\d*$/)) {
+                          // Allow partial typing like "50." or "5"
+                          setPaymentData((prev) => ({
+                            ...prev,
+                            amount: inputValue === "" ? 0 : parseFloat(inputValue) || 0,
                           }));
                         }
                       }}
@@ -604,96 +616,22 @@ export default function POSPage() {
                         // Select all text when focused for easy editing
                         e.target.select();
                       }}
-                      step="0.01"
-                      min="0"
-                      max="999999.99"
-                      className="w-full pl-8 pr-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      placeholder={`Required: ₱${(
-                        cartSummary.total - discount.amount
-                      ).toFixed(2)}`}
+                      className="w-full pl-12 pr-4 py-4 text-xl font-medium border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm"
+                      placeholder="Enter amount received"
+                      autoComplete="off"
                     />
                   </div>
 
-                  {/* Quick Amount Buttons */}
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPaymentData((prev) => ({
-                          ...prev,
-                          amount: cartSummary.total - discount.amount,
-                        }))
-                      }
-                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                    >
-                      Exact: ₱{(cartSummary.total - discount.amount).toFixed(2)}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPaymentData((prev) => ({
-                          ...prev,
-                          amount:
-                            Math.ceil(
-                              (cartSummary.total - discount.amount) / 100
-                            ) * 100,
-                        }))
-                      }
-                      className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                    >
-                      Round: ₱
-                      {(
-                        Math.ceil((cartSummary.total - discount.amount) / 100) *
-                        100
-                      ).toFixed(2)}
-                    </button>
-                  </div>
 
-                  {/* Enhanced Payment Status Messages */}
+
+                  {/* Payment Status */}
                   {paymentData.amount > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {paymentData.amount <
-                      cartSummary.total - discount.amount ? (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                          <div className="text-center">
-                            <p className="text-red-800 font-medium flex items-center justify-center gap-2">
-                              ⚠️ Insufficient Payment
-                            </p>
-                            <p className="text-red-600 text-sm mt-1">
-                              Short by:{" "}
-                              {formatCurrency(
-                                cartSummary.total -
-                                  discount.amount -
-                                  paymentData.amount
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="text-center">
-                            <p className="text-green-800 font-medium flex items-center justify-center gap-2">
-                              ✅ Payment Complete
-                            </p>
-                            <p className="text-green-600 text-sm mt-1">
-                              Change:{" "}
-                              {formatCurrency(
-                                paymentData.amount -
-                                  (cartSummary.total - discount.amount)
-                              )}
-                            </p>
-                          </div>
-                        </div>
+                    <div className="mt-4 text-center">
+                      {paymentData.amount >= cartSummary.total - discount.amount && (
+                        <p className="text-gray-700 text-lg">
+                          Change: {formatCurrency(paymentData.amount - (cartSummary.total - discount.amount))}
+                        </p>
                       )}
-                    </div>
-                  )}
-
-                  {/* Additional validation message */}
-                  {paymentData.amount <= 0 && (
-                    <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                      <p className="text-gray-600 text-center text-sm">
-                        Enter the amount received from customer
-                      </p>
                     </div>
                   )}
                 </div>
@@ -838,13 +776,13 @@ export default function POSPage() {
                               } else if (validation.type === 'warning') {
                                 return (
                                   <p className="mt-1 text-sm text-amber-600 flex items-center">
-                                    ⚠️ {validation.message} • {PhoneValidator.getNetworkProvider(newCustomer.phone)}
+                                    ⚠️ {validation.message}
                                   </p>
                                 );
                               } else if (validation.type === 'success') {
                                 return (
                                   <p className="mt-1 text-sm text-green-600 flex items-center">
-                                    ✅ {validation.message} • {PhoneValidator.getNetworkProvider(newCustomer.phone)}
+                                    ✅ {validation.message}
                                   </p>
                                 );
                               }

@@ -42,6 +42,8 @@ import { formatCurrency, formatDate } from "../utils/formatting";
 import SimpleReceipt from "../components/ui/SimpleReceipt";
 import FixedCustomerService from "../services/FixedCustomerService";
 import PhoneValidator from "../utils/phoneValidator";
+import CustomerDeleteModal from "../components/CustomerDeleteModal";
+import { supabase } from "../config/supabase";
 
 const CustomerInformationPage = () => {
   const navigate = useNavigate();
@@ -285,49 +287,52 @@ const CustomerInformationPage = () => {
     [customers.length, displayCustomers.length]
   );
 
-  const handleDeleteCustomer = async () => {
-    if (!selectedCustomer) return;
-
+  const handleDeleteCustomer = async (customerId) => {
     setIsUpdating(true);
     try {
-      console.log("🗑️ Attempting to delete customer:", selectedCustomer);
+      console.log("🗑️ Permanently deleting customer:", customerId);
 
-      // Use the fixed customer service that auto-detects table structure
-      const success = await FixedCustomerService.deleteCustomer(
-        selectedCustomer.id ||
-          selectedCustomer.customer_name ||
-          selectedCustomer.phone
-      );
+      // Call anonymization function from Supabase
+      const { data: result, error } = await supabase
+        .rpc('anonymize_customer_data', { customer_uuid: customerId });
 
-      if (success) {
-        // Refresh customer data
-        await fetchCustomers();
+      if (error) {
+        console.warn("⚠️ Anonymization function failed, trying fallback:", error.message);
+        
+        // Fallback to direct update if function doesn't exist
+        const { error: updateError } = await supabase
+          .from('customers')
+          .update({
+            customer_name: '[DELETED CUSTOMER]',
+            phone: null,
+            email: null,
+            address: null,
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', customerId);
 
-        // Success notification with undo option
-        showNotification(
-          "success",
-          "Customer Deleted",
-          `${selectedCustomer.customer_name} has been removed from your customer database.`,
-          {
-            label: "Undo",
-            onClick: () => {
-              // Implement undo logic if needed
-              showNotification(
-                "info",
-                "Undo Not Available",
-                "Undo functionality would be implemented here in a production system."
-              );
-            },
-          }
-        );
+        if (updateError) {
+          throw new Error(`Delete failed: ${updateError.message}`);
+        }
+
+        console.log("✅ Customer deleted using fallback method");
+      } else if (result && result.success) {
+        console.log("✅ Customer deleted using stored function:", result);
       } else {
-        throw new Error("Deletion failed");
+        throw new Error(result?.error || 'Delete function returned failure');
       }
 
-      // Close modal
+      // Refresh customer data
+      await fetchCustomers();
+
+      // Success is handled by the modal
       closeAllModals();
+      
     } catch (error) {
+      console.error("❌ Delete customer error:", error);
       handleOperationError(error, "delete");
+      throw error; // Re-throw so modal can handle it
     } finally {
       setIsUpdating(false);
     }
@@ -1440,14 +1445,14 @@ const CustomerInformationPage = () => {
                         return (
                           <p className="mt-1 text-sm text-amber-600 flex items-center">
                             <AlertTriangle className="h-4 w-4 mr-1" />
-                            {validation.message} • Network: {PhoneValidator.getNetworkProvider(editForm.phone)}
+                            {validation.message}
                           </p>
                         );
                       } else if (validation.type === 'success') {
                         return (
                           <p className="mt-1 text-sm text-green-600 flex items-center">
                             <CheckCircle className="h-4 w-4 mr-1" />
-                            {validation.message} • Network: {PhoneValidator.getNetworkProvider(editForm.phone)}
+                            {validation.message}
                           </p>
                         );
                       }
@@ -1517,64 +1522,14 @@ const CustomerInformationPage = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && selectedCustomer && (
-        <div
-          className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
-          style={{ zIndex: 9999 }}
-        >
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 max-w-md w-full relative pointer-events-auto">
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                <div className="bg-red-100 p-3 rounded-full mr-4">
-                  <Trash2 className="h-6 w-6 text-red-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Delete Customer
-                  </h3>
-                  <p className="text-gray-600">This action cannot be undone.</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                <p className="text-sm text-gray-700">
-                  Are you sure you want to delete{" "}
-                  <strong>{selectedCustomer.customer_name}</strong>?
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  This will permanently remove all customer data and purchase
-                  history.
-                </p>
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  onClick={closeAllModals}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  disabled={isUpdating}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteCustomer}
-                  className="flex-1 px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    "Delete Customer"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Enhanced Delete Modal */}
+      <CustomerDeleteModal
+        customer={selectedCustomer}
+        isOpen={showDeleteConfirm}
+        onClose={closeAllModals}
+        onDelete={handleDeleteCustomer}
+        isLoading={isUpdating}
+      />
 
       {/* Customer Transaction History Modal */}
       {showTransactionHistory && selectedCustomer && (
@@ -2128,14 +2083,14 @@ const CustomerInformationPage = () => {
                       return (
                         <p className="mt-1 text-sm text-amber-600 flex items-center">
                           <AlertTriangle className="h-4 w-4 mr-1" />
-                          {validation.message} • Network: {PhoneValidator.getNetworkProvider(newCustomerForm.phone)}
+                          {validation.message}
                         </p>
                       );
                     } else if (validation.type === 'success') {
                       return (
                         <p className="mt-1 text-sm text-green-600 flex items-center">
                           <CheckCircle className="h-4 w-4 mr-1" />
-                          {validation.message} • Network: {PhoneValidator.getNetworkProvider(newCustomerForm.phone)}
+                          {validation.message}
                         </p>
                       );
                     }

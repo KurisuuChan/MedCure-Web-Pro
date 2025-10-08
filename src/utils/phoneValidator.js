@@ -18,13 +18,7 @@ export class PhoneValidator {
   // Philippine mobile number regex
   static phoneRegex = /^(\+63|63|0)?[9]\d{9}$/;
   
-  // Globe/Smart/Sun prefixes for validation
-  static validPrefixes = [
-    '0905', '0906', '0915', '0916', '0917', '0926', '0927', '0935', '0936', '0937', '0938', '0939', // Globe
-    '0907', '0908', '0909', '0910', '0912', '0918', '0919', '0920', '0921', '0928', '0929', '0939', // Smart
-    '0922', '0923', '0924', '0925', '0931', '0932', '0933', '0934', '0940', '0941', '0942', '0943', // Sun
-    '0813', '0817', '0904', '0994', '0992', '0998' // Other networks
-  ];
+  // Network prefixes removed - validation simplified
 
   /**
    * Clean phone number by removing spaces, dashes, parentheses, dots
@@ -71,16 +65,11 @@ export class PhoneValidator {
   }
 
   /**
-   * Check if phone number has valid network prefix
+   * Check if phone number has valid network prefix (disabled)
    */
   static hasValidPrefix(phone) {
-    if (!phone) return false;
-    
-    const normalized = this.normalizePhone(phone);
-    if (normalized.length !== 11) return false;
-    
-    const prefix = normalized.substring(0, 4);
-    return this.validPrefixes.includes(prefix);
+    // Network prefix validation disabled - always return true for valid format
+    return this.isValidPhone(phone);
   }
 
   /**
@@ -107,15 +96,7 @@ export class PhoneValidator {
       };
     }
 
-    // Check network prefix (optional - for better UX)
-    if (!this.hasValidPrefix(phone)) {
-      return {
-        isValid: true, // Still valid format, just unknown network
-        message: 'Valid format but unknown network provider',
-        type: 'warning'
-      };
-    }
-
+    // Network provider validation removed - accept any valid format
     return {
       isValid: true,
       message: 'Valid Philippine mobile number',
@@ -137,25 +118,11 @@ export class PhoneValidator {
   }
 
   /**
-   * Get network provider name
+   * Get network provider name (disabled - returns neutral response)
    */
   static getNetworkProvider(phone) {
-    if (!phone) return 'Unknown';
-    
-    const normalized = this.normalizePhone(phone);
-    if (normalized.length !== 11) return 'Unknown';
-    
-    const prefix = normalized.substring(0, 4);
-    
-    const globePrefixes = ['0905', '0906', '0915', '0916', '0917', '0926', '0927', '0935', '0936', '0937', '0938', '0939'];
-    const smartPrefixes = ['0907', '0908', '0909', '0910', '0912', '0918', '0919', '0920', '0921', '0928', '0929'];
-    const sunPrefixes = ['0922', '0923', '0924', '0925', '0931', '0932', '0933', '0934', '0940', '0941', '0942', '0943'];
-    
-    if (globePrefixes.includes(prefix)) return 'Globe';
-    if (smartPrefixes.includes(prefix)) return 'Smart';
-    if (sunPrefixes.includes(prefix)) return 'Sun';
-    
-    return 'Other';
+    // Network provider detection disabled
+    return '';
   }
 }
 
