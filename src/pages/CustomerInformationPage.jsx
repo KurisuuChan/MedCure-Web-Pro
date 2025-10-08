@@ -41,6 +41,7 @@ import "../debug/customerStatisticsValidator.js";
 import { formatCurrency, formatDate } from "../utils/formatting";
 import SimpleReceipt from "../components/ui/SimpleReceipt";
 import FixedCustomerService from "../services/FixedCustomerService";
+import PhoneValidator from "../utils/phoneValidator";
 
 const CustomerInformationPage = () => {
   const navigate = useNavigate();
@@ -647,26 +648,33 @@ const CustomerInformationPage = () => {
       if (!customerData.phone?.trim()) {
         errors.push("Phone number is required");
       } else {
-        // Phone number format validation
-        const phoneRegex = /^(\+63|63|0)?[9]\d{9}$/; // Philippine mobile format
-        const cleanPhone = customerData.phone.replace(/[\s\-\(\)\.]/g, "");
-        if (!phoneRegex.test(cleanPhone)) {
-          errors.push(
-            "Please enter a valid Philippine phone number (e.g., 09123456789)"
-          );
+        // Enhanced phone number validation using PhoneValidator
+        const validation = PhoneValidator.validatePhone(customerData.phone);
+        if (!validation.isValid) {
+          errors.push(validation.message);
         }
 
         // Check for duplicate phone number
+        const cleanPhone = PhoneValidator.cleanPhone(customerData.phone);
         const existingCustomer = customers.find(
           (customer) =>
             customer.phone &&
-            customer.phone.replace(/[\s\-\(\)\.]/g, "") === cleanPhone
+            PhoneValidator.cleanPhone(customer.phone) === cleanPhone
         );
         if (existingCustomer) {
           errors.push(
             `Phone number already exists for customer: ${existingCustomer.customer_name}`
           );
         }
+      }
+
+      // Address validation (required)
+      if (!customerData.address?.trim()) {
+        errors.push("Address is required");
+      } else if (customerData.address.trim().length < 5) {
+        errors.push("Address must be at least 5 characters long");
+      } else if (customerData.address.trim().length > 255) {
+        errors.push("Address cannot exceed 255 characters");
       }
 
       // Email validation (optional but must be valid if provided)
@@ -688,14 +696,6 @@ const CustomerInformationPage = () => {
             `Email address already exists for customer: ${existingEmailCustomer.customer_name}`
           );
         }
-      }
-
-      // Address validation (optional but reasonable length if provided)
-      if (
-        customerData.address?.trim() &&
-        customerData.address.trim().length > 255
-      ) {
-        errors.push("Address cannot exceed 255 characters");
       }
 
       // Check for potential duplicate names (warning, not error)
@@ -1401,17 +1401,63 @@ const CustomerInformationPage = () => {
                   <input
                     type="tel"
                     value={editForm.phone}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, phone: e.target.value })
-                    }
+                    onChange={(e) => {
+                      // Allow only numbers, spaces, dashes, parentheses, plus
+                      const value = e.target.value.replace(/[^0-9\s\-\(\)\+\.]/g, '');
+                      setEditForm({ ...editForm, phone: value });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter phone number"
+                    placeholder="e.g., 09123456789"
+                    maxLength={15}
                   />
+                  {editForm.phone &&
+                    (() => {
+                      const cleanPhone = PhoneValidator.cleanPhone(editForm.phone);
+                      const existingCustomer = customers.find(
+                        (c) =>
+                          c.phone &&
+                          PhoneValidator.cleanPhone(c.phone) === cleanPhone &&
+                          c.id !== selectedCustomer.id // Exclude current customer
+                      );
+                      const validation = PhoneValidator.validatePhone(editForm.phone);
+
+                      if (existingCustomer) {
+                        return (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Phone number already used by{" "}
+                            {existingCustomer.customer_name}
+                          </p>
+                        );
+                      } else if (validation.type === 'error') {
+                        return (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <AlertTriangle className="h-4 w-4 mr-1" />
+                            {validation.message}
+                          </p>
+                        );
+                      } else if (validation.type === 'warning') {
+                        return (
+                          <p className="mt-1 text-sm text-amber-600 flex items-center">
+                            <AlertTriangle className="h-4 w-4 mr-1" />
+                            {validation.message} • Network: {PhoneValidator.getNetworkProvider(editForm.phone)}
+                          </p>
+                        );
+                      } else if (validation.type === 'success') {
+                        return (
+                          <p className="mt-1 text-sm text-green-600 flex items-center">
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            {validation.message} • Network: {PhoneValidator.getNetworkProvider(editForm.phone)}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
+                    Email Address (Optional)
                   </label>
                   <input
                     type="email"
@@ -1420,13 +1466,13 @@ const CustomerInformationPage = () => {
                       setEditForm({ ...editForm, email: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter email address"
+                    placeholder="Enter email address (optional)"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Address
+                    Address *
                   </label>
                   <textarea
                     value={editForm.address}
@@ -1434,8 +1480,10 @@ const CustomerInformationPage = () => {
                       setEditForm({ ...editForm, address: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter address"
+                    placeholder="Enter customer address"
                     rows={3}
+                    required
+                    maxLength={255}
                   />
                 </div>
 
@@ -2043,28 +2091,27 @@ const CustomerInformationPage = () => {
                   type="tel"
                   placeholder="e.g., 09123456789"
                   value={newCustomerForm.phone}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    // Allow only numbers, spaces, dashes, parentheses, plus
+                    const value = e.target.value.replace(/[^0-9\s\-\(\)\+\.]/g, '');
                     setNewCustomerForm({
                       ...newCustomerForm,
-                      phone: e.target.value,
-                    })
-                  }
+                      phone: value,
+                    });
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   required
                   maxLength={15}
                 />
                 {newCustomerForm.phone &&
                   (() => {
-                    const cleanPhone = newCustomerForm.phone.replace(
-                      /[\s\-\(\)\.]/g,
-                      ""
-                    );
+                    const cleanPhone = PhoneValidator.cleanPhone(newCustomerForm.phone);
                     const existingCustomer = customers.find(
                       (c) =>
                         c.phone &&
-                        c.phone.replace(/[\s\-\(\)\.]/g, "") === cleanPhone
+                        PhoneValidator.cleanPhone(c.phone) === cleanPhone
                     );
-                    const phoneRegex = /^(\+63|63|0)?[9]\d{9}$/;
+                    const validation = PhoneValidator.validatePhone(newCustomerForm.phone);
 
                     if (existingCustomer) {
                       return (
@@ -2074,18 +2121,25 @@ const CustomerInformationPage = () => {
                           {existingCustomer.customer_name}
                         </p>
                       );
-                    } else if (cleanPhone && !phoneRegex.test(cleanPhone)) {
+                    } else if (validation.type === 'error') {
+                      return (
+                        <p className="mt-1 text-sm text-red-600 flex items-center">
+                          <AlertTriangle className="h-4 w-4 mr-1" />
+                          {validation.message}
+                        </p>
+                      );
+                    } else if (validation.type === 'warning') {
                       return (
                         <p className="mt-1 text-sm text-amber-600 flex items-center">
                           <AlertTriangle className="h-4 w-4 mr-1" />
-                          Please enter a valid Philippine mobile number
+                          {validation.message} • Network: {PhoneValidator.getNetworkProvider(newCustomerForm.phone)}
                         </p>
                       );
-                    } else if (cleanPhone && phoneRegex.test(cleanPhone)) {
+                    } else if (validation.type === 'success') {
                       return (
                         <p className="mt-1 text-sm text-green-600 flex items-center">
                           <CheckCircle className="h-4 w-4 mr-1" />
-                          Valid phone number
+                          {validation.message} • Network: {PhoneValidator.getNetworkProvider(newCustomerForm.phone)}
                         </p>
                       );
                     }
@@ -2095,11 +2149,11 @@ const CustomerInformationPage = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
+                  Email Address (Optional)
                 </label>
                 <input
                   type="email"
-                  placeholder="e.g., juan@email.com (Optional)"
+                  placeholder="e.g., juan@email.com"
                   value={newCustomerForm.email}
                   onChange={(e) =>
                     setNewCustomerForm({
@@ -2147,11 +2201,11 @@ const CustomerInformationPage = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address
+                  Address *
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="e.g., 123 Main Street, Barangay, City, Province (Optional)"
+                  placeholder="e.g., 123 Main Street, Barangay, City, Province"
                   value={newCustomerForm.address}
                   onChange={(e) =>
                     setNewCustomerForm({
@@ -2160,6 +2214,7 @@ const CustomerInformationPage = () => {
                     })
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                  required
                   maxLength={255}
                 />
                 {newCustomerForm.address && (
@@ -2183,6 +2238,8 @@ const CustomerInformationPage = () => {
                   disabled={
                     !newCustomerForm.customer_name ||
                     !newCustomerForm.phone ||
+                    !newCustomerForm.address ||
+                    !PhoneValidator.validatePhone(newCustomerForm.phone).isValid ||
                     isUpdating
                   }
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"

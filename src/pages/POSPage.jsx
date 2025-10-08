@@ -21,6 +21,7 @@ import SimpleReceipt from "../components/ui/SimpleReceipt";
 import { usePOS } from "../features/pos/hooks/usePOS";
 import "../components/ui/ScrollableModal.css";
 import { formatCurrency } from "../utils/formatting";
+import PhoneValidator from "../utils/phoneValidator";
 
 export default function POSPage() {
   const navigate = useNavigate();
@@ -808,18 +809,67 @@ export default function POSPage() {
                             }))
                           }
                         />
+                        <div>
+                          <input
+                            type="tel"
+                            placeholder="Phone Number (e.g. 09123456789)"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            value={newCustomer.phone}
+                            onChange={(e) => {
+                              // Allow only numbers, spaces, dashes, parentheses, plus
+                              const value = e.target.value.replace(/[^0-9\s\-\(\)\+\.]/g, '');
+                              setNewCustomer((prev) => ({
+                                ...prev,
+                                phone: value,
+                              }));
+                            }}
+                            maxLength={15}
+                          />
+                          {newCustomer.phone &&
+                            (() => {
+                              const validation = PhoneValidator.validatePhone(newCustomer.phone);
+
+                              if (validation.type === 'error') {
+                                return (
+                                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                                    ❌ {validation.message}
+                                  </p>
+                                );
+                              } else if (validation.type === 'warning') {
+                                return (
+                                  <p className="mt-1 text-sm text-amber-600 flex items-center">
+                                    ⚠️ {validation.message} • {PhoneValidator.getNetworkProvider(newCustomer.phone)}
+                                  </p>
+                                );
+                              } else if (validation.type === 'success') {
+                                return (
+                                  <p className="mt-1 text-sm text-green-600 flex items-center">
+                                    ✅ {validation.message} • {PhoneValidator.getNetworkProvider(newCustomer.phone)}
+                                  </p>
+                                );
+                              }
+                              return null;
+                            })()}
+                        </div>
                         <input
-                          type="tel"
-                          placeholder="Phone Number"
+                          type="text"
+                          placeholder="Address *"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                          value={newCustomer.phone}
+                          value={newCustomer.address}
                           onChange={(e) =>
                             setNewCustomer((prev) => ({
                               ...prev,
-                              phone: e.target.value,
+                              address: e.target.value,
                             }))
                           }
+                          required
+                          maxLength={255}
                         />
+                        {newCustomer.address && newCustomer.address.length < 5 && (
+                          <p className="mt-1 text-sm text-amber-600 flex items-center">
+                            ⚠️ Address must be at least 5 characters long
+                          </p>
+                        )}
                         <input
                           type="email"
                           placeholder="Email (Optional)"
@@ -829,18 +879,6 @@ export default function POSPage() {
                             setNewCustomer((prev) => ({
                               ...prev,
                               email: e.target.value,
-                            }))
-                          }
-                        />
-                        <input
-                          type="text"
-                          placeholder="Address"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                          value={newCustomer.address}
-                          onChange={(e) =>
-                            setNewCustomer((prev) => ({
-                              ...prev,
-                              address: e.target.value,
                             }))
                           }
                         />
@@ -879,7 +917,9 @@ export default function POSPage() {
                         disabled={
                           !newCustomer.name ||
                           !newCustomer.phone ||
-                          !newCustomer.address
+                          !newCustomer.address ||
+                          newCustomer.address.length < 5 ||
+                          !PhoneValidator.validatePhone(newCustomer.phone).isValid
                         }
                       >
                         Save Customer
