@@ -118,33 +118,23 @@ export function usePOS() {
     return getCartTotal();
   }, [getCartTotal]);
 
-  // Calculate cart tax (12% VAT) - should be calculated after discount
+  // Calculate cart tax - VAT EXEMPT for pharmacy products
   const getCartTax = useCallback(
     (afterDiscount = false, discountAmount = 0) => {
-      const subtotal = getCartSubtotal();
-      if (afterDiscount) {
-        const discountedSubtotal = subtotal - discountAmount;
-        return discountedSubtotal * 0.12;
-      }
-      return subtotal * 0.12;
+      // Pharmacy products are VAT exempt
+      return 0;
     },
     [getCartSubtotal]
   );
 
-  // Calculate cart total (subtotal + tax) - handle discount properly
+  // Calculate cart total (subtotal - discount) - VAT EXEMPT for pharmacy products
   const getCartTotalWithTax = useCallback(
     (discountAmount = 0) => {
       const subtotal = getCartSubtotal();
-      if (discountAmount > 0) {
-        // Apply discount first, then calculate VAT on discounted amount
-        const discountedSubtotal = subtotal - discountAmount;
-        const vatOnDiscounted = discountedSubtotal * 0.12;
-        return discountedSubtotal + vatOnDiscounted;
-      }
-      // Normal calculation without discount
-      return subtotal + getCartTax();
+      // Pharmacy products are VAT exempt - just subtract discount from subtotal
+      return subtotal - discountAmount;
     },
-    [getCartSubtotal, getCartTax]
+    [getCartSubtotal]
   );
 
   // Handle clearing cart
@@ -363,7 +353,7 @@ export function usePOS() {
             totalPrice: item.totalPrice,
           })),
           subtotal: getCartSubtotal(),
-          tax: getCartTax(true, paymentData.discount_amount || 0), // Use tax on discounted amount
+          tax: 0, // VAT EXEMPT for pharmacy products
           // Explicitly preserve customer data to ensure it's not lost
           customer_id: transaction.customer_id,
           customer_name: transaction.customer_name,

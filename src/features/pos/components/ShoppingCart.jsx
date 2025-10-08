@@ -20,8 +20,8 @@ export default function ShoppingCartComponent({
   // 🎯 Professional: Get real-time stock data
   const { getAvailableStock } = usePOSStore();
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
-  const tax = subtotal * 0.12; // 12% VAT
-  const total = subtotal + tax;
+  const tax = 0; // VAT EXEMPT for pharmacy products
+  const total = subtotal; // No VAT added
 
   const getItemSubtotal = (item) => {
     return item.totalPrice;
@@ -114,10 +114,10 @@ export default function ShoppingCartComponent({
             <span className="text-gray-900">{formatCurrency(subtotal)}</span>
           </div>
 
-          {/* Tax */}
+          {/* VAT Status */}
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">VAT (12%):</span>
-            <span className="text-gray-900">{formatCurrency(tax)}</span>
+            <span className="text-gray-600">VAT Status:</span>
+            <span className="text-green-600">EXEMPT</span>
           </div>
 
           {/* Total */}

@@ -478,21 +478,21 @@ export default function POSPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between py-1">
                       <span className="text-gray-600">
-                        Subtotal (Before VAT)
+                        Subtotal
                       </span>
                       <span className="font-medium">
                         {formatCurrency(cartSummary.subtotal)}
                       </span>
                     </div>
                     <div className="flex justify-between py-1">
-                      <span className="text-gray-600">VAT (12%)</span>
-                      <span className="font-medium text-blue-600">
-                        {formatCurrency(cartSummary.tax)}
+                      <span className="text-gray-600 text-sm">VAT Status</span>
+                      <span className="font-medium text-green-600 text-sm">
+                        EXEMPT
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-t border-gray-200">
                       <span className="text-gray-700 font-medium">
-                        Total (Inc. VAT)
+                        Total Amount
                       </span>
                       <span className="font-semibold">
                         {formatCurrency(cartSummary.total)}

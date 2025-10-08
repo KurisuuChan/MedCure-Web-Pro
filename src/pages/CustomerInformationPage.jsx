@@ -1867,11 +1867,7 @@ const CustomerInformationPage = () => {
                                 </span>
                                 <span>
                                   Tax:{" "}
-                                  {formatCurrency(
-                                    parseFloat(transaction.tax) ||
-                                      parseFloat(transaction.total) * 0.12 ||
-                                      0
-                                  )}
+                                  {formatCurrency(0)} {/* VAT EXEMPT */}
                                 </span>
                                 {transaction.discount &&
                                   parseFloat(transaction.discount) > 0 && (

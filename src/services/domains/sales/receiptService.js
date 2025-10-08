@@ -248,11 +248,11 @@ class ReceiptService {
     const subtotal = transaction.subtotal_before_discount || this.calculateSubtotal(transaction);
     const discountAmount = this.calculateCorrectDiscountAmount(transaction);
     
-    // Apply discount first, then calculate VAT on discounted amount
+    // Apply discount - pharmacy products are VAT EXEMPT
     const subtotalAfterDiscount = subtotal - discountAmount;
-    const vatAmount = subtotalAfterDiscount * 0.12; // 12% VAT on discounted amount
+    const vatAmount = 0; // VAT EXEMPT for pharmacy products
     
-    return subtotalAfterDiscount + vatAmount;
+    return subtotalAfterDiscount; // No VAT added
   }
 
   /**
@@ -398,10 +398,10 @@ class ReceiptService {
                     : ""
                 }
 
-                <!-- VAT -->
-                <div class="summary-line vat-amount">
-                    <span>VAT (${financial.vatDetails.vatRate}%):</span>
-                    <span>${formatCurrency(financial.vatDetails.vatAmount)}</span>
+                <!-- VAT EXEMPT -->
+                <div class="summary-line vat-exempt">
+                    <span>VAT Status:</span>
+                    <span>EXEMPT (Pharmacy Products)</span>
                 </div>
 
                 <!-- Total Amount -->
@@ -745,37 +745,26 @@ class ReceiptService {
    * @returns {Object} Enhanced VAT breakdown
    */
   calculateEnhancedVATDetails(transaction) {
-    const VAT_RATE = 0.12; // 12% VAT in Philippines
+    const VAT_RATE = 0.12; // 12% VAT in Philippines (not applicable to pharmacy products)
     const itemsSubtotal = this.calculateSubtotal(transaction);
     const discountAmount = this.calculateCorrectDiscountAmount(transaction);
     const discountType = transaction.discount_type || 'none';
     
-    // Apply discount first, then calculate VAT on the discounted amount
+    // Apply discount first
     const subtotalAfterDiscount = itemsSubtotal - discountAmount;
     
-    // For PWD/Senior discounts, they get VAT exemption on the discounted amount
+    // Pharmacy products are VAT EXEMPT
     const isLegalDiscount = discountType === 'pwd' || discountType === 'senior';
     
-    let vatExemptAmount = 0;
-    let taxableAmount = subtotalAfterDiscount;
-    let vatAmount = 0;
-    
-    if (isLegalDiscount && discountAmount > 0) {
-      // PWD/Senior citizens may get additional VAT exemption
-      // But for now, we'll apply standard VAT calculation
-      vatAmount = subtotalAfterDiscount * VAT_RATE;
-      vatExemptAmount = 0; // No additional exemption beyond discount
-      taxableAmount = subtotalAfterDiscount;
-    } else {
-      // Standard VAT calculation on discounted amount
-      vatAmount = subtotalAfterDiscount * VAT_RATE;
-      taxableAmount = subtotalAfterDiscount;
-    }
+    // All pharmacy products are VAT exempt
+    const vatExemptAmount = subtotalAfterDiscount;
+    const taxableAmount = 0;
+    const vatAmount = 0;
     
     return {
       // Basic VAT info
-      vatRate: VAT_RATE * 100, // Convert to percentage
-      isVatInclusive: false, // VAT is added on top
+      vatRate: VAT_RATE * 100, // Convert to percentage (for reference only)
+      isVatInclusive: false, // VAT is not applicable
       
       // Amount breakdown
       itemsSubtotal: itemsSubtotal,
@@ -784,12 +773,12 @@ class ReceiptService {
       taxableAmount: taxableAmount,
       vatExemptAmount: vatExemptAmount,
       vatAmount: vatAmount,
-      netAmount: subtotalAfterDiscount, // Net amount before VAT
-      totalWithVat: subtotalAfterDiscount + vatAmount, // Final total
+      netAmount: subtotalAfterDiscount, // Net amount (no VAT)
+      totalWithVat: subtotalAfterDiscount, // Final total (same as net - no VAT)
       
       // Legal compliance
       isLegalDiscount: isLegalDiscount,
-      vatExemptReason: isLegalDiscount ? `${discountType.toUpperCase()} Discount` : null,
+      vatExemptReason: "Pharmacy Products - VAT Exempt",
     };
   }
 
