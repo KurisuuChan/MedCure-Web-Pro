@@ -690,7 +690,8 @@ export const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
   };
 
   const isConfirmValid =
-    confirmText.toLowerCase() === `${user.first_name} ${user.last_name}`.toLowerCase();
+    confirmText.toLowerCase() ===
+    `${user.first_name} ${user.last_name}`.toLowerCase();
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -916,6 +917,106 @@ export const ResetPasswordModal = ({ user, onClose, onConfirm }) => {
                 <span>Send Reset Email</span>
               </>
             )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Success Confirmation Modal Component
+export const SuccessModal = ({
+  isOpen,
+  onClose,
+  title = "Success!",
+  message = "Operation completed successfully.",
+  user = null,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 border-b border-green-100">
+          <div className="flex items-center justify-center">
+            <div className="p-3 bg-green-100 rounded-full">
+              <CheckCircle className="h-12 w-12 text-green-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 text-center mt-4">
+            {title}
+          </h2>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4">
+          <p className="text-center text-gray-700 text-base leading-relaxed">
+            {message}
+          </p>
+
+          {/* User Details Card */}
+          {user && (
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+              <h3 className="text-sm font-semibold text-green-900 mb-3 flex items-center">
+                <User className="h-4 w-4 mr-2" />
+                User Details
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center text-sm">
+                  <span className="text-gray-600 w-20 font-medium">Name:</span>
+                  <span className="text-gray-900 font-semibold">
+                    {user.firstName} {user.lastName}
+                  </span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <Mail className="h-4 w-4 text-gray-500 mr-2" />
+                  <span className="text-gray-600 w-16 font-medium">Email:</span>
+                  <span className="text-gray-900">{user.email}</span>
+                </div>
+                {user.phone && (
+                  <div className="flex items-center text-sm">
+                    <Phone className="h-4 w-4 text-gray-500 mr-2" />
+                    <span className="text-gray-600 w-16 font-medium">
+                      Phone:
+                    </span>
+                    <span className="text-gray-900">{user.phone}</span>
+                  </div>
+                )}
+                <div className="flex items-center text-sm">
+                  <Shield className="h-4 w-4 text-gray-500 mr-2" />
+                  <span className="text-gray-600 w-16 font-medium">Role:</span>
+                  <span className="text-gray-900 capitalize">{user.role}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Success Message */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-green-800">
+                <p className="font-medium mb-1">What's Next:</p>
+                <ul className="space-y-1 text-green-700">
+                  <li>• User account is now active</li>
+                  <li>• Credentials have been created successfully</li>
+                  <li>• User can log in immediately</li>
+                  <li>• User will appear in the user list</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-center p-6 bg-gray-50 border-t border-gray-200">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-8 py-3 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+          >
+            Got it!
           </button>
         </div>
       </div>

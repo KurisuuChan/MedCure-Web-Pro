@@ -19,6 +19,7 @@ import {
   EditUserModal,
   DeleteConfirmationModal,
   ResetPasswordModal,
+  SuccessModal,
 } from "../../../components/modals/UserModals";
 
 const UserManagementDashboard = () => {
@@ -33,6 +34,8 @@ const UserManagementDashboard = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalData, setSuccessModalData] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userStats, setUserStats] = useState({});
 
@@ -110,8 +113,15 @@ const UserManagementDashboard = () => {
       await loadUsers();
       await loadUserStats();
 
-      // Show success message
-      alert("User created successfully!");
+      // Show success modal with user details
+      setSuccessModalData({
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        phone: userData.phone,
+        role: userData.role,
+      });
+      setShowSuccessModal(true);
     } catch (error) {
       console.error("❌ [UserManagementDashboard] Error creating user:", error);
 
@@ -184,18 +194,23 @@ const UserManagementDashboard = () => {
     if (!selectedUser) return;
 
     try {
-      console.log("🗑️ [UserManagementDashboard] Deleting user:", selectedUser.id);
+      console.log(
+        "🗑️ [UserManagementDashboard] Deleting user:",
+        selectedUser.id
+      );
       await UserManagementService.deleteUser(selectedUser.id);
       console.log("✅ [UserManagementDashboard] User deleted successfully");
-      
+
       setShowDeleteModal(false);
       setSelectedUser(null);
       setError(null);
-      
+
       await loadUsers();
       await loadUserStats();
-      
-      alert(`User ${selectedUser.first_name} ${selectedUser.last_name} has been permanently deleted.`);
+
+      alert(
+        `User ${selectedUser.first_name} ${selectedUser.last_name} has been permanently deleted.`
+      );
     } catch (error) {
       console.error("❌ [UserManagementDashboard] Error deleting user:", error);
       let errorMessage = "Failed to delete user";
@@ -219,16 +234,22 @@ const UserManagementDashboard = () => {
     if (!selectedUser) return;
 
     try {
-      console.log("🔑 [UserManagementDashboard] Resetting password for:", selectedUser.email);
+      console.log(
+        "🔑 [UserManagementDashboard] Resetting password for:",
+        selectedUser.email
+      );
       await UserManagementService.resetPassword(selectedUser.email);
       console.log("✅ [UserManagementDashboard] Password reset email sent");
-      
+
       setShowResetPasswordModal(false);
       setSelectedUser(null);
-      
+
       alert(`Password reset email has been sent to ${selectedUser.email}`);
     } catch (error) {
-      console.error("❌ [UserManagementDashboard] Error resetting password:", error);
+      console.error(
+        "❌ [UserManagementDashboard] Error resetting password:",
+        error
+      );
       setShowResetPasswordModal(false);
       alert(`Failed to send password reset email: ${error.message}`);
     }
@@ -585,6 +606,20 @@ const UserManagementDashboard = () => {
             setSelectedUser(null);
           }}
           onConfirm={confirmResetPassword}
+        />
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && successModalData && (
+        <SuccessModal
+          isOpen={showSuccessModal}
+          onClose={() => {
+            setShowSuccessModal(false);
+            setSuccessModalData(null);
+          }}
+          title="User Created Successfully!"
+          message="The new user account has been created and is ready to use."
+          user={successModalData}
         />
       )}
     </div>

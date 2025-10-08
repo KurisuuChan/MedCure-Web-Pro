@@ -361,12 +361,12 @@ export class UserManagementService {
   // Delete user permanently (cascade to related records)
   static async deleteUser(userId) {
     try {
-      console.log('🗑️ [UserManagement] Starting user deletion:', userId);
-      
+      console.log("🗑️ [UserManagement] Starting user deletion:", userId);
+
       // Delete related records in order (to avoid foreign key constraint violations)
-      
+
       // 1. Delete from audit_log
-      console.log('🗑️ [UserManagement] Deleting audit_log records...');
+      console.log("🗑️ [UserManagement] Deleting audit_log records...");
       const { error: auditError } = await supabase
         .from("audit_log")
         .delete()
@@ -376,11 +376,11 @@ export class UserManagementService {
         console.warn("⚠️ Error deleting audit_log records:", auditError);
         // Continue anyway - table might not exist or be empty
       } else {
-        console.log('✅ [UserManagement] audit_log records deleted');
+        console.log("✅ [UserManagement] audit_log records deleted");
       }
-      
+
       // 2. Delete from user_activity_logs (if exists)
-      console.log('🗑️ [UserManagement] Deleting user_activity_logs records...');
+      console.log("🗑️ [UserManagement] Deleting user_activity_logs records...");
       const { error: activityError } = await supabase
         .from("user_activity_logs")
         .delete()
@@ -390,11 +390,11 @@ export class UserManagementService {
         console.warn("⚠️ Error deleting user activity logs:", activityError);
         // Continue anyway - table might not exist or be empty
       } else {
-        console.log('✅ [UserManagement] user_activity_logs records deleted');
+        console.log("✅ [UserManagement] user_activity_logs records deleted");
       }
 
       // 3. Finally, delete the user
-      console.log('🗑️ [UserManagement] Deleting user record...');
+      console.log("🗑️ [UserManagement] Deleting user record...");
       const { data, error } = await supabase
         .from("users")
         .delete()
@@ -403,11 +403,13 @@ export class UserManagementService {
         .single();
 
       if (error) {
-        console.error('❌ [UserManagement] Failed to delete user:', error);
+        console.error("❌ [UserManagement] Failed to delete user:", error);
         throw error;
       }
 
-      console.log(`✅ [UserManagement] User ${userId} and all related records deleted successfully`);
+      console.log(
+        `✅ [UserManagement] User ${userId} and all related records deleted successfully`
+      );
       return data;
     } catch (error) {
       console.error("❌ [UserManagement] Error deleting user:", error);

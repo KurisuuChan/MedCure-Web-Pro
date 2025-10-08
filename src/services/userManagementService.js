@@ -109,6 +109,11 @@ export class UserManagementService {
 
   // Create new user
   static async createUser(userData) {
+    console.log("🔧 [UserManagement] Creating user with data:", {
+      ...userData,
+      password: "***",
+    });
+
     try {
       const {
         email,
@@ -119,7 +124,33 @@ export class UserManagementService {
         role = this.ROLES.EMPLOYEE,
       } = userData;
 
-      // Create auth user
+      // Validate password requirements
+      if (!password || password.length < 6) {
+        throw new Error("Password must be at least 6 characters long");
+      }
+
+      // Check if user already exists in the database
+      const { data: existingUser, error: checkError } = await supabase
+        .from("users")
+        .select("id, email, is_active")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error(
+          "❌ [UserManagement] Error checking existing user:",
+          checkError
+        );
+        throw new Error(`Database error: ${checkError.message}`);
+      }
+
+      if (existingUser) {
+        throw new Error(`User with email ${email} already exists`);
+      }
+
+      console.log("📧 [UserManagement] Creating auth user for:", email);
+
+      // Create auth user with email confirmation disabled for admin-created users
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -129,10 +160,39 @@ export class UserManagementService {
             last_name: lastName,
             phone,
           },
+          emailRedirectTo: undefined, // No email confirmation needed for admin-created users
         },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error("❌ [UserManagement] Auth signup error:", authError);
+
+        // Handle specific error cases
+        if (authError.message?.includes("already registered")) {
+          throw new Error(
+            `User with email ${email} already exists in authentication system`
+          );
+        } else if (authError.message?.includes("password")) {
+          throw new Error(`Password error: ${authError.message}`);
+        } else if (authError.status === 422) {
+          throw new Error(
+            `Invalid user data: ${
+              authError.message ||
+              "Please check email format and password requirements (min 6 characters)"
+            }`
+          );
+        }
+
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+
+      if (!authData?.user?.id) {
+        throw new Error(
+          "Failed to create authentication user - no user ID returned"
+        );
+      }
+
+      console.log("✅ [UserManagement] Auth user created:", authData.user.id);
 
       // Create user record directly in users table
       const { data: newUserData, error: userError } = await supabase
@@ -149,14 +209,29 @@ export class UserManagementService {
         .select()
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.error("❌ [UserManagement] Database insert error:", userError);
+
+        // If database insert fails, we should try to clean up the auth user
+        // Note: This requires admin privileges
+        console.warn(
+          "⚠️ [UserManagement] Database insert failed after auth creation. User may exist in auth but not in database."
+        );
+
+        throw new Error(`Failed to create user record: ${userError.message}`);
+      }
+
+      console.log(
+        "✅ [UserManagement] User created successfully:",
+        newUserData.id
+      );
 
       return {
         ...newUserData,
         permissions: this.getUserPermissions(role),
       };
     } catch (error) {
-      console.error("Error creating user:", error);
+      console.error("❌ [UserManagement] Error creating user:", error);
       throw error;
     }
   }
