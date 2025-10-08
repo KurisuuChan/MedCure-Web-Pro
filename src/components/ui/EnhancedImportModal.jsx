@@ -105,6 +105,12 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
     try {
       setIsProcessing(true);
 
+      // Show loading toast
+      addToast({
+        type: "info",
+        message: `Creating ${approvedCategories.length} categories...`,
+      });
+
       // Create approved categories with enhanced logic
       const createResult =
         await UnifiedCategoryService.createApprovedCategories(
@@ -112,13 +118,46 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
           user?.id || "system"
         );
 
-      if (!createResult.success) {
-        throw new Error(createResult.error);
+      // Check for failures and show detailed feedback
+      if (createResult.hasFailures) {
+        const { summary } = createResult;
+
+        // Show warning for partial failures
+        if (summary.created > 0) {
+          addToast({
+            type: "warning",
+            message: `Partially completed: ${summary.created} created, ${summary.failed} failed`,
+          });
+        } else {
+          // All failed
+          const errorDetails = summary.failedCategories
+            .map((f) => `${f.name}: ${f.error}`)
+            .join("\n");
+
+          setErrors([
+            `Failed to create categories:`,
+            ...summary.failedCategories.map(
+              (f) => `• ${f.name}: ${f.error || "Unknown error"}`
+            ),
+          ]);
+
+          addToast({
+            type: "error",
+            message: `Failed to create ${summary.failed} categories`,
+          });
+
+          console.error(
+            "❌ [EnhancedImportModal] Category creation failed:",
+            createResult
+          );
+          return; // Don't proceed to preview
+        }
       }
 
       // Enhanced success feedback with detailed statistics
-      const successCount = createResult.data?.length || 0;
-      const skippedCount = approvedCategories.length - successCount;
+      const summary = createResult.summary || {};
+      const successCount = summary.created || 0;
+      const skippedCount = summary.skipped || 0;
 
       let message = `Successfully processed ${approvedCategories.length} categories`;
       if (successCount > 0) {
@@ -139,6 +178,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
           approved: approvedCategories.length,
           created: successCount,
           skipped: skippedCount,
+          failed: summary.failed || 0,
         }
       );
 
@@ -635,10 +675,42 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                   <button
                     onClick={handleCategoryApproval}
                     disabled={approvedCategories.length === 0 || isProcessing}
-                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 rounded-lg transition-colors"
+                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
                   >
-                    <Plus className="h-4 w-4" />
-                    <span>Create {approvedCategories.length} Categories</span>
+                    {isProcessing ? (
+                      <>
+                        <svg
+                          className="animate-spin h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        <span>
+                          Creating {approvedCategories.length} categories...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        <span>
+                          Create {approvedCategories.length} Categories
+                        </span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

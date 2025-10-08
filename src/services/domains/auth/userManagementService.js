@@ -114,7 +114,7 @@ export class UserManagementService {
         ...user,
         user_roles: { role: user.role }, // Match frontend expectations
         status: user.is_active ? "active" : "inactive", // Match frontend expectations
-        permissions: this.getUserPermissions(user.role || this.ROLES.CASHIER),
+        permissions: this.getUserPermissions(user.role || this.ROLES.EMPLOYEE),
       }));
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -142,31 +142,31 @@ export class UserManagementService {
       },
       {
         id: "2",
-        email: "manager@medcure.com",
-        first_name: "Manager",
-        last_name: "User",
+        email: "pharmacist@medcure.com",
+        first_name: "John",
+        last_name: "Pharmacist",
         phone: "+1234567891",
-        role: this.ROLES.MANAGER,
+        role: this.ROLES.PHARMACIST,
         is_active: true,
         status: "active",
-        user_roles: { role: this.ROLES.MANAGER },
+        user_roles: { role: this.ROLES.PHARMACIST },
         last_login: new Date().toISOString(),
         created_at: new Date().toISOString(),
-        permissions: this.getUserPermissions(this.ROLES.MANAGER),
+        permissions: this.getUserPermissions(this.ROLES.PHARMACIST),
       },
       {
         id: "3",
-        email: "cashier@medcure.com",
-        first_name: "Cashier",
-        last_name: "User",
+        email: "employee@medcure.com",
+        first_name: "Jane",
+        last_name: "Employee",
         phone: "+1234567892",
-        role: this.ROLES.CASHIER,
+        role: this.ROLES.EMPLOYEE,
         is_active: true,
         status: "active",
-        user_roles: { role: this.ROLES.CASHIER },
+        user_roles: { role: this.ROLES.EMPLOYEE },
         last_login: new Date().toISOString(),
         created_at: new Date().toISOString(),
-        permissions: this.getUserPermissions(this.ROLES.CASHIER),
+        permissions: this.getUserPermissions(this.ROLES.EMPLOYEE),
       },
     ];
   }
@@ -184,7 +184,7 @@ export class UserManagementService {
 
       return {
         ...data,
-        permissions: this.getUserPermissions(data.role || this.ROLES.CASHIER),
+        permissions: this.getUserPermissions(data.role || this.ROLES.EMPLOYEE),
       };
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -195,14 +195,30 @@ export class UserManagementService {
   // Create new user
   static async createUser(userData) {
     try {
+      console.log("🔧 [UserManagement] Creating user with data:", {
+        ...userData,
+        password: "***",
+      });
+
       const {
         email,
         password,
         firstName,
         lastName,
         phone,
-        role = this.ROLES.CASHIER,
+        role = this.ROLES.EMPLOYEE,
       } = userData;
+
+      // Validate role
+      if (!this.isValidRole(role)) {
+        throw new Error(
+          `Invalid role: ${role}. Valid roles are: ${Object.values(
+            this.ROLES
+          ).join(", ")}`
+        );
+      }
+
+      console.log("📧 [UserManagement] Creating auth user for:", email);
 
       // Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -217,7 +233,17 @@ export class UserManagementService {
         },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error("❌ [UserManagement] Auth signup error:", authError);
+        throw authError;
+      }
+
+      if (!authData?.user) {
+        throw new Error("Failed to create auth user - no user data returned");
+      }
+
+      console.log("✅ [UserManagement] Auth user created:", authData.user.id);
+      console.log("💾 [UserManagement] Creating user record in database...");
 
       // Create user record directly in users table
       const { data: newUserData, error: userError } = await supabase
@@ -234,14 +260,28 @@ export class UserManagementService {
         .select()
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.error("❌ [UserManagement] Database insert error:", userError);
+        throw userError;
+      }
+
+      console.log(
+        "✅ [UserManagement] User created successfully:",
+        newUserData.id
+      );
 
       return {
         ...newUserData,
         permissions: this.getUserPermissions(role),
       };
     } catch (error) {
-      console.error("Error creating user:", error);
+      console.error("❌ [UserManagement] Error creating user:", error);
+      console.error("Error details:", {
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+        code: error.code,
+      });
       throw error;
     }
   }
@@ -249,32 +289,71 @@ export class UserManagementService {
   // Update user information
   static async updateUser(userId, updateData) {
     try {
-      const { firstName, lastName, phone, role } = updateData;
+      console.log("🔧 [UserManagement] Updating user:", userId, updateData);
+
+      const { firstName, lastName, phone, role, status } = updateData;
+
+      // Validate role if it's being updated
+      if (role && !this.isValidRole(role)) {
+        throw new Error(
+          `Invalid role: ${role}. Valid roles are: ${Object.values(
+            this.ROLES
+          ).join(", ")}`
+        );
+      }
+
+      // Prepare update object
+      const updateObject = {
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only update role if provided
+      if (role) {
+        updateObject.role = role;
+      }
+
+      // Update is_active based on status
+      if (status) {
+        updateObject.is_active = status === "active";
+      }
+
+      console.log("💾 [UserManagement] Updating database with:", updateObject);
 
       // Update user directly in users table
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          role,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateObject)
         .eq("id", userId)
         .select()
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.error("❌ [UserManagement] Update error:", userError);
+        throw userError;
+      }
+
+      console.log(
+        "✅ [UserManagement] User updated successfully:",
+        userData.id
+      );
 
       return {
         ...userData,
         permissions: this.getUserPermissions(
-          userData.role || this.ROLES.CASHIER
+          userData.role || this.ROLES.EMPLOYEE
         ),
       };
     } catch (error) {
-      console.error("Error updating user:", error);
+      console.error("❌ [UserManagement] Error updating user:", error);
+      console.error("Error details:", {
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+        code: error.code,
+      });
       throw error;
     }
   }
@@ -282,18 +361,40 @@ export class UserManagementService {
   // Delete user permanently (cascade to related records)
   static async deleteUser(userId) {
     try {
-      // First, delete related records from user_activity_logs
+      console.log('🗑️ [UserManagement] Starting user deletion:', userId);
+      
+      // Delete related records in order (to avoid foreign key constraint violations)
+      
+      // 1. Delete from audit_log
+      console.log('🗑️ [UserManagement] Deleting audit_log records...');
+      const { error: auditError } = await supabase
+        .from("audit_log")
+        .delete()
+        .eq("user_id", userId);
+
+      if (auditError) {
+        console.warn("⚠️ Error deleting audit_log records:", auditError);
+        // Continue anyway - table might not exist or be empty
+      } else {
+        console.log('✅ [UserManagement] audit_log records deleted');
+      }
+      
+      // 2. Delete from user_activity_logs (if exists)
+      console.log('🗑️ [UserManagement] Deleting user_activity_logs records...');
       const { error: activityError } = await supabase
         .from("user_activity_logs")
         .delete()
         .eq("user_id", userId);
 
       if (activityError) {
-        console.warn("Error deleting user activity logs:", activityError);
-        // Continue anyway - table might not exist
+        console.warn("⚠️ Error deleting user activity logs:", activityError);
+        // Continue anyway - table might not exist or be empty
+      } else {
+        console.log('✅ [UserManagement] user_activity_logs records deleted');
       }
 
-      // Then delete the user
+      // 3. Finally, delete the user
+      console.log('🗑️ [UserManagement] Deleting user record...');
       const { data, error } = await supabase
         .from("users")
         .delete()
@@ -301,12 +402,21 @@ export class UserManagementService {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [UserManagement] Failed to delete user:', error);
+        throw error;
+      }
 
-      console.log(`✅ User ${userId} and related records deleted successfully`);
+      console.log(`✅ [UserManagement] User ${userId} and all related records deleted successfully`);
       return data;
     } catch (error) {
-      console.error("Error deleting user:", error);
+      console.error("❌ [UserManagement] Error deleting user:", error);
+      console.error("Error details:", {
+        message: error.message,
+        hint: error.hint,
+        details: error.details,
+        code: error.code,
+      });
       throw error;
     }
   }
@@ -330,9 +440,15 @@ export class UserManagementService {
   // Get role hierarchy level (for permission comparisons)
   static getRoleLevel(role) {
     const levels = {
+      // New role system
       [this.ROLES.ADMIN]: 3,
-      [this.ROLES.MANAGER]: 2,
-      [this.ROLES.CASHIER]: 1,
+      [this.ROLES.PHARMACIST]: 2,
+      [this.ROLES.EMPLOYEE]: 1,
+      // Legacy roles (for backward compatibility)
+      super_admin: 3,
+      manager: 2,
+      cashier: 1,
+      staff: 1,
     };
     return levels[role] || 0;
   }
@@ -371,7 +487,7 @@ export class UserManagementService {
 
       return data.map((user) => ({
         ...user,
-        permissions: this.getUserPermissions(user.role || this.ROLES.CASHIER),
+        permissions: this.getUserPermissions(user.role || this.ROLES.EMPLOYEE),
       }));
     } catch (error) {
       console.error("Error searching users:", error);

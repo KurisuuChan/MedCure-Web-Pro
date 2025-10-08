@@ -759,7 +759,8 @@ export class CSVImportService {
       },
 
       // Inventory fields
-      stock_in_pieces: Math.max(safeParseInt(row.stock_in_pieces, 0), 0),
+      // 🔧 Changed default stock from 0 to 100 for empty cells
+      stock_in_pieces: Math.max(safeParseInt(row.stock_in_pieces, 100), 0),
       reorder_level: Math.max(safeParseInt(row.reorder_level, 10), 1),
       supplier: cleanString(row.supplier_name, ""),
 
