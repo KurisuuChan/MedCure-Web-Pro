@@ -22,10 +22,12 @@ import { usePOS } from "../features/pos/hooks/usePOS";
 import "../components/ui/ScrollableModal.css";
 import { formatCurrency } from "../utils/formatting";
 import PhoneValidator from "../utils/phoneValidator";
+import { useToast } from "../components/ui/Toast";
 
 export default function POSPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
   const {
     cartItems,
     availableProducts,
@@ -181,15 +183,29 @@ export default function POSPage() {
 
       const transaction = await processPayment(paymentDataWithCashier);
 
+      // Show success toast for sale completion
+      const finalTotal = cartSummary.total - discount.amount;
+      const customerName = paymentData.customer_name || "Walk-in Customer";
+      
+      showSuccess(
+        `🎉 Sale completed successfully! ₱${finalTotal.toFixed(2)} from ${customerName}`,
+        {
+          duration: 5000,
+          action: {
+            label: "View Receipt",
+            onClick: () => {
+              // Receipt logic will be handled by the existing receipt modal
+            }
+          }
+        }
+      );
+
       // Trigger sale notification
       try {
-        const finalTotal = cartSummary.total - discount.amount;
         await notificationService.create({
           userId: user?.id,
           title: "Sale Completed",
-          message: `₱${finalTotal.toFixed(2)} - ${cartItems.length} items - ${
-            paymentData.customer_name || "Walk-in Customer"
-          }`,
+          message: `₱${finalTotal.toFixed(2)} - ${cartItems.length} items - ${customerName}`,
           type: "success",
           priority: 2,
           category: "sales",
@@ -847,9 +863,24 @@ export default function POSPage() {
                               email: "",
                               address: "",
                             });
+                            
+                            // Show success toast for new customer creation
+                            showSuccess(
+                              `👤 Customer "${savedCustomer.customer_name}" created and selected for this sale!`,
+                              {
+                                duration: 4000,
+                                action: {
+                                  label: "View Customer",
+                                  onClick: () => {}
+                                }
+                              }
+                            );
                           } catch (error) {
                             console.error("Failed to create customer:", error);
-                            // You might want to show a toast notification here
+                            showError(
+                              `Failed to create customer: ${error.message || "Please try again"}`,
+                              { duration: 5000 }
+                            );
                           }
                         }}
                         disabled={

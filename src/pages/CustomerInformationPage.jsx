@@ -43,6 +43,7 @@ import SimpleReceipt from "../components/ui/SimpleReceipt";
 import FixedCustomerService from "../services/FixedCustomerService";
 import PhoneValidator from "../utils/phoneValidator";
 import CustomerDeleteModal from "../components/CustomerDeleteModal";
+import { useToast } from "../components/ui/Toast";
 import { supabase } from "../config/supabase";
 
 const CustomerInformationPage = () => {
@@ -55,6 +56,9 @@ const CustomerInformationPage = () => {
     updateCustomer,
     createCustomer,
   } = useCustomers();
+
+  // Toast notifications
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
 
   // Professional error handling (inline implementation)
   const [error, setError] = useState(null);
@@ -326,6 +330,20 @@ const CustomerInformationPage = () => {
       // Refresh customer data
       await fetchCustomers();
 
+      // Show success toast for deletion
+      showSuccess(
+        "🗑️ Customer deleted successfully and all data anonymized for privacy protection.",
+        {
+          duration: 5000,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              showInfo("Undo functionality requires database backup restoration.", { duration: 4000 });
+            }
+          }
+        }
+      );
+
       // Success is handled by the modal
       closeAllModals();
       
@@ -356,10 +374,9 @@ const CustomerInformationPage = () => {
     // Professional validation
     const validationResult = validateCustomer(editForm);
     if (!validationResult.isValid) {
-      showNotification(
-        "error",
-        "Validation Error",
-        `Please fix the following: ${validationResult.errors.join(", ")}`
+      showError(
+        `Please fix the following: ${validationResult.errors.join(", ")}`,
+        { duration: 5000 }
       );
       return;
     }
@@ -369,11 +386,19 @@ const CustomerInformationPage = () => {
       // Use database updateCustomer method
       await updateCustomer(selectedCustomer.id, editForm);
 
-      // Success notification
-      showNotification(
-        "success",
-        "Customer Updated",
-        `${editForm.customer_name}'s information has been successfully updated.`
+      // Success notification with beautiful toast
+      showSuccess(
+        `✅ Customer "${editForm.customer_name}" updated successfully!`,
+        {
+          duration: 4000,
+          action: {
+            label: "View Customer",
+            onClick: () => {
+              setSelectedCustomer({ ...selectedCustomer, ...editForm });
+              setShowCustomerModal(true);
+            }
+          }
+        }
       );
 
       // Close modal and refresh
@@ -728,12 +753,9 @@ const CustomerInformationPage = () => {
     // Enhanced validation with duplicate checks
     const validationResult = validateNewCustomer(newCustomerForm);
     if (!validationResult.isValid) {
-      showNotification(
-        "error",
-        "Validation Failed",
-        `Please fix the following issues: ${validationResult.errors.join(
-          " • "
-        )}`
+      showError(
+        `Please fix the following issues: ${validationResult.errors.join(" • ")}`,
+        { duration: 5000 }
       );
       return;
     }
@@ -748,11 +770,19 @@ const CustomerInformationPage = () => {
         address: newCustomerForm.address?.trim() || null,
       });
 
-      // Success notification
-      showNotification(
-        "success",
-        "Customer Created Successfully",
-        `${savedCustomer.customer_name} has been added to your customer database and is ready for transactions.`
+      // Success notification with beautiful toast
+      showSuccess(
+        `🎉 Customer "${savedCustomer.customer_name}" created successfully and ready for transactions!`,
+        {
+          duration: 5000,
+          action: {
+            label: "View Customer",
+            onClick: () => {
+              setSelectedCustomer(savedCustomer);
+              setShowCustomerModal(true);
+            }
+          }
+        }
       );
 
       // Close modal and refresh data
@@ -800,13 +830,21 @@ const CustomerInformationPage = () => {
       }
 
       setError({ title, message, retryable: true });
-      showNotification("error", title, message, {
-        label: "Try Again",
-        onClick: () => {
-          clearError();
-          clearNotification();
-        },
-      });
+      
+      // Show error toast with retry option
+      showError(
+        `${title}: ${message}`,
+        {
+          duration: 6000,
+          action: {
+            label: "Try Again",
+            onClick: () => {
+              clearError();
+              handleCreateNewCustomer();
+            }
+          }
+        }
+      );
     } finally {
       setIsUpdating(false);
     }

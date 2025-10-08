@@ -29,6 +29,7 @@ import {
 import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
 import { getStockBreakdown } from "../utils/unitConversion";
+import { useToast } from "../components/ui/Toast";
 import ProductSearch from "../features/inventory/components/ProductSearch";
 import { UnifiedCategoryService } from "../services/domains/inventory/unifiedCategoryService";
 import ProductCard from "../features/inventory/components/ProductCard";
@@ -91,6 +92,7 @@ export default function InventoryPage() {
 
   // Get current authenticated user
   const { user: _user } = useAuth(); // Not currently used
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
 
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "table" - Default to table (list) view
   const [activeTab, setActiveTab] = useState("inventory"); // "inventory" or "dashboard"
@@ -335,9 +337,22 @@ export default function InventoryPage() {
                   await loadProducts();
                   // Success feedback
                   console.log("✅ Product added successfully!");
+                  showSuccess(
+                    `🎉 Product "${productData.generic_name}" added successfully!`,
+                    {
+                      duration: 4000,
+                      action: {
+                        label: "View Products",
+                        onClick: () => setActiveTab("inventory")
+                      }
+                    }
+                  );
                 } catch (error) {
                   console.error("❌ Add product error:", error);
-                  alert("Error adding product: " + (error.message || "Unknown error occurred"));
+                  showError(
+                    `Failed to add product: ${error.message || "Unknown error occurred"}`,
+                    { duration: 6000 }
+                  );
                 }
               }}
             />
@@ -357,9 +372,22 @@ export default function InventoryPage() {
                   await updateProduct(selectedProduct.id, productData);
                   setShowEditModal(false);
                   setSelectedProduct(null);
-                  // Success feedback could go here
+                  // Success feedback
+                  showSuccess(
+                    `✅ Product "${productData.generic_name}" updated successfully!`,
+                    {
+                      duration: 4000,
+                      action: {
+                        label: "View Product",
+                        onClick: () => {}
+                      }
+                    }
+                  );
                 } catch (error) {
-                  alert("Error updating product: " + error.message);
+                  showError(
+                    `Failed to update product: ${error.message}`,
+                    { duration: 6000 }
+                  );
                 }
               }}
             />
@@ -399,6 +427,18 @@ export default function InventoryPage() {
         onClose={() => setShowExportModal(false)}
         products={allProducts}
         categories={dynamicCategories.map((cat) => cat.name)}
+        onExportSuccess={(exportCount) => {
+          showSuccess(
+            `📤 Successfully exported ${exportCount} products to CSV!`,
+            {
+              duration: 5000,
+              action: {
+                label: "View Files",
+                onClick: () => {}
+              }
+            }
+          );
+        }}
       />
 
       {/* Enhanced Import Modal with AI-powered category detection */}
@@ -414,14 +454,36 @@ export default function InventoryPage() {
             console.log(
               `Successfully imported ${importedProducts.length} products with intelligent category processing`
             );
+            
+            // Show success toast
+            showSuccess(
+              `📥 Successfully imported ${importedProducts.length} products with smart category detection!`,
+              {
+                duration: 6000,
+                action: {
+                  label: "View Products",
+                  onClick: () => setActiveTab("inventory")
+                }
+              }
+            );
           } catch (error) {
             console.error("Enhanced import error:", error);
+            showError(
+              `Import failed: ${error.message}`,
+              { duration: 6000 }
+            );
             throw new Error(`Import failed: ${error.message}`);
           }
         }}
         addToast={(toast) => {
-          // Simple console logging for now - can be enhanced later
-          console.log(`${toast.type.toUpperCase()}: ${toast.message}`);
+          // Use our beautiful toast system instead of console logging
+          if (toast.type === 'success') {
+            showSuccess(toast.message, { duration: 4000 });
+          } else if (toast.type === 'error') {
+            showError(toast.message, { duration: 5000 });
+          } else if (toast.type === 'info') {
+            showInfo(toast.message, { duration: 4000 });
+          }
         }}
       />
 
@@ -582,12 +644,12 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
     
     // Basic validation
     if (!formData.generic_name.trim()) {
-      alert("Generic name is required");
+      showError("Generic name is required", { duration: 4000 });
       return;
     }
     
     if (!formData.price_per_piece || parseFloat(formData.price_per_piece) <= 0) {
-      alert("Valid selling price is required");
+      showError("Valid selling price is required", { duration: 4000 });
       return;
     }
     
@@ -618,7 +680,10 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
       await onSave(sanitizedData);
     } catch (error) {
       console.error("❌ Form submission error:", error);
-      alert("Error saving product: " + (error.message || "Please check your input and try again"));
+      showError(
+        `Error saving product: ${error.message || "Please check your input and try again"}`,
+        { duration: 6000 }
+      );
     }
   };
 

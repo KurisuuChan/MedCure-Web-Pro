@@ -29,6 +29,7 @@ import {
 import { DashboardService } from "../services/domains/analytics/dashboardService";
 import { useSettings } from "../contexts/SettingsContext";
 import SecurityBackupService from "../services/security/securityBackupService";
+import { useToast } from "../components/ui/Toast";
 
 export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState("general");
@@ -40,6 +41,7 @@ export default function SystemSettingsPage() {
     storageTotal: 10,
   });
   const [loading, setLoading] = useState(false);
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
 
   const tabs = [
     {
@@ -201,13 +203,13 @@ function GeneralSettings() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        alert("Please upload an image file");
+        showError("Please upload an image file", { duration: 4000 });
         return;
       }
 
       // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
-        alert("Image size should be less than 2MB");
+        showError("Image size should be less than 2MB", { duration: 4000 });
         return;
       }
 
@@ -232,6 +234,18 @@ function GeneralSettings() {
     console.log("💾 Saving general settings:", settings);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
+    
+    // Show success toast
+    showSuccess(
+      "⚙️ General settings saved successfully!",
+      {
+        duration: 4000,
+        action: {
+          label: "Got it!",
+          onClick: () => {}
+        }
+      }
+    );
   };
 
   return (
@@ -490,6 +504,18 @@ function SecurityBackup() {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
 
+        // Show success toast
+        showSuccess(
+          "🔒 Security settings saved successfully!",
+          {
+            duration: 4000,
+            action: {
+              label: "Great!",
+              onClick: () => {}
+            }
+          }
+        );
+
         // Clean up old backups if retention policy changed
         if (securitySettings.autoBackupEnabled) {
           await SecurityBackupService.cleanupOldBackups(
@@ -497,11 +523,11 @@ function SecurityBackup() {
           );
         }
       } else {
-        alert("Failed to save security settings. Please try again.");
+        showError("Failed to save security settings. Please try again.", { duration: 5000 });
       }
     } catch (error) {
       console.error("Error saving security settings:", error);
-      alert("An error occurred while saving settings.");
+      showError("An error occurred while saving settings.", { duration: 5000 });
     } finally {
       setSaving(false);
     }
@@ -519,18 +545,22 @@ function SecurityBackup() {
 
       if (result.success) {
         await loadLastBackupInfo();
-        alert(
-          `✅ Backup completed successfully!\n\n` +
-            `Tables backed up: ${result.backup.tables}\n` +
-            `Total records: ${result.backup.totalRecords}\n` +
-            `Timestamp: ${new Date(result.backup.timestamp).toLocaleString()}`
+        showSuccess(
+          `💾 Backup completed successfully! ${result.backup.tables} tables with ${result.backup.totalRecords} records backed up.`,
+          {
+            duration: 6000,
+            action: {
+              label: "Download",
+              onClick: () => handleDownloadBackup()
+            }
+          }
         );
       } else {
-        alert(`❌ Backup failed: ${result.error}`);
+        showError(`Backup failed: ${result.error}`, { duration: 6000 });
       }
     } catch (error) {
       console.error("Error creating backup:", error);
-      alert("An error occurred during backup. Please try again.");
+      showError("An error occurred during backup. Please try again.", { duration: 5000 });
     } finally {
       setBacking(false);
     }
@@ -545,7 +575,7 @@ function SecurityBackup() {
     try {
       const backupData = localStorage.getItem("medcure-last-backup");
       if (!backupData) {
-        alert("❌ No backup found. Please create a backup first.");
+        showError("No backup found. Please create a backup first.", { duration: 5000 });
         return;
       }
 
@@ -564,17 +594,19 @@ function SecurityBackup() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      alert(
-        `✅ Backup downloaded successfully!\n\n` +
-          `File: medcure-backup-${new Date(backup.timestamp)
-            .toISOString()
-            .slice(0, 10)}.json\n` +
-          `Size: ${(blob.size / 1024).toFixed(2)} KB\n` +
-          `Records: ${backup.totalRecords || "N/A"}`
+      showSuccess(
+        `📥 Backup downloaded successfully! File size: ${(blob.size / 1024).toFixed(2)} KB with ${backup.totalRecords || "N/A"} records.`,
+        {
+          duration: 5000,
+          action: {
+            label: "Open Folder",
+            onClick: () => {}
+          }
+        }
       );
     } catch (error) {
       console.error("Error downloading backup:", error);
-      alert("❌ Failed to download backup. Please try again.");
+      showError("Failed to download backup. Please try again.", { duration: 5000 });
     }
   };
 
@@ -589,18 +621,16 @@ function SecurityBackup() {
 
       // This is a placeholder for restore functionality
       // In production, you would implement actual database restoration
-      alert(
-        "⚠️ Restore Functionality\n\n" +
-          "This feature requires backend implementation.\n" +
-          "To restore from backup:\n\n" +
-          "1. Download the backup file\n" +
-          "2. Contact your database administrator\n" +
-          "3. Use database tools to import the data\n\n" +
-          "Or implement the restore API endpoint in your backend."
+      showInfo(
+        "🔧 Restore functionality requires backend implementation. Contact your database administrator for manual restore or implement the restore API endpoint.",
+        {
+          duration: 8000,
+          persistent: false
+        }
       );
     } catch (error) {
       console.error("Error restoring backup:", error);
-      alert("❌ Failed to restore backup. Please try again.");
+      showError("Failed to restore backup. Please try again.", { duration: 5000 });
     } finally {
       setRestoring(false);
     }
@@ -653,7 +683,7 @@ function SecurityBackup() {
 
   const confirmImportBackup = async () => {
     if (!selectedFile) {
-      alert("⚠️ Please select a backup file to import.");
+      showError("Please select a backup file to import.", { duration: 4000 });
       return;
     }
 
