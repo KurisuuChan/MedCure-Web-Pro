@@ -12,6 +12,7 @@ import {
   History,
   Users,
   ShoppingCart,
+  Loader2,
 } from "lucide-react";
 import ProductSelector from "../features/pos/components/ProductSelector";
 import ShoppingCartComponent from "../features/pos/components/ShoppingCart";
@@ -22,6 +23,7 @@ import "../components/ui/ScrollableModal.css";
 import { formatCurrency } from "../utils/formatting";
 import PhoneValidator from "../utils/phoneValidator";
 import { useToast } from "../components/ui/Toast";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 export default function POSPage() {
   const navigate = useNavigate();
@@ -31,6 +33,7 @@ export default function POSPage() {
     cartItems,
     availableProducts,
     isProcessing,
+    isLoadingProducts,
     error,
     handleAddToCart,
     handleUpdateQuantity,
@@ -377,11 +380,35 @@ export default function POSPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Product Selector - Left Column (2/3 width) */}
         <div className="lg:col-span-2">
-          <ProductSelector
-            products={availableProducts}
-            onAddToCart={handleAddToCart}
-            cartItems={cartItems}
-          />
+          {isLoadingProducts ? (
+            /* Loading State */
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <LoadingSpinner size="xl" color="blue" />
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    Loading Products
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Please wait while we fetch available products...
+                  </p>
+                </div>
+                {/* Skeleton loader for visual feedback */}
+                <div className="w-full max-w-md space-y-3 mt-6">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-5/6"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-4/6"></div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Product Selector */
+            <ProductSelector
+              products={availableProducts}
+              onAddToCart={handleAddToCart}
+              cartItems={cartItems}
+            />
+          )}
         </div>
 
         {/* Shopping Cart - Right Column (1/3 width) */}
