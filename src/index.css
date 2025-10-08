@@ -66,3 +66,31 @@
     @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
   }
 }
+
+/* Remove browser-native password reveal / clear controls so our custom eye toggle is the only control shown */
+/* Chrome, Safari, Edge (Blink/WebKit) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-clear-button,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  width: 0;
+  height: 0;
+}
+
+/* Microsoft Edge & IE specific pseudo-elements */
+input[type="password"]::-ms-clear,
+input[type="password"]::-ms-reveal {
+  display: none !important;
+}
+
+/* Safari also may show an inner shadow when disabled - ensure consistency */
+input[type="password"]::-webkit-textfield-decoration-container {
+  display: none !important;
+}
+
+/* Fallback: hide native reveal controls via appearance reset */
+input[type="password"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
