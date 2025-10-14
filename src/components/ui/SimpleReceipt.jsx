@@ -8,6 +8,7 @@ import {
   Receipt as ReceiptIcon,
   Calendar,
   User,
+  UserCheck,
   CreditCard,
   Hash,
   AlertCircle,
@@ -39,6 +40,16 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
 
       console.log("🧾 [SimpleReceipt] Processing transaction:", transaction);
       console.log("🔍 [DEBUG] Customer ID in SimpleReceipt:", transaction.customer_id);
+      console.log("🔍 [DEBUG] Discount data in SimpleReceipt transaction:", {
+        discount_type: transaction.discount_type,
+        discount_percentage: transaction.discount_percentage,
+        discount_amount: transaction.discount_amount,
+        pwd_senior_id: transaction.pwd_senior_id,
+        pwd_senior_holder_name: transaction.pwd_senior_holder_name,
+      });
+
+      console.log("🔍 [DEBUG] Full transaction object keys:", Object.keys(transaction));
+      console.log("🔍 [DEBUG] Transaction object:", transaction);
 
       // Validate transaction data
       if (!transaction) {
@@ -68,6 +79,10 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
         "✅ [SimpleReceipt] Receipt data generated:",
         processedReceiptData
       );
+      console.log("🔍 [DEBUG] Receipt PWD/Senior data:", {
+        pwdSenior: processedReceiptData.pwdSenior,
+        discount: processedReceiptData.financial?.discount,
+      });
     } catch (err) {
       console.error("❌ [SimpleReceipt] Error processing transaction:", err);
       setError(err.message);
@@ -371,7 +386,11 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                 <User className="h-4 w-4 text-gray-500" />
                 <span className="text-gray-600">Cashier:</span>
                 <span className="font-medium">
-                  {receiptData.header.cashier}
+                  {typeof receiptData.header.cashier === 'string' 
+                    ? receiptData.header.cashier 
+                    : typeof receiptData.header.cashier === 'object' && receiptData.header.cashier
+                      ? `${receiptData.header.cashier.first_name || ''} ${receiptData.header.cashier.last_name || ''}`.trim() || 'Unknown'
+                      : 'Unknown'}
                 </span>
               </div>
               <div className="flex items-center space-x-2">
@@ -388,7 +407,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
           {(receiptData.customer.name ||
             receiptData.customer.phone ||
             receiptData.customer.type ||
-            receiptData.customer.pwdSeniorId) && (
+            receiptData.customer.email) && (
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
               <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                 <User className="h-4 w-4 mr-2" />
@@ -400,7 +419,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                   <div className="flex items-center space-x-2">
                     <span className="text-gray-600">Customer ID:</span>
                     <span className="font-medium font-mono text-blue-600">
-                      #{receiptData.customer.id.slice(-8)}
+                      #{typeof receiptData.customer.id === 'string' ? receiptData.customer.id.slice(-8) : 'N/A'}
                     </span>
                   </div>
                 )}
@@ -415,11 +434,11 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                       ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {receiptData.customer.type}
+                    {typeof receiptData.customer.type === 'string' ? receiptData.customer.type : 'Walk-in Customer'}
                   </span>
                 </div>
                 
-                {receiptData.customer.name && (
+                {receiptData.customer.name && typeof receiptData.customer.name === 'string' && (
                   <p>
                     <span className="text-gray-600">Name:</span>{" "}
                     <span className="font-medium">
@@ -427,7 +446,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </p>
                 )}
-                {receiptData.customer.phone && (
+                {receiptData.customer.phone && typeof receiptData.customer.phone === 'string' && (
                   <p>
                     <span className="text-gray-600">Phone:</span>{" "}
                     <span className="font-medium">
@@ -435,7 +454,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </p>
                 )}
-                {receiptData.customer.email && (
+                {receiptData.customer.email && typeof receiptData.customer.email === 'string' && (
                   <p>
                     <span className="text-gray-600">Email:</span>{" "}
                     <span className="font-medium">
@@ -443,7 +462,7 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </p>
                 )}
-                {receiptData.customer.address && (
+                {receiptData.customer.address && typeof receiptData.customer.address === 'string' && (
                   <p>
                     <span className="text-gray-600">Address:</span>{" "}
                     <span className="font-medium">
@@ -451,15 +470,50 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     </span>
                   </p>
                 )}
-                {receiptData.customer.pwdSeniorId && (
-                  <p>
-                    <span className="text-gray-600">PWD/Senior ID:</span>{" "}
-                    <span className="font-medium">
-                      {receiptData.customer.pwdSeniorId}
+              </div>
+
+              {/* PWD/Senior Discount Information - Simple text format */}
+              {((receiptData.pwdSenior && (receiptData.pwdSenior.isValid || receiptData.financial.discount.amount > 0)) || 
+               (receiptData.financial.discount.amount > 0 && (receiptData.financial.discount.type === 'pwd' || receiptData.financial.discount.type === 'senior'))) && (
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <p className="text-sm">
+                    <span className="text-gray-600">
+                      {receiptData.financial.discount.type === 'pwd' ? 'PWD ID:' : 
+                       receiptData.financial.discount.type === 'senior' ? 'Senior ID:' : 'Discount ID:'}
+                    </span>{" "}
+                    <span className="font-medium font-mono">
+                      {receiptData.pwdSenior?.idNumber || 'Not Available'}
                     </span>
                   </p>
-                )}
-              </div>
+                  <p className="text-sm">
+                    <span className="text-gray-600">
+                      {receiptData.financial.discount.type === 'pwd' ? 'PWD Holder:' : 
+                       receiptData.financial.discount.type === 'senior' ? 'Senior Holder:' : 'Holder:'}
+                    </span>{" "}
+                    <span className="font-medium">
+                      {receiptData.pwdSenior?.holderName || 'Not Available'}
+                    </span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="text-gray-600">Discount:</span>{" "}
+                    <span className="font-medium text-green-600">
+                      {receiptData.financial.discount.percentage}%
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              {/* Temporarily disabled DEBUG section */}
+              {/* DEBUG: Show PWD/Senior data even if isValid is false */}
+              {false && receiptData.pwdSenior && !receiptData.pwdSenior.isValid && (
+                <div className="mt-4 pt-3 border-t border-red-200 bg-red-50 p-2">
+                  <p className="text-xs text-red-600">DEBUG: PWD/Senior data exists but isValid=false</p>
+                  <p className="text-xs">Type: {receiptData.pwdSenior.type}</p>
+                  <p className="text-xs">ID: {receiptData.pwdSenior.idNumber}</p>
+                  <p className="text-xs">Holder: {receiptData.pwdSenior.holderName}</p>
+                  <p className="text-xs">IsValid: {receiptData.pwdSenior.isValid ? 'true' : 'false'}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -485,31 +539,47 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {receiptData.items.map((item) => (
+                  {receiptData.items.map((item, index) => (
                     <tr
-                      key={`${item.id}-${item.name}`}
+                      key={`item-${index}-${item.id || 'unknown'}`}
                       className="border-b border-gray-100"
                     >
                       <td className="py-2">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {item.name}
+                            {typeof item.name === 'string' ? item.name : 
+                             typeof item.brand_name === 'string' ? item.brand_name :
+                             typeof item.generic_name === 'string' ? item.generic_name : 'Unknown Product'}
                           </p>
+                          {item.dosage_strength && typeof item.dosage_strength === 'string' && (
+                            <p className="text-sm text-blue-600 font-medium">
+                              {item.dosage_strength}
+                            </p>
+                          )}
                           {showDetails && (
                             <p className="text-xs text-gray-500">
-                              {item.category} • {item.unitType}
+                              {typeof item.category === 'string' ? item.category : 'General'} • {typeof item.unitType === 'string' ? item.unitType : 'piece'}
+                              {item.brand_name && item.generic_name && 
+                               typeof item.brand_name === 'string' && typeof item.generic_name === 'string' && (
+                                <>
+                                  <br />
+                                  <span className="text-gray-400">
+                                    Brand: {item.brand_name} | Generic: {item.generic_name}
+                                  </span>
+                                </>
+                              )}
                             </p>
                           )}
                         </div>
                       </td>
                       <td className="text-center py-2 text-gray-700">
-                        {item.quantity}
+                        {item.quantity || 0}
                       </td>
                       <td className="text-right py-2 text-gray-700">
-                        {formatCurrency(item.unitPrice)}
+                        {formatCurrency(item.unitPrice || 0)}
                       </td>
                       <td className="text-right py-2 font-medium text-gray-900">
-                        {formatCurrency(item.totalPrice)}
+                        {formatCurrency(item.totalPrice || 0)}
                       </td>
                     </tr>
                   ))}
@@ -518,95 +588,68 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
             </div>
           </div>
 
-          {/* Financial Summary */}
+          {/* Simplified Financial Summary: AMOUNT, DISCOUNT, VAT, TOTAL */}
           <div className="border-t border-dashed border-gray-300 pt-4 space-y-3">
+            {/* Amount */}
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Subtotal:</span>
+              <span className="text-gray-600 font-medium">AMOUNT:</span>
               <span className="font-medium text-gray-900">
-                {formatCurrency(receiptData.financial.subtotal)}
+                {formatCurrency(receiptData.financial.vatDetails.itemsSubtotal)}
               </span>
             </div>
 
-            {receiptData.financial.discountAmount > 0 && (
+            {/* Discount */}
+            {receiptData.financial.discount.amount > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">
-                  Discount ({receiptData.financial.discountPercentage}%):
+                <span className="text-red-600 font-medium">
+                  DISCOUNT ({receiptData.financial.discount.percentage}%):
                 </span>
                 <span className="font-medium text-red-600">
-                  -{formatCurrency(receiptData.financial.discountAmount)}
+                  -{formatCurrency(receiptData.financial.discount.amount)}
                 </span>
               </div>
             )}
 
-            {/* Enhanced VAT Breakdown */}
-            {receiptData.financial.vatDetails && showDetails && (
-              <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
-                <h6 className="font-medium text-gray-900">VAT Breakdown:</h6>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Taxable Amount:</span>
-                    <span className="font-medium">
-                      {formatCurrency(receiptData.financial.vatDetails.taxableAmount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">VAT ({receiptData.financial.vatDetails.vatRate}%):</span>
-                    <span className="font-medium">
-                      {formatCurrency(receiptData.financial.vatDetails.vatAmount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Net Amount:</span>
-                    <span className="font-medium">
-                      {formatCurrency(receiptData.financial.vatDetails.netAmount)}
-                    </span>
-                  </div>
-                  {receiptData.financial.vatDetails.vatExempt > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">VAT Exempt:</span>
-                      <span className="font-medium">
-                        {formatCurrency(receiptData.financial.vatDetails.vatExempt)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* VAT */}
+            <div className="flex justify-between text-sm">
+              <span className="text-blue-600 font-medium">
+                VAT ({receiptData.financial.vatDetails.vatRate}%):
+              </span>
+              <span className="font-medium text-blue-600">
+                {formatCurrency(receiptData.financial.vatDetails.vatAmount)}
+              </span>
+            </div>
 
-            {/* Quick VAT Summary */}
-            {receiptData.financial.vatDetails && !showDetails && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">
-                  VAT ({receiptData.financial.vatDetails.vatRate}%):
-                </span>
-                <span className="font-medium text-gray-700">
-                  {formatCurrency(receiptData.financial.vatDetails.vatAmount)}
-                </span>
-              </div>
-            )}
-
+            {/* Total Amount */}
             <div className="flex justify-between text-lg font-bold border-t border-gray-300 pt-3">
-              <span>TOTAL:</span>
+              <span>TOTAL AMOUNT:</span>
               <span>{formatCurrency(receiptData.financial.total)}</span>
             </div>
 
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">
-                Payment ({receiptData.financial.paymentMethod.toUpperCase()}):
-              </span>
-              <span className="font-medium text-gray-900">
-                {formatCurrency(receiptData.financial.amountPaid)}
-              </span>
-            </div>
-
-            {receiptData.financial.change > 0 && (
+            {/* Payment Information */}
+            <div className="bg-gray-50 rounded-lg p-3 space-y-2 mt-4">
+              <h6 className="font-medium text-gray-800 text-sm">Payment Information</h6>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Change:</span>
-                <span className="font-medium text-green-600">
-                  {formatCurrency(receiptData.financial.change)}
+                <span className="text-gray-600">Payment Method:</span>
+                <span className="font-medium text-gray-900 uppercase">
+                  {receiptData.financial.paymentMethod}
                 </span>
               </div>
-            )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Amount Paid:</span>
+                <span className="font-medium text-gray-900">
+                  {formatCurrency(receiptData.financial.amountPaid)}
+                </span>
+              </div>
+              {receiptData.financial.change > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Change:</span>
+                  <span className="font-medium text-green-600">
+                    {formatCurrency(receiptData.financial.change)}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Transaction Modifications Notice */}
@@ -622,7 +665,13 @@ function SimpleReceipt({ transaction, isOpen, onClose }) {
                     <strong>Reason:</strong> {receiptData.status.editReason}
                   </p>
                   <p className="text-yellow-700">
-                    <strong>Modified by:</strong> {receiptData.status.editedBy}{" "}
+                    <strong>Modified by:</strong> {
+                      typeof receiptData.status.editedBy === 'string' 
+                        ? receiptData.status.editedBy 
+                        : typeof receiptData.status.editedBy === 'object' && receiptData.status.editedBy
+                          ? `${receiptData.status.editedBy.first_name || ''} ${receiptData.status.editedBy.last_name || ''}`.trim() || 'Unknown'
+                          : 'Unknown'
+                    }{" "}
                     on {formatDate(receiptData.status.editedAt)}
                   </p>
                 </div>

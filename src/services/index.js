@@ -10,7 +10,7 @@ export * from "./domains/inventory";
 export * from "./domains/sales";
 export * from "./domains/auth";
 export * from "./domains/analytics";
-export * from "./domains/notifications";
+export * from "./notifications"; // ✅ Fixed path - notifications is in root services folder
 export * from "./infrastructure";
 
 // Legacy direct exports for backward compatibility

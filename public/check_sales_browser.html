@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Data Checker</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #6366f1;
+    }
+    h2 {
+      color: #6366f1;
+      margin-top: 0;
+    }
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .count {
+      display: inline-block;
+      background: #6366f1;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+      font-size: 14px;
+    }
+    .error {
+      border-left-color: #ef4444;
+    }
+    .error h2 {
+      color: #ef4444;
+    }
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #4f46e5;
+    }
+    .loading {
+      text-align: center;
+      color: #666;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Sales Data Diagnostic Tool</h1>
+    <p style="color: #666; margin-bottom: 30px;">Checking your database for sales records...</p>
+    
+    <div id="results">
+      <p class="loading">⏳ Loading data...</p>
+    </div>
+    
+    <button onclick="checkData()">🔄 Refresh Data</button>
+  </div>
+
+  <script type="module">
+    const supabaseUrl = 'https://cslwevxjssmhemsghqqt.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbHdldnhqc3NtaGVtc2docXF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM0NzIyNjEsImV4cCI6MjA0OTA0ODI2MX0.AaUlHf7Ss3MdWqQYU-K4zcDxhAwDIr4qSCpfkwYVGCw';
+    
+    const { createClient } = supabase;
+    const client = createClient(supabaseUrl, supabaseKey);
+
+    async function checkData() {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<p class="loading">⏳ Loading data...</p>';
+
+      let html = '';
+
+      // Check sales table
+      const { data: sales, error: salesError } = await client
+        .from('sales')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      html += `<div class="section ${salesError ? 'error' : ''}">`;
+      html += `<h2>📊 Sales Table <span class="count">${sales?.length || 0} records</span></h2>`;
+      if (salesError) {
+        html += `<pre>${JSON.stringify(salesError, null, 2)}</pre>`;
+      } else if (sales && sales.length > 0) {
+        html += `<pre>${JSON.stringify(sales, null, 2)}</pre>`;
+      } else {
+        html += `<p style="color: #10b981; font-weight: 600;">✅ No sales records found (this is expected if you haven't made any sales)</p>`;
+      }
+      html += '</div>';
+
+      // Check sales_items table
+      const { data: salesItems, error: itemsError } = await client
+        .from('sales_items')
+        .select('*, products(name), sales(status, created_at)')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      html += `<div class="section ${itemsError ? 'error' : ''}">`;
+      html += `<h2>🛒 Sales Items Table <span class="count">${salesItems?.length || 0} records</span></h2>`;
+      if (itemsError) {
+        html += `<pre>${JSON.stringify(itemsError, null, 2)}</pre>`;
+      } else if (salesItems && salesItems.length > 0) {
+        html += `<pre>${JSON.stringify(salesItems, null, 2)}</pre>`;
+      } else {
+        html += `<p style="color: #10b981; font-weight: 600;">✅ No sales items found (this is expected if you haven't made any sales)</p>`;
+      }
+      html += '</div>';
+
+      // Check top selling function
+      const { data: topProducts, error: topError } = await client
+        .rpc('get_top_selling_products', { days_limit: 30, product_limit: 5 });
+
+      html += `<div class="section ${topError ? 'error' : ''}">`;
+      html += `<h2>🏆 Top Products (RPC Function) <span class="count">${topProducts?.length || 0} products</span></h2>`;
+      if (topError) {
+        html += `<pre>${JSON.stringify(topError, null, 2)}</pre>`;
+      } else if (topProducts && topProducts.length > 0) {
+        html += `<pre>${JSON.stringify(topProducts, null, 2)}</pre>`;
+        html += `<p style="color: #ef4444; font-weight: 600; margin-top: 15px;">⚠️ ISSUE FOUND: Top products are showing but you haven't made any sales!</p>`;
+        html += `<p style="color: #666;">This means there's old/test data in your database that needs to be cleared.</p>`;
+      } else {
+        html += `<p style="color: #10b981; font-weight: 600;">✅ No top products (correct, since you have no sales)</p>`;
+      }
+      html += '</div>';
+
+      // Summary
+      html += `<div class="section">`;
+      html += `<h2>📋 Summary</h2>`;
+      if ((sales?.length || 0) === 0 && (salesItems?.length || 0) === 0 && (topProducts?.length || 0) === 0) {
+        html += `<p style="color: #10b981; font-weight: 600;">✅ Everything looks correct! No sales data exists.</p>`;
+        html += `<p style="color: #666;">The dashboard showing products is likely using old cached data or sample data.</p>`;
+      } else {
+        html += `<p style="color: #ef4444; font-weight: 600;">⚠️ Found data in database:</p>`;
+        html += `<ul>`;
+        html += `<li>Sales records: ${sales?.length || 0}</li>`;
+        html += `<li>Sales items: ${salesItems?.length || 0}</li>`;
+        html += `<li>Top products: ${topProducts?.length || 0}</li>`;
+        html += `</ul>`;
+        html += `<p style="color: #666; margin-top: 15px;">Would you like me to create a script to clear this test data?</p>`;
+      }
+      html += '</div>';
+
+      resultsDiv.innerHTML = html;
+    }
+
+    // Run on page load
+    window.checkData = checkData;
+    checkData();
+  </script>
+</body>
+</html>

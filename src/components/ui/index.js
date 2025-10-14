@@ -13,6 +13,11 @@ export {
 } from "./Modal";
 export { default as Toast, ToastProvider, useToast } from "./Toast";
 export {
+  default as EnhancedToast,
+  EnhancedToastProvider,
+  useEnhancedToast,
+} from "./EnhancedToast";
+export {
   default as Button,
   PrimaryButton,
   SecondaryButton,
@@ -44,6 +49,7 @@ export { EnhancedImportModal } from "./EnhancedImportModal";
 export * from "./LoadingSpinner";
 export * from "./Modal";
 export * from "./Toast";
+export * from "./EnhancedToast";
 export * from "./Button";
 export * from "./Alert";
 export * from "./Input";

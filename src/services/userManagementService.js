@@ -4,8 +4,8 @@ export class UserManagementService {
   // User role constants
   static ROLES = {
     ADMIN: "admin",
-    MANAGER: "manager",
-    CASHIER: "cashier",
+    PHARMACIST: "pharmacist",
+    EMPLOYEE: "employee",
   };
 
   // Permission constants
@@ -59,9 +59,10 @@ export class UserManagementService {
       this.PERMISSIONS.VIEW_PROFIT_MARGINS,
       this.PERMISSIONS.VIEW_AUDIT_LOGS,
     ],
-    [this.ROLES.CASHIER]: [
+    [this.ROLES.EMPLOYEE]: [
       this.PERMISSIONS.VIEW_INVENTORY,
       this.PERMISSIONS.PROCESS_SALES,
+      this.PERMISSIONS.VIEW_CUSTOMERS,
     ],
   };
 
@@ -77,7 +78,7 @@ export class UserManagementService {
 
       return data.map((user) => ({
         ...user,
-        permissions: this.getUserPermissions(user.role || this.ROLES.CASHIER),
+        permissions: this.getUserPermissions(user.role || this.ROLES.EMPLOYEE),
       }));
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -98,7 +99,7 @@ export class UserManagementService {
 
       return {
         ...data,
-        permissions: this.getUserPermissions(data.role || this.ROLES.CASHIER),
+        permissions: this.getUserPermissions(data.role || this.ROLES.EMPLOYEE),
       };
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -108,6 +109,11 @@ export class UserManagementService {
 
   // Create new user
   static async createUser(userData) {
+    console.log("🔧 [UserManagement] Creating user with data:", {
+      ...userData,
+      password: "***",
+    });
+
     try {
       const {
         email,
@@ -115,10 +121,36 @@ export class UserManagementService {
         firstName,
         lastName,
         phone,
-        role = this.ROLES.CASHIER,
+        role = this.ROLES.EMPLOYEE,
       } = userData;
 
-      // Create auth user
+      // Validate password requirements
+      if (!password || password.length < 6) {
+        throw new Error("Password must be at least 6 characters long");
+      }
+
+      // Check if user already exists in the database
+      const { data: existingUser, error: checkError } = await supabase
+        .from("users")
+        .select("id, email, is_active")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error(
+          "❌ [UserManagement] Error checking existing user:",
+          checkError
+        );
+        throw new Error(`Database error: ${checkError.message}`);
+      }
+
+      if (existingUser) {
+        throw new Error(`User with email ${email} already exists`);
+      }
+
+      console.log("📧 [UserManagement] Creating auth user for:", email);
+
+      // Create auth user with email confirmation disabled for admin-created users
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -128,10 +160,39 @@ export class UserManagementService {
             last_name: lastName,
             phone,
           },
+          emailRedirectTo: undefined, // No email confirmation needed for admin-created users
         },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error("❌ [UserManagement] Auth signup error:", authError);
+
+        // Handle specific error cases
+        if (authError.message?.includes("already registered")) {
+          throw new Error(
+            `User with email ${email} already exists in authentication system`
+          );
+        } else if (authError.message?.includes("password")) {
+          throw new Error(`Password error: ${authError.message}`);
+        } else if (authError.status === 422) {
+          throw new Error(
+            `Invalid user data: ${
+              authError.message ||
+              "Please check email format and password requirements (min 6 characters)"
+            }`
+          );
+        }
+
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+
+      if (!authData?.user?.id) {
+        throw new Error(
+          "Failed to create authentication user - no user ID returned"
+        );
+      }
+
+      console.log("✅ [UserManagement] Auth user created:", authData.user.id);
 
       // Create user record directly in users table
       const { data: newUserData, error: userError } = await supabase
@@ -148,14 +209,29 @@ export class UserManagementService {
         .select()
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.error("❌ [UserManagement] Database insert error:", userError);
+
+        // If database insert fails, we should try to clean up the auth user
+        // Note: This requires admin privileges
+        console.warn(
+          "⚠️ [UserManagement] Database insert failed after auth creation. User may exist in auth but not in database."
+        );
+
+        throw new Error(`Failed to create user record: ${userError.message}`);
+      }
+
+      console.log(
+        "✅ [UserManagement] User created successfully:",
+        newUserData.id
+      );
 
       return {
         ...newUserData,
         permissions: this.getUserPermissions(role),
       };
     } catch (error) {
-      console.error("Error creating user:", error);
+      console.error("❌ [UserManagement] Error creating user:", error);
       throw error;
     }
   }
@@ -184,7 +260,7 @@ export class UserManagementService {
       return {
         ...userData,
         permissions: this.getUserPermissions(
-          userData.role || this.ROLES.CASHIER
+          userData.role || this.ROLES.EMPLOYEE
         ),
       };
     } catch (error) {
@@ -195,82 +271,93 @@ export class UserManagementService {
 
   // Delete/Deactivate user
   static async deleteUser(userId) {
-    console.log('🗑️ User deletion process started:', userId);
-    
+    console.log("🗑️ User deletion process started:", userId);
+
     try {
       // Step 1: Validate input
       if (!userId) {
-        throw new Error('User ID is required');
+        throw new Error("User ID is required");
       }
 
       // Step 2: Check authentication
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
       if (authError || !user) {
-        throw new Error('Authentication required for user deletion');
+        throw new Error("Authentication required for user deletion");
       }
 
       console.log(`👤 Authenticated as: ${user.email}`);
 
       // Step 3: Get current user's permissions
       const { data: currentUser, error: currentUserError } = await supabase
-        .from('users')
-        .select('id, email, role, is_active, first_name, last_name')
-        .eq('email', user.email)
+        .from("users")
+        .select("id, email, role, is_active, first_name, last_name")
+        .eq("email", user.email)
         .single();
 
       if (currentUserError) {
-        console.error('❌ Current user lookup failed:', currentUserError);
-        throw new Error(`Current user not found in database: ${currentUserError.message}`);
+        console.error("❌ Current user lookup failed:", currentUserError);
+        throw new Error(
+          `Current user not found in database: ${currentUserError.message}`
+        );
       }
 
       if (!currentUser.is_active) {
-        throw new Error('Current user account is inactive');
+        throw new Error("Current user account is inactive");
       }
 
       // Step 4: Check permissions
-      const adminRoles = ['admin', 'manager', 'super_admin'];
+      // Assumption: only 'admin' role can perform user deletions in the current RBAC
+      const adminRoles = ["admin"];
       if (!adminRoles.includes(currentUser.role)) {
-        throw new Error(`Insufficient permissions. Required: admin/manager, Current: ${currentUser.role}`);
+        throw new Error(
+          `Insufficient permissions. Required: admin, Current: ${currentUser.role}`
+        );
       }
 
       console.log(`✅ Permission check passed: ${currentUser.role}`);
 
       // Step 5: Get target user
       const { data: targetUser, error: targetError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
+        .from("users")
+        .select("*")
+        .eq("id", userId)
         .single();
 
       if (targetError) {
-        console.error('❌ Target user lookup failed:', targetError);
-        
-        if (targetError.code === 'PGRST116') {
-          throw new Error('User not found');
+        console.error("❌ Target user lookup failed:", targetError);
+
+        if (targetError.code === "PGRST116") {
+          throw new Error("User not found");
         } else {
           throw new Error(`Database error: ${targetError.message}`);
         }
       }
 
-      console.log(`🎯 Target user found: ${targetUser.email} (${targetUser.role})`);
+      console.log(
+        `🎯 Target user found: ${targetUser.email} (${targetUser.role})`
+      );
 
       // Step 6: Business logic validations
       if (targetUser.id === currentUser.id) {
-        throw new Error('Cannot delete your own account');
+        throw new Error("Cannot delete your own account");
       }
 
       if (!targetUser.is_active) {
-        throw new Error('User is already inactive');
+        throw new Error("User is already inactive");
       }
 
       // Step 7: Role hierarchy check
-      if (targetUser.role === 'admin' && currentUser.role !== 'super_admin') {
-        throw new Error('Only super admin can delete admin users');
+      // Assumption: Deleting users with role 'admin' is not allowed via this UI/API
+      if (targetUser.role === "admin") {
+        throw new Error('Deleting users with role "admin" is not permitted');
       }
 
       // Step 8: Perform the deletion
-      console.log('🔄 Performing user deletion...');
-      
+      console.log("🔄 Performing user deletion...");
+
       const { data, error } = await supabase
         .from("users")
         .update({
@@ -282,21 +369,25 @@ export class UserManagementService {
         .single();
 
       if (error) {
-        console.error('❌ Database deletion failed:', error);
-        
+        console.error("❌ Database deletion failed:", error);
+
         // Provide specific error messages based on error codes
-        if (error.code === 'RLS_VIOLATION' || error.message.includes('permission')) {
-          throw new Error('Permission denied. Check Row Level Security policies.');
-        } else if (error.code === 'FOREIGN_KEY_VIOLATION') {
-          throw new Error('Cannot delete user: related records exist.');
+        if (
+          error.code === "RLS_VIOLATION" ||
+          error.message.includes("permission")
+        ) {
+          throw new Error(
+            "Permission denied. Check Row Level Security policies."
+          );
+        } else if (error.code === "FOREIGN_KEY_VIOLATION") {
+          throw new Error("Cannot delete user: related records exist.");
         } else {
           throw new Error(`Database error: ${error.message}`);
         }
       }
 
-      console.log('✅ User successfully deactivated:', data.email);
+      console.log("✅ User successfully deactivated:", data.email);
       return data;
-      
     } catch (error) {
       console.error("❌ Error deleting user:", error);
       throw error;
@@ -324,7 +415,7 @@ export class UserManagementService {
     const levels = {
       [this.ROLES.ADMIN]: 3,
       [this.ROLES.MANAGER]: 2,
-      [this.ROLES.CASHIER]: 1,
+      [this.ROLES.EMPLOYEE]: 1,
     };
     return levels[role] || 0;
   }
@@ -363,7 +454,7 @@ export class UserManagementService {
 
       return data.map((user) => ({
         ...user,
-        permissions: this.getUserPermissions(user.role || this.ROLES.CASHIER),
+        permissions: this.getUserPermissions(user.role || this.ROLES.EMPLOYEE),
       }));
     } catch (error) {
       console.error("Error searching users:", error);

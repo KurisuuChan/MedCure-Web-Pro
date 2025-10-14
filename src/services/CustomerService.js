@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase';
 
 // CustomerService.js - Comprehensive customer management for MedCure POS
-// Handles customer CRUD operations with Supabase database persistence
+// Handles customer CRUD operations with Supabase                 console.log(`  ✅ Name Match: ${txn.id} -> ${customer.customer_name}`);atabase persistence
 
 export class CustomerService {
   

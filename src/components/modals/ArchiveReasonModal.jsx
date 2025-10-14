@@ -9,6 +9,7 @@ import {
   Clock,
   User,
 } from "lucide-react";
+import { UnifiedSpinner } from "../ui/loading/UnifiedSpinner";
 
 /**
  * Professional Archive Reason Modal Component
@@ -408,11 +409,11 @@ const ArchiveReasonModal = ({
               <button
                 onClick={handleConfirmArchive}
                 disabled={isLoading}
-                className="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                className="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 hover:scale-105 hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
               >
                 {isLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <UnifiedSpinner variant="dots" size="xs" color="white" />
                     <span>Archiving...</span>
                   </>
                 ) : (

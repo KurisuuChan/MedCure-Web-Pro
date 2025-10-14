@@ -24,7 +24,10 @@ export const usePOSStore = create(
       // Cart actions
       addToCart: (product, quantity, unit) => {
         console.log("🛒 POS Store - addToCart called with:", {
-          productName: product.name,
+          productName:
+            product.generic_name || product.brand_name || "Unknown Medicine",
+          brandName: product.brand_name,
+          genericName: product.generic_name,
           quantity,
           unit,
           productData: {
@@ -55,7 +58,8 @@ export const usePOSStore = create(
             availableStock - currentCartQuantity
           );
           console.warn("⚠️ Insufficient stock:", {
-            product: product.name,
+            product:
+              product.generic_name || product.brand_name || "Unknown Medicine",
             requested: quantityInPieces,
             currentInCart: currentCartQuantity,
             totalRequested: totalRequestedQuantity,
@@ -116,7 +120,8 @@ export const usePOSStore = create(
           const newItem = {
             id: `${product.id}-${unit}`, // Unique ID for cart item
             productId: product.id, // Keep original product ID
-            name: product.name,
+            generic_name: product.generic_name || "Unknown Medicine",
+            brand_name: product.brand_name || "Generic",
             quantity: numQuantity,
             quantityInPieces,
             unit,
@@ -245,7 +250,11 @@ export const usePOSStore = create(
         const availableStock = state.getAvailableStock(productId);
         const variants = [];
 
-        // Piece variant
+        // Get pieces_per_sheet and sheets_per_box with proper defaults
+        const piecesPerSheet = product.pieces_per_sheet || 1;
+        const sheetsPerBox = product.sheets_per_box || 1;
+
+        // Piece variant - Always available if stock exists
         if (availableStock >= 1) {
           variants.push({
             unit: "piece",
@@ -255,31 +264,29 @@ export const usePOSStore = create(
           });
         }
 
-        // Sheet variant (if applicable)
-        if (
-          product.pieces_per_sheet &&
-          availableStock >= product.pieces_per_sheet
-        ) {
+        // Sheet variant (if pieces_per_sheet > 1)
+        if (piecesPerSheet > 1 && availableStock >= piecesPerSheet) {
           variants.push({
             unit: "sheet",
             label: "Sheet",
-            maxQuantity: Math.floor(availableStock / product.pieces_per_sheet),
-            pricePerUnit: product.price_per_piece * product.pieces_per_sheet,
+            maxQuantity: Math.floor(availableStock / piecesPerSheet),
+            pricePerUnit: product.price_per_piece * piecesPerSheet,
           });
         }
 
-        // Box variant (if applicable)
-        if (product.sheets_per_box && product.pieces_per_sheet) {
-          const piecesPerBox =
-            product.pieces_per_sheet * product.sheets_per_box;
-          if (availableStock >= piecesPerBox) {
-            variants.push({
-              unit: "box",
-              label: "Box",
-              maxQuantity: Math.floor(availableStock / piecesPerBox),
-              pricePerUnit: product.price_per_piece * piecesPerBox,
-            });
-          }
+        // Box variant (if sheets_per_box > 1, or if both pieces_per_sheet and sheets_per_box exist)
+        const piecesPerBox = piecesPerSheet * sheetsPerBox;
+        if (
+          sheetsPerBox > 1 &&
+          piecesPerSheet >= 1 &&
+          availableStock >= piecesPerBox
+        ) {
+          variants.push({
+            unit: "box",
+            label: "Box",
+            maxQuantity: Math.floor(availableStock / piecesPerBox),
+            pricePerUnit: product.price_per_piece * piecesPerBox,
+          });
         }
 
         return variants;

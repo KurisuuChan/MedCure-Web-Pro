@@ -295,24 +295,33 @@ export class AnalyticsService {
    */
   static getPeriodDates(period) {
     const endDate = new Date();
+    // Set end date to end of today (23:59:59)
+    endDate.setHours(23, 59, 59, 999);
+
     const startDate = new Date();
 
     switch (period) {
       case "7days":
-        startDate.setDate(startDate.getDate() - 7);
+        startDate.setDate(startDate.getDate() - 6); // Last 7 days including today
         break;
       case "30days":
-        startDate.setDate(startDate.getDate() - 30);
+        startDate.setDate(startDate.getDate() - 29); // Last 30 days including today
         break;
       case "90days":
-        startDate.setDate(startDate.getDate() - 90);
+        startDate.setDate(startDate.getDate() - 89); // Last 90 days including today
+        break;
+      case "365days":
+        startDate.setDate(startDate.getDate() - 364); // Last 365 days including today
         break;
       case "thisYear":
         startDate.setMonth(0, 1);
         break;
       default:
-        startDate.setDate(startDate.getDate() - 30);
+        startDate.setDate(startDate.getDate() - 29); // Default 30 days including today
     }
+
+    // Set start date to beginning of that day (00:00:00)
+    startDate.setHours(0, 0, 0, 0);
 
     return {
       startDate: startDate.toISOString(),
@@ -473,12 +482,17 @@ export class AnalyticsService {
   static groupSalesByPeriod(salesData, period) {
     const grouped = {};
 
+    // First, group existing sales data
     salesData.forEach((sale) => {
       const date = new Date(sale.created_at);
       let key;
 
       if (period === "7days" || period === "30days") {
-        key = date.toISOString().split("T")[0]; // Daily
+        // ✅ FIX: Use local date instead of UTC date
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        key = `${year}-${month}-${day}`; // Local date
       } else {
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
           2,
@@ -493,6 +507,29 @@ export class AnalyticsService {
       grouped[key].revenue += sale.total_amount || 0;
       grouped[key].transactions += 1;
     });
+
+    // ✅ FIX: Fill in missing days with zero values
+    if (period === "7days" || period === "30days") {
+      const { startDate, endDate } = this.getPeriodDates(period);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // Loop through each day in the range
+      const currentDate = new Date(start);
+      while (currentDate <= end) {
+        // ✅ FIX: Use local date for filling gaps too
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+        const day = String(currentDate.getDate()).padStart(2, "0");
+        const key = `${year}-${month}-${day}`;
+
+        if (!grouped[key]) {
+          grouped[key] = { date: key, revenue: 0, transactions: 0 };
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
 
     return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
   }

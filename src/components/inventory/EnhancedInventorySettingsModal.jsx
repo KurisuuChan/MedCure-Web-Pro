@@ -26,8 +26,9 @@ import {
   Eye,
   Shield,
   Cpu,
-  Activity
+  Activity,
 } from "lucide-react";
+import { UnifiedSpinner } from "../ui/loading/UnifiedSpinner";
 
 /**
  * Enhanced Inventory Settings Modal
@@ -42,9 +43,9 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
       itemsPerPage: 25,
       enableAnimations: true,
       compactMode: false,
-      darkMode: false
+      darkMode: false,
     },
-    
+
     // Alerts & Notifications
     alerts: {
       enableRealTimeUpdates: true,
@@ -53,9 +54,9 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
       criticalStock: 5,
       lowStock: 15,
       expiryWarningDays: 30,
-      enableSoundAlerts: true
+      enableSoundAlerts: true,
     },
-    
+
     // Inventory Control
     inventory: {
       defaultReorderLevel: 20,
@@ -66,17 +67,17 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
       priceMarkupPercentage: 25,
       enableAutoReorder: false,
       requireApprovalForHighValue: true,
-      highValueThreshold: 1000
+      highValueThreshold: 1000,
     },
-    
+
     // Reports & Export
     reports: {
       defaultExportFormat: "pdf", // pdf, excel, csv
       includeImages: true,
       dataRetentionMonths: 24,
       enableScheduledReports: false,
-      enableAdvancedAnalytics: true
-    }
+      enableAdvancedAnalytics: true,
+    },
   });
 
   const [activeTab, setActiveTab] = useState("general");
@@ -89,9 +90,9 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
-        setSettings(prevSettings => ({
+        setSettings((prevSettings) => ({
           ...prevSettings,
-          ...parsed
+          ...parsed,
         }));
       } catch (error) {
         console.error("Error loading saved settings:", error);
@@ -108,47 +109,66 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
   }, [settings]);
 
   const updateSetting = (category, key, value) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       [category]: {
         ...prev[category],
-        [key]: value
-      }
+        [key]: value,
+      },
     }));
   };
 
   const updateNestedSetting = (category, subCategory, key, value) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       [category]: {
         ...prev[category],
         [subCategory]: {
           ...prev[category][subCategory],
-          [key]: value
-        }
-      }
+          [key]: value,
+        },
+      },
     }));
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      localStorage.setItem("enhancedInventorySettings", JSON.stringify(settings));
+      localStorage.setItem(
+        "enhancedInventorySettings",
+        JSON.stringify(settings)
+      );
       if (onSave) {
         await onSave(settings);
       }
       setHasChanges(false);
-      
+
       // Show success notification
-      if (window.SimpleNotificationService) {
-        window.SimpleNotificationService.showSystemAlert("Enhanced settings saved successfully!");
+      if (window.notificationService) {
+        const user = await window.notificationService.getCurrentUser();
+        await window.notificationService.create({
+          userId: user?.id,
+          title: "Settings Saved",
+          message: "Enhanced settings saved successfully!",
+          type: "success",
+          priority: 2,
+          category: "system",
+        });
       }
-      
+
       onClose();
     } catch (error) {
       console.error("Error saving settings:", error);
-      if (window.SimpleNotificationService) {
-        window.SimpleNotificationService.showSystemAlert("Failed to save settings", true);
+      if (window.notificationService) {
+        const user = await window.notificationService.getCurrentUser();
+        await window.notificationService.create({
+          userId: user?.id,
+          title: "Settings Error",
+          message: "Failed to save settings",
+          type: "error",
+          priority: 2,
+          category: "system",
+        });
       }
     } finally {
       setSaving(false);
@@ -165,7 +185,7 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
         itemsPerPage: 25,
         enableAnimations: true,
         compactMode: false,
-        darkMode: false
+        darkMode: false,
       },
       alerts: {
         enableRealTimeUpdates: true,
@@ -174,7 +194,7 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
         criticalStock: 5,
         lowStock: 15,
         expiryWarningDays: 30,
-        enableSoundAlerts: true
+        enableSoundAlerts: true,
       },
       inventory: {
         defaultReorderLevel: 20,
@@ -185,15 +205,15 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
         priceMarkupPercentage: 25,
         enableAutoReorder: false,
         requireApprovalForHighValue: true,
-        highValueThreshold: 1000
+        highValueThreshold: 1000,
       },
       reports: {
         defaultExportFormat: "pdf",
         includeImages: true,
         dataRetentionMonths: 24,
         enableScheduledReports: false,
-        enableAdvancedAnalytics: true
-      }
+        enableAdvancedAnalytics: true,
+      },
     });
     setHasChanges(false);
   };
@@ -201,10 +221,30 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   const tabs = [
-    { id: "general", label: "General Settings", icon: Settings, color: "text-blue-600" },
-    { id: "alerts", label: "Alerts & Notifications", icon: Bell, color: "text-red-600" },
-    { id: "inventory", label: "Inventory Control", icon: Package, color: "text-purple-600" },
-    { id: "reports", label: "Reports & Export", icon: FileText, color: "text-green-600" }
+    {
+      id: "general",
+      label: "General Settings",
+      icon: Settings,
+      color: "text-blue-600",
+    },
+    {
+      id: "alerts",
+      label: "Alerts & Notifications",
+      icon: Bell,
+      color: "text-red-600",
+    },
+    {
+      id: "inventory",
+      label: "Inventory Control",
+      icon: Package,
+      color: "text-purple-600",
+    },
+    {
+      id: "reports",
+      label: "Reports & Export",
+      icon: FileText,
+      color: "text-green-600",
+    },
   ];
 
   const renderGeneralTab = () => (
@@ -213,7 +253,9 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
         <div className="flex items-start">
           <Settings className="h-5 w-5 text-blue-500 mt-0.5 mr-2" />
           <div>
-            <h4 className="text-sm font-medium text-blue-800">General Dashboard Settings</h4>
+            <h4 className="text-sm font-medium text-blue-800">
+              General Dashboard Settings
+            </h4>
             <p className="text-sm text-blue-700 mt-1">
               Configure basic dashboard preferences and display options.
             </p>
@@ -228,21 +270,29 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
           </label>
           <select
             value={settings.general.defaultView}
-            onChange={(e) => updateSetting('general', 'defaultView', e.target.value)}
+            onChange={(e) =>
+              updateSetting("general", "defaultView", e.target.value)
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="overview">Overview Dashboard</option>
             <option value="analytics">Analytics View</option>
           </select>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Refresh Interval (seconds)
           </label>
           <select
             value={settings.general.refreshInterval}
-            onChange={(e) => updateSetting('general', 'refreshInterval', parseInt(e.target.value))}
+            onChange={(e) =>
+              updateSetting(
+                "general",
+                "refreshInterval",
+                parseInt(e.target.value)
+              )
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value={5}>5 seconds</option>
@@ -251,14 +301,16 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
             <option value={60}>1 minute</option>
           </select>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Items Per Page
           </label>
           <select
             value={settings.general.itemsPerPage}
-            onChange={(e) => updateSetting('general', 'itemsPerPage', parseInt(e.target.value))}
+            onChange={(e) =>
+              updateSetting("general", "itemsPerPage", parseInt(e.target.value))
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value={10}>10 items</option>
@@ -269,22 +321,29 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
       </div>
 
       <div>
-        <h4 className="text-lg font-semibold text-gray-900 mb-4">Display Options</h4>
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+          Display Options
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { key: 'enableAnimations', label: 'Enable animations' },
-            { key: 'compactMode', label: 'Compact mode' },
-            { key: 'darkMode', label: 'Dark theme' }
-          ].map(option => (
+            { key: "enableAnimations", label: "Enable animations" },
+            { key: "compactMode", label: "Compact mode" },
+            { key: "darkMode", label: "Dark theme" },
+          ].map((option) => (
             <div key={option.key} className="flex items-center">
               <input
                 type="checkbox"
                 id={option.key}
                 checked={settings.general[option.key]}
-                onChange={(e) => updateSetting('general', option.key, e.target.checked)}
+                onChange={(e) =>
+                  updateSetting("general", option.key, e.target.checked)
+                }
                 className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
-              <label htmlFor={option.key} className="ml-2 text-sm text-gray-700">
+              <label
+                htmlFor={option.key}
+                className="ml-2 text-sm text-gray-700"
+              >
                 {option.label}
               </label>
             </div>
@@ -300,9 +359,12 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
         <div className="flex items-start">
           <Bell className="h-5 w-5 text-red-500 mt-0.5 mr-2" />
           <div>
-            <h4 className="text-sm font-medium text-red-800">Alert & Notification Settings</h4>
+            <h4 className="text-sm font-medium text-red-800">
+              Alert & Notification Settings
+            </h4>
             <p className="text-sm text-red-700 mt-1">
-              Configure when and how you receive notifications about stock levels and important events.
+              Configure when and how you receive notifications about stock
+              levels and important events.
             </p>
           </div>
         </div>
@@ -311,32 +373,43 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-lg font-semibold text-gray-900">Real-time Updates</h4>
-            <p className="text-sm text-gray-500">Enable instant notifications for inventory changes</p>
+            <h4 className="text-lg font-semibold text-gray-900">
+              Real-time Updates
+            </h4>
+            <p className="text-sm text-gray-500">
+              Enable instant notifications for inventory changes
+            </p>
           </div>
           <input
             type="checkbox"
             checked={settings.alerts.enableRealTimeUpdates}
-            onChange={(e) => updateSetting('alerts', 'enableRealTimeUpdates', e.target.checked)}
+            onChange={(e) =>
+              updateSetting("alerts", "enableRealTimeUpdates", e.target.checked)
+            }
             className="h-5 w-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { key: 'enablePushNotifications', label: 'Browser notifications' },
-            { key: 'enableEmailAlerts', label: 'Email alerts' },
-            { key: 'enableSoundAlerts', label: 'Sound alerts' }
-          ].map(option => (
+            { key: "enablePushNotifications", label: "Browser notifications" },
+            { key: "enableEmailAlerts", label: "Email alerts" },
+            { key: "enableSoundAlerts", label: "Sound alerts" },
+          ].map((option) => (
             <div key={option.key} className="flex items-center">
               <input
                 type="checkbox"
                 id={option.key}
                 checked={settings.alerts[option.key]}
-                onChange={(e) => updateSetting('alerts', option.key, e.target.checked)}
+                onChange={(e) =>
+                  updateSetting("alerts", option.key, e.target.checked)
+                }
                 className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
               />
-              <label htmlFor={option.key} className="ml-2 text-sm text-gray-700">
+              <label
+                htmlFor={option.key}
+                className="ml-2 text-sm text-gray-700"
+              >
                 {option.label}
               </label>
             </div>
@@ -359,12 +432,20 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
               min="1"
               max="50"
               value={settings.alerts.criticalStock}
-              onChange={(e) => updateSetting('alerts', 'criticalStock', parseInt(e.target.value))}
+              onChange={(e) =>
+                updateSetting(
+                  "alerts",
+                  "criticalStock",
+                  parseInt(e.target.value)
+                )
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Alert when stock falls below this level</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Alert when stock falls below this level
+            </p>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Low Stock Level
@@ -374,12 +455,16 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
               min="1"
               max="100"
               value={settings.alerts.lowStock}
-              onChange={(e) => updateSetting('alerts', 'lowStock', parseInt(e.target.value))}
+              onChange={(e) =>
+                updateSetting("alerts", "lowStock", parseInt(e.target.value))
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Warning when stock is getting low</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Warning when stock is getting low
+            </p>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Expiry Warning (Days)
@@ -389,10 +474,18 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
               min="1"
               max="90"
               value={settings.alerts.expiryWarningDays}
-              onChange={(e) => updateSetting('alerts', 'expiryWarningDays', parseInt(e.target.value))}
+              onChange={(e) =>
+                updateSetting(
+                  "alerts",
+                  "expiryWarningDays",
+                  parseInt(e.target.value)
+                )
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Days before expiry to show warning</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Days before expiry to show warning
+            </p>
           </div>
         </div>
       </div>
@@ -405,7 +498,9 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
         <div className="flex items-start">
           <Package className="h-5 w-5 text-purple-500 mt-0.5 mr-2" />
           <div>
-            <h4 className="text-sm font-medium text-purple-800">Inventory Control Settings</h4>
+            <h4 className="text-sm font-medium text-purple-800">
+              Inventory Control Settings
+            </h4>
             <p className="text-sm text-purple-700 mt-1">
               Configure stock management rules and reorder policies.
             </p>
@@ -422,12 +517,20 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
             type="number"
             min="1"
             value={settings.inventory.defaultReorderLevel}
-            onChange={(e) => updateSetting('inventory', 'defaultReorderLevel', parseInt(e.target.value))}
+            onChange={(e) =>
+              updateSetting(
+                "inventory",
+                "defaultReorderLevel",
+                parseInt(e.target.value)
+              )
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
-          <p className="text-xs text-gray-500 mt-1">Default reorder level for new products</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Default reorder level for new products
+          </p>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Default Lead Time (Days)
@@ -437,26 +540,36 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
             min="1"
             max="90"
             value={settings.inventory.defaultLeadTimeDays}
-            onChange={(e) => updateSetting('inventory', 'defaultLeadTimeDays', parseInt(e.target.value))}
+            onChange={(e) =>
+              updateSetting(
+                "inventory",
+                "defaultLeadTimeDays",
+                parseInt(e.target.value)
+              )
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
-          <p className="text-xs text-gray-500 mt-1">Expected delivery time from suppliers</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Expected delivery time from suppliers
+          </p>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Stock Counting Method
           </label>
           <select
             value={settings.inventory.stockCountMethod}
-            onChange={(e) => updateSetting('inventory', 'stockCountMethod', e.target.value)}
+            onChange={(e) =>
+              updateSetting("inventory", "stockCountMethod", e.target.value)
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="fifo">FIFO (First In, First Out)</option>
             <option value="lifo">LIFO (Last In, First Out)</option>
           </select>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Price Markup (%)
@@ -466,25 +579,41 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
             min="0"
             max="100"
             value={settings.inventory.priceMarkupPercentage}
-            onChange={(e) => updateSetting('inventory', 'priceMarkupPercentage', parseInt(e.target.value))}
+            onChange={(e) =>
+              updateSetting(
+                "inventory",
+                "priceMarkupPercentage",
+                parseInt(e.target.value)
+              )
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
-          <p className="text-xs text-gray-500 mt-1">Default markup for new products</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Default markup for new products
+          </p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            High Value Threshold ($)
+            High Value Threshold (₱)
           </label>
           <input
             type="number"
             min="100"
             max="10000"
             value={settings.inventory.highValueThreshold}
-            onChange={(e) => updateSetting('inventory', 'highValueThreshold', parseInt(e.target.value))}
+            onChange={(e) =>
+              updateSetting(
+                "inventory",
+                "highValueThreshold",
+                parseInt(e.target.value)
+              )
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
-          <p className="text-xs text-gray-500 mt-1">Require approval above this amount</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Require approval above this amount
+          </p>
         </div>
       </div>
 
@@ -492,20 +621,34 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
         <h4 className="text-lg font-semibold text-gray-900 mb-4">Features</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { key: 'enableExpirationTracking', label: 'Track expiration dates' },
-            { key: 'autoCalculateReorderPoints', label: 'Auto-calculate reorder points' },
-            { key: 'enableAutoReorder', label: 'Enable automatic reordering' },
-            { key: 'requireApprovalForHighValue', label: 'Require approval for high-value items' }
-          ].map(option => (
+            {
+              key: "enableExpirationTracking",
+              label: "Track expiration dates",
+            },
+            {
+              key: "autoCalculateReorderPoints",
+              label: "Auto-calculate reorder points",
+            },
+            { key: "enableAutoReorder", label: "Enable automatic reordering" },
+            {
+              key: "requireApprovalForHighValue",
+              label: "Require approval for high-value items",
+            },
+          ].map((option) => (
             <div key={option.key} className="flex items-center">
               <input
                 type="checkbox"
                 id={option.key}
                 checked={settings.inventory[option.key]}
-                onChange={(e) => updateSetting('inventory', option.key, e.target.checked)}
+                onChange={(e) =>
+                  updateSetting("inventory", option.key, e.target.checked)
+                }
                 className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
               />
-              <label htmlFor={option.key} className="ml-2 text-sm text-gray-700">
+              <label
+                htmlFor={option.key}
+                className="ml-2 text-sm text-gray-700"
+              >
                 {option.label}
               </label>
             </div>
@@ -515,15 +658,15 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
     </div>
   );
 
-
-
   const renderReportsTab = () => (
     <div className="space-y-6">
       <div className="bg-green-50 p-4 rounded-md border border-green-200">
         <div className="flex items-start">
           <FileText className="h-5 w-5 text-green-500 mt-0.5 mr-2" />
           <div>
-            <h4 className="text-sm font-medium text-green-800">Reports & Export Settings</h4>
+            <h4 className="text-sm font-medium text-green-800">
+              Reports & Export Settings
+            </h4>
             <p className="text-sm text-green-700 mt-1">
               Configure how reports are generated and exported from the system.
             </p>
@@ -538,7 +681,9 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
           </label>
           <select
             value={settings.reports.defaultExportFormat}
-            onChange={(e) => updateSetting('reports', 'defaultExportFormat', e.target.value)}
+            onChange={(e) =>
+              updateSetting("reports", "defaultExportFormat", e.target.value)
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
           >
             <option value="pdf">PDF Report</option>
@@ -546,14 +691,20 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
             <option value="csv">CSV Data</option>
           </select>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Data Retention (Months)
           </label>
           <select
             value={settings.reports.dataRetentionMonths}
-            onChange={(e) => updateSetting('reports', 'dataRetentionMonths', parseInt(e.target.value))}
+            onChange={(e) =>
+              updateSetting(
+                "reports",
+                "dataRetentionMonths",
+                parseInt(e.target.value)
+              )
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
           >
             <option value={6}>6 months</option>
@@ -565,22 +716,38 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
       </div>
 
       <div>
-        <h4 className="text-lg font-semibold text-gray-900 mb-4">Report Features</h4>
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+          Report Features
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { key: 'includeImages', label: 'Include charts and images in reports' },
-            { key: 'enableScheduledReports', label: 'Enable scheduled report generation' },
-            { key: 'enableAdvancedAnalytics', label: 'Include advanced analytics' }
-          ].map(option => (
+            {
+              key: "includeImages",
+              label: "Include charts and images in reports",
+            },
+            {
+              key: "enableScheduledReports",
+              label: "Enable scheduled report generation",
+            },
+            {
+              key: "enableAdvancedAnalytics",
+              label: "Include advanced analytics",
+            },
+          ].map((option) => (
             <div key={option.key} className="flex items-center">
               <input
                 type="checkbox"
                 id={option.key}
                 checked={settings.reports[option.key]}
-                onChange={(e) => updateSetting('reports', option.key, e.target.checked)}
+                onChange={(e) =>
+                  updateSetting("reports", option.key, e.target.checked)
+                }
                 className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
               />
-              <label htmlFor={option.key} className="ml-2 text-sm text-gray-700">
+              <label
+                htmlFor={option.key}
+                className="ml-2 text-sm text-gray-700"
+              >
                 {option.label}
               </label>
             </div>
@@ -615,8 +782,12 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
               <Settings className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Inventory Settings</h2>
-              <p className="text-gray-600">Configure your inventory dashboard and alerts</p>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Inventory Settings
+              </h2>
+              <p className="text-gray-600">
+                Configure your inventory dashboard and alerts
+              </p>
             </div>
           </div>
           <button
@@ -643,7 +814,11 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
                         : "text-gray-700 hover:bg-white hover:shadow-sm"
                     }`}
                   >
-                    <Icon className={`h-5 w-5 ${activeTab === tab.id ? tab.color : 'text-gray-400'}`} />
+                    <Icon
+                      className={`h-5 w-5 ${
+                        activeTab === tab.id ? tab.color : "text-gray-400"
+                      }`}
+                    />
                     <span className="text-sm font-medium">{tab.label}</span>
                   </button>
                 );
@@ -653,9 +828,7 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            <div className="p-6">
-              {renderTabContent()}
-            </div>
+            <div className="p-6">{renderTabContent()}</div>
           </div>
         </div>
 
@@ -665,7 +838,9 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
             {hasChanges && (
               <div className="flex items-center space-x-2 text-amber-600">
                 <Lightbulb className="h-4 w-4" />
-                <span className="text-sm font-medium">You have unsaved changes</span>
+                <span className="text-sm font-medium">
+                  You have unsaved changes
+                </span>
               </div>
             )}
           </div>
@@ -686,10 +861,10 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50"
+              className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 hover:scale-105 hover:shadow-xl transition-all duration-200 shadow-md disabled:opacity-50"
             >
               {saving ? (
-                <Clock className="h-4 w-4 animate-spin" />
+                <UnifiedSpinner variant="dots" size="xs" color="white" />
               ) : (
                 <Save className="h-4 w-4" />
               )}

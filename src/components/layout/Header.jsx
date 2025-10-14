@@ -1,40 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { Bell, Search, User, LogOut, Menu } from "lucide-react";
-import NotificationDropdownV2 from "./NotificationDropdownV2";
+import { Search, User, LogOut, Menu } from "lucide-react";
+import NotificationBell from "../notifications/NotificationBell.jsx";
+import NotificationErrorBoundary from "../notifications/NotificationErrorBoundary.jsx";
+import { logger } from "../../utils/logger.js";
 
 export function Header({ onToggleSidebar }) {
   const { user, signOut } = useAuth();
   const [showSearch, setShowSearch] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [permissionStatus, setPermissionStatus] = useState('default');
-  
-  // Debug wrapper for setUnreadCount
-  const handleCountChange = (count) => {
-    console.log(`🔢 [Header] Notification count updated: ${count}`);
-    setUnreadCount(count);
-  };
-
-  // Notification management - now handled by the global notification system
-  useEffect(() => {
-    // Notification system is initialized in App.jsx
-    // No additional setup needed here
-  }, []);
-
-  // NotificationDropdown now handles count updates via onNotificationCountChange
-
-  const handleNotificationClick = () => {
-    console.log(`🔔 [Header] Notification button clicked, current count: ${unreadCount}`);
-    setShowNotifications(!showNotifications);
-  };
 
   const handleSignOut = async () => {
     try {
       await signOut();
     } catch (error) {
-      console.error("Error signing out:", error);
+      logger.error("Error signing out:", error);
     }
   };
 
@@ -42,7 +22,7 @@ export function Header({ onToggleSidebar }) {
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Left side - Logo and Mobile menu */}
+          {/* Left side - Mobile menu */}
           <div className="flex items-center">
             <button
               onClick={onToggleSidebar}
@@ -50,10 +30,6 @@ export function Header({ onToggleSidebar }) {
             >
               <Menu className="h-6 w-6" />
             </button>
-
-            <div className="flex-shrink-0 flex items-center ml-4 lg:ml-0">
-              <h1 className="text-2xl font-bold text-blue-600">MedCure Pro</h1>
-            </div>
           </div>
 
           {/* Center - Search (on larger screens) */}
@@ -78,27 +54,12 @@ export function Header({ onToggleSidebar }) {
               <Search className="h-5 w-5" />
             </button>
 
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={handleNotificationClick}
-                className="relative p-2 rounded-md text-red-600 hover:bg-red-50 transition-all duration-200"
-                title="View notifications"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-              
-              <NotificationDropdownV2 
-                isOpen={showNotifications}
-                onClose={() => setShowNotifications(false)}
-                onNotificationCountChange={handleCountChange}
-              />
-            </div>
+            {/* Notifications - New Database-Backed System with Error Boundary */}
+            {user && (
+              <NotificationErrorBoundary>
+                <NotificationBell userId={user.id} />
+              </NotificationErrorBoundary>
+            )}
 
             {/* User menu */}
             <div className="relative">

@@ -32,7 +32,8 @@ export const authService = {
       return result;
     } catch (error) {
       console.error("❌ [AuthService] Sign in failed:", error);
-      return { success: false, error: error.message };
+      // 🎯 FIX: Don't return error object, throw it so the UI can catch and display it
+      throw error;
     }
   }, // Sign out
   signOut: async () => {

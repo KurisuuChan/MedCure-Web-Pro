@@ -13,8 +13,9 @@ import {
   Info,
 } from "lucide-react";
 import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
+import { CSVImportService } from "../../services/domains/inventory/csvImportService";
 import { useAuth } from "../../hooks/useAuth";
-import notificationSystem from "../../services/NotificationSystem";
+import notificationService from "../../services/notifications/NotificationService";
 import {
   parseFlexibleDate,
   isDateNotInPast,
@@ -57,21 +58,23 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       let data = [];
 
       if (file.name.endsWith(".csv")) {
-        data = parseCSV(text);
+        // Use new CSV service for intelligent parsing
+        data = CSVImportService.parseCSV(text);
       } else if (file.name.endsWith(".json")) {
         data = JSON.parse(text);
       }
 
-      const { validData, validationErrors } = validateData(data);
+      // Use new validation service
+      const validationResult = await CSVImportService.validateData(data);
 
-      if (validationErrors.length > 0) {
-        setErrors(validationErrors);
+      if (validationResult.validationErrors.length > 0) {
+        setErrors(validationResult.validationErrors);
         setStep("upload");
       } else {
         // Smart category detection
         const categoryAnalysis =
           await UnifiedCategoryService.detectAndProcessCategories(
-            validData,
+            validationResult.validData,
             user?.id || "system"
           );
 
@@ -81,10 +84,10 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
 
         if (categoryAnalysis.data.requiresApproval) {
           setPendingCategories(categoryAnalysis.data.newCategories);
-          setPreviewData(validData);
+          setPreviewData(validationResult.validData);
           setStep("categories");
         } else {
-          setPreviewData(validData);
+          setPreviewData(validationResult.validData);
           setStep("preview");
         }
       }
@@ -96,106 +99,17 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
     }
   };
 
-  const parseCSV = (text) => {
-    const lines = text.trim().split("\n");
-    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
-
-    return lines.slice(1).map((line) => {
-      const values = line.split(",").map((v) => v.trim().replace(/"/g, ""));
-      const row = {};
-      headers.forEach((header, index) => {
-        row[header] = values[index] || "";
-      });
-      return row;
-    });
-  };
-
-  const validateData = (data) => {
-    const validationErrors = [];
-    const validData = [];
-
-    const requiredFields = [
-      { name: "Product Name", required: true },
-      { name: "Category", required: true },
-      { name: "Price per Piece", required: true, type: "number", min: 0 },
-      { name: "Stock (Pieces)", required: true, type: "number", min: 0 },
-    ];
-
-    data.forEach((row, index) => {
-      const rowErrors = [];
-
-      requiredFields.forEach(({ name, required, type, min, max }) => {
-        const value = row[name];
-
-        if (type === "number" && value && value !== "") {
-          const numValue = parseFloat(value);
-          if (isNaN(numValue)) {
-            rowErrors.push(`${name} must be a valid number`);
-          } else if (numValue < min) {
-            rowErrors.push(`${name} must be at least ${min}`);
-          } else if (max && numValue > max) {
-            rowErrors.push(`${name} must be at most ${max}`);
-          }
-        } else if (required && (!value || value === "")) {
-          rowErrors.push(`${name} is required`);
-        }
-      });
-
-      // Enhanced expiry date validation with flexible parsing
-      if (row["Expiry Date"] && row["Expiry Date"] !== "") {
-        const dateResult = parseFlexibleDate(row["Expiry Date"]);
-        if (!dateResult.isValid) {
-          rowErrors.push(getDateFormatErrorMessage(row["Expiry Date"]));
-        } else if (dateResult.date && !isDateNotInPast(dateResult.date)) {
-          rowErrors.push("Expiry date cannot be in the past");
-        }
-      }
-
-      if (rowErrors.length > 0) {
-        validationErrors.push(`Row ${index + 2}: ${rowErrors.join(", ")}`);
-      } else {
-        const transformedRow = {
-          name: row["Product Name"].trim(),
-          description: row["Description"] ? row["Description"].trim() : "",
-          category: row["Category"].trim(),
-          brand: row["Brand"] ? row["Brand"].trim() : "",
-          cost_price: row["Cost Price"] ? parseFloat(row["Cost Price"]) : null,
-          base_price: row["Base Price"] ? parseFloat(row["Base Price"]) : null,
-          price_per_piece: parseFloat(row["Price per Piece"]),
-          margin_percentage: row["Margin Percentage"]
-            ? parseFloat(row["Margin Percentage"])
-            : 0,
-          pieces_per_sheet: row["Pieces per Sheet"]
-            ? parseInt(row["Pieces per Sheet"])
-            : 1,
-          sheets_per_box: row["Sheets per Box"]
-            ? parseInt(row["Sheets per Box"])
-            : 1,
-          stock_in_pieces: parseInt(row["Stock (Pieces)"]),
-          reorder_level: row["Reorder Level"]
-            ? parseInt(row["Reorder Level"])
-            : 10,
-          supplier: row["Supplier"] ? row["Supplier"].trim() : "",
-          expiry_date: row["Expiry Date"]
-            ? parseFlexibleDate(row["Expiry Date"]).isoString
-            : null,
-          batch_number: row["Batch Number"]
-            ? row["Batch Number"].trim()
-            : `BATCH-${Date.now()}-${index}`,
-          is_archived: false,
-          archived_at: null,
-          archived_by: null,
-        };
-        validData.push(transformedRow);
-      }
-    });
-
-    return { validData, validationErrors };
-  };
+  // CSV parsing and validation now handled by CSVImportService
 
   const handleCategoryApproval = async () => {
     try {
       setIsProcessing(true);
+
+      // Show loading toast
+      addToast({
+        type: "info",
+        message: `Creating ${approvedCategories.length} categories...`,
+      });
 
       // Create approved categories with enhanced logic
       const createResult =
@@ -204,14 +118,47 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
           user?.id || "system"
         );
 
-      if (!createResult.success) {
-        throw new Error(createResult.error);
+      // Check for failures and show detailed feedback
+      if (createResult.hasFailures) {
+        const { summary } = createResult;
+
+        // Show warning for partial failures
+        if (summary.created > 0) {
+          addToast({
+            type: "warning",
+            message: `Partially completed: ${summary.created} created, ${summary.failed} failed`,
+          });
+        } else {
+          // All failed
+          const errorDetails = summary.failedCategories
+            .map((f) => `${f.name}: ${f.error}`)
+            .join("\n");
+
+          setErrors([
+            `Failed to create categories:`,
+            ...summary.failedCategories.map(
+              (f) => `• ${f.name}: ${f.error || "Unknown error"}`
+            ),
+          ]);
+
+          addToast({
+            type: "error",
+            message: `Failed to create ${summary.failed} categories`,
+          });
+
+          console.error(
+            "❌ [EnhancedImportModal] Category creation failed:",
+            createResult
+          );
+          return; // Don't proceed to preview
+        }
       }
 
       // Enhanced success feedback with detailed statistics
-      const successCount = createResult.data?.length || 0;
-      const skippedCount = approvedCategories.length - successCount;
-      
+      const summary = createResult.summary || {};
+      const successCount = summary.created || 0;
+      const skippedCount = summary.skipped || 0;
+
       let message = `Successfully processed ${approvedCategories.length} categories`;
       if (successCount > 0) {
         message += `\n• Created: ${successCount} new categories`;
@@ -225,15 +172,22 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
         message,
       });
 
-      console.log("✅ [EnhancedImportModal] Categories processed successfully:", {
-        approved: approvedCategories.length,
-        created: successCount,
-        skipped: skippedCount
-      });
+      console.log(
+        "✅ [EnhancedImportModal] Categories processed successfully:",
+        {
+          approved: approvedCategories.length,
+          created: successCount,
+          skipped: skippedCount,
+          failed: summary.failed || 0,
+        }
+      );
 
       setStep("preview");
     } catch (error) {
-      console.error("❌ [EnhancedImportModal] Category creation failed:", error);
+      console.error(
+        "❌ [EnhancedImportModal] Category creation failed:",
+        error
+      );
       setErrors([`Failed to create categories: ${error.message}`]);
     } finally {
       setIsProcessing(false);
@@ -249,19 +203,24 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
       const mappingResult = await UnifiedCategoryService.mapCategoriesToIds(
         previewData
       );
-      
+
       if (!mappingResult.success) {
         throw new Error(mappingResult.error);
       }
 
       // Log mapping statistics for transparency
       if (mappingResult.stats) {
-        console.log("📊 [EnhancedImportModal] Category Mapping Stats:", mappingResult.stats);
-        
+        console.log(
+          "📊 [EnhancedImportModal] Category Mapping Stats:",
+          mappingResult.stats
+        );
+
         // Show mapping feedback to user
         const { unmapped, total } = mappingResult.stats;
         if (unmapped > 0) {
-          console.warn(`⚠️ [EnhancedImportModal] ${unmapped} of ${total} products have unmapped categories`);
+          console.warn(
+            `⚠️ [EnhancedImportModal] ${unmapped} of ${total} products have unmapped categories`
+          );
         }
       }
 
@@ -270,18 +229,25 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
 
       // Enhanced success feedback
       const importedCount = mappingResult.data?.length || previewData.length;
-      console.log(`✅ [EnhancedImportModal] Successfully imported ${importedCount} products`);
-      
+      console.log(
+        `✅ [EnhancedImportModal] Successfully imported ${importedCount} products`
+      );
+
       // Trigger notification for successful import
       try {
-        notificationSystem.addNotification('INVENTORY_UPDATED', {
-          action: 'Products Imported',
-          count: importedCount,
-          details: `Successfully imported ${importedCount} product${importedCount > 1 ? 's' : ''} to inventory`
+        await notificationService.create({
+          userId: user?.id,
+          title: "Products Imported",
+          message: `Successfully imported ${importedCount} product${
+            importedCount > 1 ? "s" : ""
+          } to inventory`,
+          type: "success",
+          priority: 2,
+          category: "inventory",
         });
-        console.log('✅ Import notification added');
+        console.log("✅ Import notification added");
       } catch (error) {
-        console.warn('⚠️ Failed to add import notification:', error);
+        console.warn("⚠️ Failed to add import notification:", error);
       }
 
       setTimeout(() => {
@@ -321,23 +287,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
   };
 
   const downloadTemplate = () => {
-    const template = [
-      "Product Name,Description,Category,Brand,Cost Price,Base Price,Price per Piece,Margin Percentage,Pieces per Sheet,Sheets per Box,Stock (Pieces),Reorder Level,Supplier,Expiry Date,Batch Number",
-      "Paracetamol 500mg,Pain relief tablet,Pain Relief,GenericPharm,2.00,2.25,2.50,25.00,10,10,1000,100,MediSupply,2025-12-31,BATCH-2024-001",
-      "Amoxicillin 250mg,Antibiotic capsule,Antibiotics,PharmaCorp,4.60,5.18,5.75,25.00,8,12,500,50,HealthDistrib,15/10/2024,BATCH-2024-002",
-      "Vitamin C 500mg,Immune support tablet,Vitamins,VitaPlus,1.50,1.88,2.50,66.67,20,5,2000,200,NutriCorp,30-06-2025,BATCH-2024-003",
-      "Aspirin 100mg,Blood thinner tablet,Pain Relief,CardioMed,1.80,2.03,2.25,25.00,15,8,800,80,PharmaLink,12/31/2025,BATCH-2024-004",
-    ].join("\n");
-
-    const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "smart_inventory_import_template.csv");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    CSVImportService.downloadTemplate("medcure_pharmacy_import_template.csv");
   };
 
   if (!isOpen) return null;
@@ -532,30 +482,58 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                             <File className="inline" size={14} />
-                            Required Fields
+                            Field Requirements
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
-                            <div>
-                              <span className="font-medium">name</span> -
-                              Product name
+                            <div className="mb-2">
+                              <span className="font-bold text-red-600">
+                                Required:
+                              </span>
                             </div>
-                            <div>
-                              <span className="font-medium">price</span> - Unit
-                              price (number)
+                            <div className="ml-3">
+                              <span className="font-medium">generic_name</span>{" "}
+                              - Generic medicine name
                             </div>
-                            <div>
-                              <span className="font-medium">quantity</span> -
-                              Stock quantity
+
+                            <div className="mt-2 mb-2">
+                              <span className="font-bold text-blue-600">
+                                Recommended:
+                              </span>
                             </div>
-                            <div>
-                              <span className="font-medium">category</span> -
-                              Product category
-                            </div>
-                            <div>
-                              <span className="font-medium">
-                                expiration_date
-                              </span>{" "}
-                              - See formats below
+                            <div className="ml-3 space-y-1">
+                              <div>
+                                <span className="font-medium">brand_name</span>{" "}
+                                - Brand name (defaults to generic_name)
+                              </div>
+                              <div>
+                                <span className="font-medium">
+                                  price_per_piece
+                                </span>{" "}
+                                - Unit price in ₱ (defaults to ₱1.00)
+                              </div>
+                              <div>
+                                <span className="font-medium">
+                                  category_name
+                                </span>{" "}
+                                - e.g., "Pain Relief", "Antibiotics" (defaults
+                                to "General")
+                              </div>
+                              <div>
+                                <span className="font-medium">
+                                  dosage_strength
+                                </span>{" "}
+                                - e.g., 500mg, 10ml
+                              </div>
+                              <div>
+                                <span className="font-medium">dosage_form</span>{" "}
+                                - Tablet, Capsule, Syrup, Injection, etc.
+                              </div>
+                              <div>
+                                <span className="font-medium">
+                                  stock_in_pieces
+                                </span>{" "}
+                                - Initial stock quantity (defaults to 0)
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -576,13 +554,17 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
                             <CheckCircle className="inline" size={14} />
-                            Smart Features
+                            Smart Medicine Features
                           </h5>
                           <div className="text-xs text-gray-600 space-y-1">
                             <div>• Auto-creates missing categories</div>
-                            <div>• Validates dates and prices</div>
+                            <div>• Validates medicine data and pricing</div>
+                            <div>
+                              • Handles dosage forms and classifications
+                            </div>
+                            <div>• Smart batch number generation</div>
                             <div>• Flexible date format detection</div>
-                            <div>• Smart error prevention</div>
+                            <div>• Intelligent error prevention</div>
                           </div>
                         </div>
                       </div>
@@ -606,6 +588,33 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                     Our AI found {pendingCategories.length} new categories.
                     Review and approve them below.
                   </p>
+                </div>
+
+                {/* Select All/None Controls */}
+                <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-blue-600" />
+                    <span className="font-medium text-gray-700">
+                      {approvedCategories.length} of {pendingCategories.length}{" "}
+                      selected
+                    </span>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() =>
+                        setApprovedCategories([...pendingCategories])
+                      }
+                      className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setApprovedCategories([])}
+                      className="px-3 py-1 text-sm bg-gray-600 text-white hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                      Select None
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -666,10 +675,42 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                   <button
                     onClick={handleCategoryApproval}
                     disabled={approvedCategories.length === 0 || isProcessing}
-                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 rounded-lg transition-colors"
+                    className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
                   >
-                    <Plus className="h-4 w-4" />
-                    <span>Create {approvedCategories.length} Categories</span>
+                    {isProcessing ? (
+                      <>
+                        <svg
+                          className="animate-spin h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        <span>
+                          Creating {approvedCategories.length} categories...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        <span>
+                          Create {approvedCategories.length} Categories
+                        </span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -728,7 +769,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
                             {item.category}
                           </td>
                           <td className="py-3 px-4 text-right font-medium">
-                            ${item.price_per_piece}
+                            ₱{item.price_per_piece}
                           </td>
                           <td className="py-3 px-4 text-right">
                             {item.stock_in_pieces}
@@ -766,7 +807,7 @@ export function EnhancedImportModal({ isOpen, onClose, onImport, addToast }) {
             {step === "importing" && (
               <div className="text-center py-12">
                 <div className="mx-auto w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-                  <Users className="h-12 w-12 text-blue-600 animate-pulse" />
+                  <Download className="h-12 w-12 text-blue-600 animate-pulse" />
                 </div>
                 <h4 className="text-lg font-semibold text-gray-900 mb-2">
                   Importing Products...

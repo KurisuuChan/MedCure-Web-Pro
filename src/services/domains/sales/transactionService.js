@@ -69,32 +69,63 @@ class UnifiedTransactionService {
     try {
       // Handle customer creation/lookup first
       let customerId = null;
-      
-      if (saleData.customer_name && saleData.customer_phone) {
+
+      // Create customer only if we have BOTH name and phone (real customers)
+      // Walk-in customers will be saved in sales record but not in customers table
+      if (
+        saleData.customer_name &&
+        saleData.customer_phone &&
+        saleData.customer_phone.trim() !== ""
+      ) {
         try {
           console.log("👤 Creating/finding customer for transaction");
-          console.log("🔍 [DEBUG] Customer data being sent to CustomerService:", {
-            customer_name: saleData.customer_name,
-            phone: saleData.customer_phone,
-            email: saleData.customer_email || null,
-            address: saleData.customer_address || null
-          });
-          
+          console.log(
+            "🔍 [DEBUG] Customer data being sent to CustomerService:",
+            {
+              customer_name: saleData.customer_name,
+              phone: saleData.customer_phone,
+              email: saleData.customer_email || null,
+              address: saleData.customer_address || null,
+            }
+          );
+
           const customer = await CustomerService.createCustomer({
             customer_name: saleData.customer_name,
             phone: saleData.customer_phone,
             email: saleData.customer_email || null,
-            address: saleData.customer_address || null
+            address: saleData.customer_address || null,
           });
-          
+
           customerId = customer.id;
-          console.log("✅ Customer processed for transaction:", { customerId, customerName: customer.customer_name });
-          console.log("🔍 [DEBUG] Customer ID being passed to database:", customerId);
+          console.log("✅ Customer processed for transaction:", {
+            customerId,
+            customerName: customer.customer_name,
+          });
+          console.log(
+            "🔍 [DEBUG] Customer ID being passed to database:",
+            customerId
+          );
           console.log("🔍 [DEBUG] Full customer object returned:", customer);
         } catch (customerError) {
-          console.warn("⚠️ Customer creation failed, proceeding without customer_id:", customerError.message);
-          console.error("🔍 [DEBUG] Customer creation error details:", customerError);
+          console.warn(
+            "⚠️ Customer creation failed, proceeding without customer_id:",
+            customerError.message
+          );
+          console.error(
+            "🔍 [DEBUG] Customer creation error details:",
+            customerError
+          );
         }
+      } else {
+        console.log(
+          "📋 Walk-in customer - saving customer info in sales record only"
+        );
+        console.log("🔍 [DEBUG] Customer data for sales record:", {
+          customer_name: saleData.customer_name || "Walk-in Customer",
+          customer_phone: saleData.customer_phone || null,
+          customer_email: saleData.customer_email || null,
+          customer_address: saleData.customer_address || null,
+        });
       }
 
       // Map items to database format
@@ -103,9 +134,12 @@ class UnifiedTransactionService {
           item.quantity_in_pieces || item.quantityInPieces || item.quantity;
         const total_price = item.total_price || item.totalPrice;
 
-        // Calculate unit_price as price per piece (total_price / quantity_in_pieces)
+        // Use the correct unit_price sent from frontend (price per piece)
         const unit_price =
-          item.price_per_piece || item.pricePerPiece || total_price / quantity; // This gives us price per piece
+          item.unit_price ||
+          item.price_per_piece ||
+          item.pricePerPiece ||
+          total_price / quantity;
 
         console.log("🔍 Item mapping debug:", {
           original: item,
@@ -134,6 +168,152 @@ class UnifiedTransactionService {
 
       console.log("📦 Mapped items:", mappedItems);
 
+      // 🔍 ENHANCED VALIDATION: Check product availability with detailed validation
+      console.log("🔍 Validating products with enhanced checks...");
+      const productIds = mappedItems.map((item) => item.product_id);
+
+      // Debug: Check product IDs format
+      console.log("🔍 Product IDs being sent to RPC:", productIds);
+      console.log("🔍 Product IDs validation:", {
+        count: productIds.length,
+        sample: productIds[0],
+        types: productIds.map((id) => typeof id),
+        uuidPattern: productIds.map((id) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            id
+          )
+        ),
+      });
+
+      // Filter out invalid UUIDs to prevent RPC errors
+      const validUuids = productIds.filter(id => 
+        id && typeof id === 'string' && 
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      );
+      
+      console.log("🔍 Valid UUIDs after filtering:", {
+        originalCount: productIds.length,
+        validCount: validUuids.length,
+        invalidIds: productIds.filter(id => !validUuids.includes(id))
+      });
+
+      // Skip RPC call if no valid UUIDs found
+      if (validUuids.length === 0) {
+        console.warn("⚠️ No valid UUIDs found, skipping RPC validation");
+        throw new Error("No valid product IDs found for validation");
+      }
+
+      // Use enhanced validation function if available, fallback to basic check
+      let validationResult;
+      try {
+        const { data: validation, error: validationError } = await supabase.rpc(
+          "validate_pos_products",
+          { product_ids: validUuids }
+        );
+
+        if (validationError) {
+          console.warn(
+            "⚠️ Enhanced validation failed, using basic check:",
+            validationError
+          );
+          throw validationError;
+        }
+        validationResult = validation;
+      } catch (enhancedError) {
+        // Fallback to basic product existence check
+        console.log("🔄 Using fallback product validation due to error:", enhancedError.message);
+        const { data: existingProducts, error: productCheckError } =
+          await supabase
+            .from("products")
+            .select(
+              "id, brand_name, generic_name, is_active, is_archived, stock_in_pieces"
+            )
+            .in("id", productIds);
+
+        if (productCheckError) {
+          console.error("❌ Error checking products:", productCheckError);
+          throw new Error(
+            `Failed to validate products: ${productCheckError.message}`
+          );
+        }
+
+        // Convert to validation format
+        validationResult = existingProducts.map((p) => ({
+          product_id: p.id,
+          name: p.brand_name || p.generic_name || "Unknown Product",
+          stock_in_pieces: p.stock_in_pieces || 0,
+          is_available:
+            p.is_active && !p.is_archived && (p.stock_in_pieces || 0) > 0,
+          issue_reason: !p.is_active
+            ? "Product is inactive"
+            : p.is_archived
+            ? "Product is archived"
+            : (p.stock_in_pieces || 0) <= 0
+            ? "Out of stock"
+            : "Available",
+        }));
+      }
+
+      // Check for missing products
+      const foundProductIds = new Set(
+        validationResult.map((v) => v.product_id)
+      );
+      const missingProducts = mappedItems.filter(
+        (item) => !foundProductIds.has(item.product_id)
+      );
+
+      if (missingProducts.length > 0) {
+        console.error("❌ Products not found in database:", missingProducts);
+        const missingIds = missingProducts.map((p) => p.product_id).join(", ");
+        throw new Error(
+          `The following products no longer exist in the database: ${missingIds}. ` +
+            `Please refresh the product list and try again.`
+        );
+      }
+
+      // Check for unavailable products
+      const unavailableProducts = validationResult.filter(
+        (v) => !v.is_available
+      );
+      if (unavailableProducts.length > 0) {
+        console.error(
+          "❌ Products not available for sale:",
+          unavailableProducts
+        );
+        const issues = unavailableProducts
+          .map((p) => `${p.name}: ${p.issue_reason}`)
+          .join("; ");
+        throw new Error(
+          `The following products are not available for sale: ${issues}. ` +
+            `Please refresh the product list and try again.`
+        );
+      }
+
+      // Check stock levels for each item
+      const stockIssues = [];
+      for (const item of mappedItems) {
+        const validation = validationResult.find(
+          (v) => v.product_id === item.product_id
+        );
+        if (validation && validation.stock_in_pieces < item.quantity) {
+          stockIssues.push(
+            `${validation.name}: requested ${item.quantity}, available ${validation.stock_in_pieces}`
+          );
+        }
+      }
+
+      if (stockIssues.length > 0) {
+        console.error("❌ Insufficient stock:", stockIssues);
+        throw new Error(
+          `Insufficient stock: ${stockIssues.join("; ")}. ` +
+            `Please adjust quantities or refresh stock levels.`
+        );
+      }
+
+      console.log(
+        "✅ All products validated successfully with enhanced checks"
+      );
+
       // Validate constraint before sending to database
       const constraintViolations = mappedItems.filter((item) => {
         const calculatedTotal = item.quantity * item.unit_price;
@@ -161,15 +341,11 @@ class UnifiedTransactionService {
           total_amount: saleData.total || saleData.total_amount,
           payment_method: saleData.paymentMethod || saleData.payment_method,
           customer_id: customerId, // Include the customer_id
-          customer_name:
-            saleData.customer?.name || saleData.customer_name || null,
-          customer_phone:
-            saleData.customer?.phone || saleData.customer_phone || null,
-          customer_email:
-            saleData.customer?.email || saleData.customer_email || null,
-          customer_address:
-            saleData.customer?.address || saleData.customer_address || null,
-          customer_type: saleData.customer_type || 'guest',
+          customer_name: saleData.customer_name || null,
+          customer_phone: saleData.customer_phone || null,
+          customer_email: saleData.customer_email || null,
+          customer_address: saleData.customer_address || null,
+          customer_type: saleData.customer_type || "guest",
           notes: saleData.notes || null,
           discount_type: saleData.discount_type || "none",
           discount_percentage: saleData.discount_percentage || 0,
@@ -179,14 +355,27 @@ class UnifiedTransactionService {
             saleData.total ||
             saleData.total_amount,
           pwd_senior_id: saleData.pwd_senior_id || null,
+          pwd_senior_holder_name: saleData.pwd_senior_holder_name || null,
         },
         sale_items: mappedItems,
       });
 
+      console.log(
+        "🔍 [STOCK DEBUG] Sale items being processed:",
+        mappedItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          note: "This quantity should be deducted from stock",
+        }))
+      );
+
       if (error) throw error;
 
       console.log("✅ Transaction created successfully:", data);
-      console.log("🔍 [DEBUG] Transaction data returned from DB:", { customer_id: data.customer_id, customer_name: data.customer_name });
+      console.log("🔍 [DEBUG] Transaction data returned from DB:", {
+        customer_id: data.customer_id,
+        customer_name: data.customer_name,
+      });
       return {
         success: true,
         data: data,
@@ -232,6 +421,7 @@ class UnifiedTransactionService {
 
   /**
    * Undo a completed transaction (restore stock, mark cancelled)
+   * Uses robust database function to handle missing products gracefully
    * @param {string} transactionId - Transaction ID
    * @param {string} reason - Reason for undo (optional)
    * @param {string} userId - User performing the undo (optional)
@@ -266,26 +456,79 @@ class UnifiedTransactionService {
         throw new Error("Cannot undo transactions older than 24 hours");
       }
 
-      // Implement proper stock restoration by reversing the sale items
-      console.log("🔄 Performing stock restoration for transaction undo...");
+      // Use the robust database function for undo operations
+      // This handles missing products gracefully without manual product lookups
+      console.log("🔄 Calling robust database undo function...");
 
-      // First, get all the sale items for this transaction
-      const { data: saleItems, error: itemsError } = await supabase
-        .from("sale_items")
-        .select("product_id, quantity")
-        .eq("sale_id", transactionId);
+      const { data: undoResult, error: undoError } = await supabase.rpc(
+        "undo_transaction_completely",
+        { p_transaction_id: transactionId }
+      );
 
-      if (itemsError) throw itemsError;
-
-      if (!saleItems || saleItems.length === 0) {
-        console.warn("⚠️ No sale items found for transaction:", transactionId);
-        throw new Error("No sale items found to restore stock for");
+      if (undoError) {
+        console.error("❌ Database undo function failed:", undoError);
+        throw new Error(`Database undo failed: ${undoError.message}`);
       }
 
-      console.log("📦 Restoring stock for items:", saleItems);
+      if (!undoResult || !undoResult.success) {
+        const errorMessage =
+          undoResult?.message || undoResult?.error || "Unknown error";
+        console.error("❌ Undo operation failed:", errorMessage);
+        throw new Error(`Undo failed: ${errorMessage}`);
+      }
 
-      // Track successful restorations for rollback if needed
-      const restoredProducts = [];
+      console.log("✅ Database undo function completed:", undoResult);
+
+      // Update the reason and user info if provided
+      if (reason && reason !== "Transaction undone") {
+        const { error: updateError } = await supabase
+          .from("sales")
+          .update({
+            edit_reason: reason,
+            edited_by: userId,
+          })
+          .eq("id", transactionId);
+
+        if (updateError) {
+          console.warn("⚠️ Could not update reason:", updateError);
+          // Don't fail the whole operation for this
+        }
+      }
+
+      // Prepare success response
+      const response = {
+        success: true,
+        data: {
+          transaction_id: transactionId,
+          status: "cancelled",
+          reason: reason,
+          undone_by: userId,
+          undone_at: new Date().toISOString(),
+          database_result: undoResult,
+        },
+        message: undoResult.message,
+      };
+
+      // Add warning if some products were missing
+      if (undoResult.products_not_found > 0) {
+        response.warning = `${undoResult.products_not_found} products were not found and could not have stock restored`;
+        response.data.missing_products = undoResult.missing_product_ids;
+        console.warn(
+          "⚠️ Some products were missing during undo:",
+          undoResult.missing_product_ids
+        );
+      }
+
+      console.log("✅ Transaction undone successfully:", response);
+      return response;
+    } catch (error) {
+      console.error("❌ Undo transaction failed:", error);
+      throw new Error(`Failed to undo transaction: ${error.message}`);
+    }
+  }
+
+  /**
+   * Edit a transaction (if edit function exists)
 
       try {
         // Restore stock for each item
@@ -367,7 +610,10 @@ class UnifiedTransactionService {
           restoredProducts.push({
             product_id: item.product_id,
             quantity_restored: item.quantity,
-            product_name: productCheck.name,
+            product_name:
+              productCheck.generic_name ||
+              productCheck.brand_name ||
+              "Unknown Product",
             previous_stock: productCheck.stock_in_pieces,
             new_stock: newStockLevel,
             verified: updatedProduct
@@ -638,7 +884,10 @@ class UnifiedTransactionService {
 
           stockMovements.push({
             product_id: adjustment.product_id,
-            product_name: currentStock.name,
+            product_name:
+              currentStock.generic_name ||
+              currentStock.brand_name ||
+              "Unknown Product",
             change: adjustment.change,
             stock_before: stockBefore,
             stock_after: stockAfter,
@@ -1013,7 +1262,10 @@ class UnifiedTransactionService {
    * @returns {Promise<Object>} Complete workflow result
    */
   async processCompletePayment(saleData) {
-    console.log("🎯 Processing complete payment (original simple method):", saleData);
+    console.log(
+      "🎯 Processing complete payment (original simple method):",
+      saleData
+    );
 
     try {
       // Simple direct transaction creation - database handles completion and stock deduction
@@ -1023,15 +1275,17 @@ class UnifiedTransactionService {
         throw new Error("Failed to complete payment");
       }
 
-      console.log("✅ Payment completed successfully - transaction created as completed:", result);
+      console.log(
+        "✅ Payment completed successfully - transaction created as completed:",
+        result
+      );
 
       return {
         success: true,
         transaction_id: result.transaction_id,
         create_result: result.data,
-        status: result.status // Will be "completed" from database
+        status: result.status, // Will be "completed" from database
       };
-
     } catch (error) {
       console.error("❌ Payment failed:", error);
       throw new Error(`Complete payment failed: ${error.message}`);
@@ -1124,11 +1378,11 @@ class UnifiedTransactionService {
             total_price,
             products (
               id,
-              name, 
+              generic_name,
+              brand_name,
               description, 
               category,
-              brand,
-              price
+              price_per_piece
             )
           ),
           users!sales_user_id_fkey (
@@ -1191,8 +1445,8 @@ class UnifiedTransactionService {
             total_price,
             products (
               id,
-              name,
-              brand,
+              generic_name,
+              brand_name,
               category,
               description,
               price_per_piece,
@@ -1256,7 +1510,10 @@ class UnifiedTransactionService {
           items: items.map((item) => ({
             ...item,
             // Enhanced item data
-            product_name: item.products?.name || "Unknown Product",
+            product_name:
+              item.products?.generic_name ||
+              item.products?.brand_name ||
+              "Unknown Product",
             product_brand: item.products?.brand || "",
             product_category: item.products?.category || "",
             unit_display: this.formatUnitDisplay(item.unit_type, item.quantity),
@@ -1768,7 +2025,8 @@ if (typeof window !== "undefined") {
             (i) => i.product_id === before.id
           );
           return {
-            product_name: before.name,
+            product_name:
+              before.generic_name || before.brand_name || "Unknown Product",
             product_id: before.id,
             quantity_sold: item ? item.quantity : 0,
             stock_before: before.stock_in_pieces,

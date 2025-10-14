@@ -1,0 +1,11 @@
+generic_name,brand_name,category_name,supplier_name,description,dosage_strength,dosage_form,drug_classification,price_per_piece,pieces_per_sheet,sheets_per_box,stock_in_pieces,reorder_level,cost_price,base_price,expiry_date,batch_number
+Paracetamol,Biogesic,Pain Relief,MediSupply Corp,Analgesic and antipyretic for pain and fever relief,500mg,Tablet,Over-the-Counter (OTC),2.50,10,10,1000,100,2.00,2.25,2025-12-31,BT100725-1
+Amoxicillin,Amoxil,Antibiotics,PharmaCorp Distributors,Broad-spectrum antibiotic for bacterial infections,500mg,Capsule,Prescription (Rx),5.75,10,10,500,50,4.60,5.18,2025-10-15,BT100725-2
+Ascorbic Acid,Cecon,Vitamins & Supplements,VitaCorp International,Essential vitamin for immune system support,500mg,Tablet,Over-the-Counter (OTC),1.25,20,10,2000,200,1.00,1.13,2025-06-30,BT100725-3
+Ibuprofen,Advil,Pain Relief,HealthPharma Ltd,Non-steroidal anti-inflammatory drug for pain and inflammation,400mg,Tablet,Over-the-Counter (OTC),3.75,10,10,800,80,3.00,3.38,2025-08-20,BT100725-4
+Cetirizine,Zyrtec,Antihistamines,AllergyMeds Corp,Antihistamine for allergic reactions and hay fever,10mg,Tablet,Over-the-Counter (OTC),4.50,10,10,600,60,3.60,4.05,2025-11-10,BT100725-5
+Metformin,Glucophage,Diabetes,DiabetesCare Inc,Oral diabetes medicine for type 2 diabetes management,500mg,Tablet,Prescription (Rx),6.25,10,10,400,40,5.00,5.63,2025-09-05,BT100725-6
+Losartan,Cozaar,Hypertension,CardioHealth Pharma,Blood pressure medication for hypertension treatment,50mg,Tablet,Prescription (Rx),8.50,10,10,300,30,6.80,7.65,2025-07-18,BT100725-7
+Omeprazole,Losec,Gastrointestinal,GastroMeds Ltd,Proton pump inhibitor for acid reflux and ulcers,20mg,Capsule,Prescription (Rx),7.25,10,10,350,35,5.80,6.53,2025-12-25,BT100725-8
+Salbutamol,Ventolin,Respiratory,RespiCare Corp,Bronchodilator for asthma and COPD relief,100mcg,Inhaler,Prescription (Rx),180.00,1,1,50,5,144.00,162.00,2025-10-30,BT100725-9
+Multivitamins,Centrum,Vitamins & Supplements,VitaWell International,Complete daily multivitamin and mineral supplement,,,Over-the-Counter (OTC),12.50,10,10,500,50,10.00,11.25,2025-11-15,BT100725-10

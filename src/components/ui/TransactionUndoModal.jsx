@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, AlertTriangle, RotateCcw, DollarSign, Package } from "lucide-react";
 import { formatCurrency } from "../../utils/formatting";
 import { formatDate } from "../../utils/dateTime";
+import { UnifiedSpinner } from "./loading/UnifiedSpinner";
 
 /**
  * Professional Transaction Undo Modal
@@ -210,11 +211,11 @@ export default function TransactionUndoModal({
             <button
               onClick={handleFinalConfirm}
               disabled={isProcessing}
-              className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center space-x-2"
+              className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 hover:scale-105 hover:shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-all duration-200 flex items-center justify-center space-x-2"
             >
               {isProcessing ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <UnifiedSpinner variant="dots" size="xs" color="white" />
                   <span>Processing...</span>
                 </>
               ) : (

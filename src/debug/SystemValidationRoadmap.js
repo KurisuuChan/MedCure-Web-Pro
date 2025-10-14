@@ -7,7 +7,8 @@
 import { supabase } from "../config/supabase";
 import { MLService } from "../services/infrastructure/mlService";
 import { AnalyticsService } from "../services/domains/analytics/analyticsService";
-import { SimpleNotificationService } from "../services/domains/notifications/simpleNotificationService";
+// Old notification service removed - using new database-backed system now
+// import { SimpleNotificationService } from "../services/domains/notifications/simpleNotificationService";
 
 export class SystemValidationRoadmap {
   /**
@@ -511,49 +512,72 @@ export class SystemValidationRoadmap {
     console.log("=".repeat(60));
 
     try {
-      // Step 4.1: Test notification permissions
-      console.log("� Step 4.1: Testing notification permissions...");
+      // Step 4.1: Test notification permissions (browser notifications)
+      console.log("📋 Step 4.1: Testing browser notification support...");
 
-      const permissionStatus = SimpleNotificationService.getPermissionStatus();
+      const notificationSupported = "Notification" in window;
+      const permissionStatus = notificationSupported
+        ? Notification.permission
+        : "unsupported";
+      console.log(
+        `✅ Browser notifications supported: ${notificationSupported}`
+      );
       console.log(`✅ Permission status: ${permissionStatus}`);
 
       // Step 4.2: Test basic inventory checks
-      console.log("\n� Step 4.2: Testing inventory monitoring...");
+      console.log("\n📊 Step 4.2: Testing inventory monitoring...");
       const { data: activeProducts } = await supabase
         .from("products")
-        .select("id, name, quantity, reorder_level")
-        .eq("status", "active")
+        .select("id, generic_name, brand_name, stock_in_pieces, reorder_level")
+        .eq("is_active", true)
         .limit(10);
 
       if (activeProducts && activeProducts.length > 0) {
         console.log(`✅ Active products: ${activeProducts.length} found`);
 
         const lowStockItems = activeProducts.filter(
-          (p) => p.quantity <= (p.reorder_level || 10)
+          (p) => p.stock_in_pieces <= (p.reorder_level || 10)
         );
         console.log(`📊 Low stock items: ${lowStockItems.length} found`);
       }
 
-      // Step 4.3: Test notification system functionality
-      console.log("\n🔄 Step 4.3: Testing notification functionality...");
+      // Step 4.3: Test database notification system
+      console.log("\n🔄 Step 4.3: Testing database notification system...");
 
-      if (permissionStatus === "granted") {
-        await SimpleNotificationService.runDailyChecks();
-        console.log("✅ Daily checks completed successfully");
+      const { data: notificationCount, error: notifError } = await supabase
+        .from("user_notifications")
+        .select("count", { count: "exact", head: true });
+
+      if (!notifError) {
+        console.log("✅ Database notification system accessible");
+        console.log(
+          `📊 Total notifications in database: ${notificationCount || 0}`
+        );
+      } else {
+        console.warn(
+          "⚠️ Database notification system not accessible:",
+          notifError.message
+        );
       }
 
       return {
         success: true,
+        notificationSupported,
         permissionStatus,
         activeProductsCount: activeProducts?.length || 0,
         lowStockCount:
-          activeProducts?.filter((p) => p.quantity <= (p.reorder_level || 10))
-            .length || 0,
+          activeProducts?.filter(
+            (p) => p.stock_in_pieces <= (p.reorder_level || 10)
+          ).length || 0,
         recommendations: [
-          "Notification system is simplified and functional!",
+          "Database notification system is active and functional!",
+          notificationSupported
+            ? "Browser notifications supported"
+            : "Browser notifications not supported",
           permissionStatus !== "granted"
-            ? "Enable notifications for better alerts"
-            : "Notifications enabled",
+            ? "Enable browser notifications for desktop alerts"
+            : "Browser notifications enabled",
+          "Check notification bell icon in header",
           "Proceed to Phase 5: Analytics Validation",
         ],
       };

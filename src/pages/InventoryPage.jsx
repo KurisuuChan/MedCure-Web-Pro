@@ -16,32 +16,37 @@ import {
   X,
   DollarSign,
   BarChart3,
+  Pill,
+  Shield,
 } from "lucide-react";
-import EnhancedInventoryDashboard from "../features/inventory/components/EnhancedInventoryDashboard";
+import AnalyticsReportsPage from "../features/analytics/components/AnalyticsReportsPage";
 import ArchiveReasonModal from "../components/modals/ArchiveReasonModal";
 import {
   getStockStatus,
   getExpiryStatus,
   productCategories,
-  productBrands,
 } from "../utils/productUtils";
 import { formatCurrency } from "../utils/formatting";
 import { formatDate } from "../utils/dateTime";
 import { getStockBreakdown } from "../utils/unitConversion";
+import { useToast } from "../components/ui/Toast";
 import ProductSearch from "../features/inventory/components/ProductSearch";
 import { UnifiedCategoryService } from "../services/domains/inventory/unifiedCategoryService";
 import ProductCard from "../features/inventory/components/ProductCard";
 import { useInventory } from "../features/inventory/hooks/useInventory";
 import ExportModal from "../components/ui/ExportModal";
-import { EnhancedImportModal } from "../components/ui/EnhancedImportModal";
+import { EnhancedImportModalV2 } from "../components/ui/EnhancedImportModalV2";
 import { useAuth } from "../hooks/useAuth"; // Not currently used
 import { ProductService } from "../services/domains/inventory/productService";
 import AddStockModal from "../components/modals/AddStockModal";
+import CategoryManagement from "../features/inventory/components/CategoryManagement";
+import ArchivedProductsManagement from "../features/inventory/components/ArchivedProductsManagement";
 
 // Extracted Components
 import InventoryHeader from "../features/inventory/components/InventoryHeader";
 import InventorySummary from "../features/inventory/components/InventorySummary";
 import ProductListSection from "../features/inventory/components/ProductListSection";
+import { LoadingInventoryPage } from "../components/ui/loading/PharmacyLoadingStates";
 
 // Enhanced scrollbar styles
 const scrollbarStyles = `
@@ -75,16 +80,20 @@ export default function InventoryPage() {
     products: filteredProducts,
     allProducts,
     analytics,
+    filterOptions,
     isLoading,
     addProduct,
     updateProduct,
     handleSearch,
     handleFilter,
     loadProducts,
+    filters,
+    searchTerm,
   } = useInventory();
 
   // Get current authenticated user
   const { user: _user } = useAuth(); // Not currently used
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
 
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "table" - Default to table (list) view
   const [activeTab, setActiveTab] = useState("inventory"); // "inventory" or "dashboard"
@@ -101,6 +110,8 @@ export default function InventoryPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [productToArchive, setProductToArchive] = useState(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
 
   // Dynamic categories state
   const [dynamicCategories, setDynamicCategories] = useState([]);
@@ -262,6 +273,15 @@ export default function InventoryPage() {
     setIsArchiving(false);
   };
 
+  // Show full page loading skeleton on initial load
+  if (isLoading && allProducts.length === 0) {
+    return (
+      <div className="space-y-6">
+        <LoadingInventoryPage />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header with Tab Navigation */}
@@ -283,8 +303,14 @@ export default function InventoryPage() {
           <ProductSearch
             onSearch={handleSearch}
             onFilter={handleFilter}
-            categories={getCategoriesToUse()} // Show all categories - "All Categories" is handled in ProductSearch component
-            brands={productBrands.slice(1)} // Remove "All Brands"
+            filterOptions={{
+              ...filterOptions,
+              categories: filterOptions.categories || [],
+            }}
+            currentFilters={filters}
+            searchTerm={searchTerm}
+            setShowCategoriesModal={setShowCategoriesModal}
+            setShowArchivedModal={setShowArchivedModal}
           />
 
           {/* Product List/Grid Section */}
@@ -313,11 +339,32 @@ export default function InventoryPage() {
               onClose={() => setShowAddModal(false)}
               onSave={async (productData) => {
                 try {
-                  await addProduct(productData);
+                  console.log("🚀 Attempting to add product:", productData);
+                  const result = await addProduct(productData);
+                  console.log("✅ Product added successfully:", result);
                   setShowAddModal(false);
-                  // Success feedback could go here
+                  // Reload products to show the new one
+                  await loadProducts();
+                  // Success feedback
+                  console.log("✅ Product added successfully!");
+                  showSuccess(
+                    `🎉 Product "${productData.generic_name}" added successfully!`,
+                    {
+                      duration: 4000,
+                      action: {
+                        label: "View Products",
+                        onClick: () => setActiveTab("inventory"),
+                      },
+                    }
+                  );
                 } catch (error) {
-                  alert("Error adding product: " + error.message);
+                  console.error("❌ Add product error:", error);
+                  showError(
+                    `Failed to add product: ${
+                      error.message || "Unknown error occurred"
+                    }`,
+                    { duration: 6000 }
+                  );
                 }
               }}
             />
@@ -337,16 +384,28 @@ export default function InventoryPage() {
                   await updateProduct(selectedProduct.id, productData);
                   setShowEditModal(false);
                   setSelectedProduct(null);
-                  // Success feedback could go here
+                  // Success feedback
+                  showSuccess(
+                    `✅ Product "${productData.generic_name}" updated successfully!`,
+                    {
+                      duration: 4000,
+                      action: {
+                        label: "View Product",
+                        onClick: () => {},
+                      },
+                    }
+                  );
                 } catch (error) {
-                  alert("Error updating product: " + error.message);
+                  showError(`Failed to update product: ${error.message}`, {
+                    duration: 6000,
+                  });
                 }
               }}
             />
           )}
 
           {showDetailsModal && selectedProduct && (
-            <ProductDetailsModal
+            <ProductDetailsModalNew
               product={selectedProduct}
               onClose={() => {
                 setShowDetailsModal(false);
@@ -369,8 +428,8 @@ export default function InventoryPage() {
           />
         </>
       ) : (
-        // Enhanced Dashboard Tab
-        <EnhancedInventoryDashboard />
+        // Analytics & Reports Tab
+        <AnalyticsReportsPage />
       )}
 
       {/* Export Modal */}
@@ -378,10 +437,23 @@ export default function InventoryPage() {
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
         products={allProducts}
+        categories={dynamicCategories.map((cat) => cat.name)}
+        onExportSuccess={(exportCount) => {
+          showSuccess(
+            `📤 Successfully exported ${exportCount} products to CSV!`,
+            {
+              duration: 5000,
+              action: {
+                label: "View Files",
+                onClick: () => {},
+              },
+            }
+          );
+        }}
       />
 
-      {/* Enhanced Import Modal with AI-powered category detection */}
-      <EnhancedImportModal
+      {/* Enhanced Import Modal V2 with AI-powered category detection & Modern Progress */}
+      <EnhancedImportModalV2
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
         onImport={async (importedProducts) => {
@@ -393,69 +465,162 @@ export default function InventoryPage() {
             console.log(
               `Successfully imported ${importedProducts.length} products with intelligent category processing`
             );
+
+            // Show success toast
+            showSuccess(
+              `📥 Successfully imported ${importedProducts.length} products with smart category detection!`,
+              {
+                duration: 6000,
+                action: {
+                  label: "View Products",
+                  onClick: () => setActiveTab("inventory"),
+                },
+              }
+            );
           } catch (error) {
             console.error("Enhanced import error:", error);
+            showError(`Import failed: ${error.message}`, { duration: 6000 });
             throw new Error(`Import failed: ${error.message}`);
           }
         }}
         addToast={(toast) => {
-          // Simple console logging for now - can be enhanced later
-          console.log(`${toast.type.toUpperCase()}: ${toast.message}`);
+          // Use our beautiful toast system instead of console logging
+          if (toast.type === "success") {
+            showSuccess(toast.message, { duration: 4000 });
+          } else if (toast.type === "error") {
+            showError(toast.message, { duration: 5000 });
+          } else if (toast.type === "info") {
+            showInfo(toast.message, { duration: 4000 });
+          }
         }}
       />
+
+      {/* Categories Management Modal */}
+      {showCategoriesModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-6xl max-h-[90vh] overflow-hidden">
+            <CategoryManagement
+              onClose={() => setShowCategoriesModal(false)}
+              onCategoriesChange={loadProducts}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Archived Products Management Modal */}
+      {showArchivedModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-7xl max-h-[90vh] overflow-hidden">
+            <ArchivedProductsManagement
+              onClose={() => setShowArchivedModal(false)}
+              onRestore={loadProducts}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Product Modal Component
+// Product Modal Component - Ultra-Compact Crosswise Design
 function ProductModal({ title, product, categories, onClose, onSave }) {
-  // Smart Batch Number Generation Function
+  // Predefined options for dropdowns - Auto-create will handle new values
+  const dosageFormOptions = [
+    "Tablet",
+    "Capsule",
+    "Syrup",
+    "Injection",
+    "Ointment",
+    "Drops",
+    "Inhaler",
+    "Suspension",
+    "Cream",
+    "Gel",
+    "Patch",
+    "Suppository",
+    "Powder",
+    "Solution",
+    "Lotion",
+    "Spray",
+    "Granules",
+    "Emulsion",
+  ];
+
+  const dosageStrengthOptions = [
+    "5mg",
+    "10mg",
+    "25mg",
+    "50mg",
+    "100mg",
+    "250mg",
+    "500mg",
+    "750mg",
+    "1000mg",
+    "1g",
+    "2g",
+    "5g",
+    "10g",
+    "1ml",
+    "2ml",
+    "5ml",
+    "10ml",
+    "15ml",
+    "30ml",
+    "60ml",
+    "100ml",
+    "120ml",
+    "250ml",
+    "500ml",
+    "1L",
+    "5%",
+    "10%",
+    "15%",
+    "20%",
+    "25%",
+  ];
+
+  const drugClassificationOptions = [
+    "Prescription (Rx)",
+    "Over-the-Counter (OTC)",
+    "Controlled Substance",
+    "Generic",
+    "Brand",
+    "Antibiotic",
+    "Analgesic",
+    "Antacid",
+    "Vitamin",
+    "Supplement",
+    "Antiseptic",
+    "Anti-inflammatory",
+    "Antihypertensive",
+    "Antihistamine",
+    "Antidiabetic",
+    "Schedule I",
+    "Schedule II",
+    "Schedule III",
+  ];
+
+  // Smart batch number generation
   const generateSmartBatchNumber = (productName, category, expiryDate) => {
     const now = new Date();
-    const year = now.getFullYear().toString().slice(-2); // Last 2 digits of year
-    const month = (now.getMonth() + 1).toString().padStart(2, "0");
-    const day = now.getDate().toString().padStart(2, "0");
-
-    // Generate category prefix (2 chars)
-    const categoryPrefix = category
-      ? category.substring(0, 2).toUpperCase()
-      : "GN";
-
-    // Generate product prefix (2 chars) from first letters of words
-    let productPrefix = "PR";
-    if (productName) {
-      const words = productName.split(" ").filter((word) => word.length > 0);
-      if (words.length >= 2) {
-        productPrefix = (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
-      } else if (words.length === 1) {
-        productPrefix = words[0].substring(0, 2).toUpperCase();
-      }
-    }
-
-    // Random 3-digit sequence for uniqueness
-    const randomSequence = Math.floor(Math.random() * 900) + 100;
-
-    // Generate expiry-aware batch (if expiry is far out, mark as extended shelf life)
-    let shelfLifeIndicator = "";
-    if (expiryDate) {
-      const expiry = new Date(expiryDate);
-      const monthsUntilExpiry = (expiry - now) / (1000 * 60 * 60 * 24 * 30);
-      shelfLifeIndicator = monthsUntilExpiry > 24 ? "X" : "S"; // X for extended, S for standard
-    } else {
-      shelfLifeIndicator = "S";
-    }
-
-    // Format: CC-PP-YYMMDD-SSS-L (Category-Product-Date-Sequence-ShelfLife)
-    return `${categoryPrefix}${productPrefix}${year}${month}${day}${randomSequence}${shelfLifeIndicator}`;
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const year = String(now.getFullYear()).slice(-2);
+    const incrementalNumber = Math.floor(Math.random() * 999) + 1;
+    return `BT${month}${day}${year}-${incrementalNumber}`;
   };
 
   const [formData, setFormData] = useState({
-    name: product?.name || "",
+    generic_name: product?.generic_name || "",
+    brand_name: product?.brand_name || "",
     description: product?.description || "",
     category: product?.category || "Pain Relief",
-    brand: product?.brand || "",
+    manufacturer: product?.manufacturer || "",
+    dosage_form: product?.dosage_form || "",
+    dosage_strength: product?.dosage_strength || "",
+    drug_classification: product?.drug_classification || "",
     cost_price: product?.cost_price || "",
-    price_per_piece: product?.price_per_piece || "", // Single authoritative unit price
+    price_per_piece: product?.price_per_piece || "",
     margin_percentage: product?.margin_percentage || "",
     pieces_per_sheet: product?.pieces_per_sheet || 1,
     sheets_per_box: product?.sheets_per_box || 1,
@@ -466,10 +631,14 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
     batch_number:
       product?.batch_number ||
       generateSmartBatchNumber(
-        product?.name || "",
+        product?.brand_name || product?.generic_name || "",
         product?.category || "Pain Relief",
         product?.expiry_date?.split("T")[0] || ""
       ),
+    // Explicitly set active status for new products
+    is_active: product?.is_active !== undefined ? product.is_active : true,
+    is_archived:
+      product?.is_archived !== undefined ? product.is_archived : false,
   });
 
   // Calculate margin percentage when cost price or selling price changes
@@ -484,31 +653,21 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
     return (cost * (1 + margin / 100)).toFixed(2);
   };
 
-  // Auto-regenerate batch number when key fields change (for new products only)
-  useEffect(() => {
-    if (
-      !product &&
-      (formData.name || formData.category || formData.expiry_date)
-    ) {
-      const newBatch = generateSmartBatchNumber(
-        formData.name,
-        formData.category,
-        formData.expiry_date
-      );
-      setFormData((prev) => ({ ...prev, batch_number: newBatch }));
-    }
-  }, [formData.name, formData.category, formData.expiry_date, product]);
-
   // Handle cost price change
   const handleCostPriceChange = (value) => {
     const costPrice = parseFloat(value) || 0;
     const sellPrice = parseFloat(formData.price_per_piece) || 0;
 
-    setFormData({
-      ...formData,
-      cost_price: value,
-      margin_percentage: calculateMargin(costPrice, sellPrice),
-    });
+    if (costPrice > 0 && sellPrice > 0) {
+      const margin = calculateMargin(costPrice, sellPrice);
+      setFormData({
+        ...formData,
+        cost_price: value,
+        margin_percentage: margin,
+      });
+    } else {
+      setFormData({ ...formData, cost_price: value });
+    }
   };
 
   // Handle selling price change
@@ -516,11 +675,16 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
     const sellPrice = parseFloat(value) || 0;
     const costPrice = parseFloat(formData.cost_price) || 0;
 
-    setFormData({
-      ...formData,
-      price_per_piece: value,
-      margin_percentage: calculateMargin(costPrice, sellPrice),
-    });
+    if (costPrice > 0 && sellPrice > 0) {
+      const margin = calculateMargin(costPrice, sellPrice);
+      setFormData({
+        ...formData,
+        price_per_piece: value,
+        margin_percentage: margin,
+      });
+    } else {
+      setFormData({ ...formData, price_per_piece: value });
+    }
   };
 
   // Handle margin change
@@ -528,32 +692,53 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
     const margin = parseFloat(value) || 0;
     const costPrice = parseFloat(formData.cost_price) || 0;
 
-    setFormData({
-      ...formData,
-      margin_percentage: value,
-      price_per_piece: calculateSellPrice(costPrice, margin),
-    });
+    if (costPrice > 0 && margin > 0) {
+      const sellPrice = calculateSellPrice(costPrice, margin);
+      setFormData({
+        ...formData,
+        margin_percentage: value,
+        price_per_piece: sellPrice,
+      });
+    } else {
+      setFormData({ ...formData, margin_percentage: value });
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Sanitize numeric fields - convert empty strings to null or proper numbers
+    console.log("📝 Form submitted with data:", formData);
+
+    // Basic validation
+    if (!formData.generic_name.trim()) {
+      showError("Generic name is required", { duration: 4000 });
+      return;
+    }
+
+    if (
+      !formData.price_per_piece ||
+      parseFloat(formData.price_per_piece) <= 0
+    ) {
+      showError("Valid selling price is required", { duration: 4000 });
+      return;
+    }
+
+    // Sanitize data before sending - convert empty strings to null for numeric fields
     const sanitizedData = {
       ...formData,
+      // Convert numeric fields from empty strings to null
       cost_price:
         formData.cost_price === ""
           ? null
           : parseFloat(formData.cost_price) || null,
-      // Single authoritative unit price
       price_per_piece:
         formData.price_per_piece === ""
-          ? 0
-          : parseFloat(formData.price_per_piece) || 0,
+          ? null
+          : parseFloat(formData.price_per_piece) || null,
       margin_percentage:
         formData.margin_percentage === ""
-          ? 0
-          : parseFloat(formData.margin_percentage) || 0,
+          ? null
+          : parseFloat(formData.margin_percentage) || null,
       pieces_per_sheet:
         formData.pieces_per_sheet === ""
           ? 1
@@ -568,34 +753,51 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
           : parseInt(formData.stock_in_pieces) || 0,
       reorder_level:
         formData.reorder_level === ""
-          ? 0
-          : parseInt(formData.reorder_level) || 0,
-      expiry_date: formData.expiry_date === "" ? null : formData.expiry_date,
-      batch_number:
-        formData.batch_number ||
-        generateSmartBatchNumber(
-          formData.name,
-          formData.category,
-          formData.expiry_date
-        ),
+          ? 10
+          : parseInt(formData.reorder_level) || 10,
+      // Handle batch number
+      batch_number: formData.batch_number || null,
+      // Handle expiry date
+      expiry_date: formData.expiry_date || null,
+      // Ensure active status is explicitly set
+      is_active: true,
+      is_archived: false,
     };
 
-    onSave(sanitizedData);
+    console.log("🧹 Sanitized data:", sanitizedData);
+    console.log("🔍 Active status check:", {
+      is_active: sanitizedData.is_active,
+      is_archived: sanitizedData.is_archived,
+    });
+
+    try {
+      await onSave(sanitizedData);
+    } catch (error) {
+      console.error("❌ Form submission error:", error);
+      showError(
+        `Error saving product: ${
+          error.message || "Please check your input and try again"
+        }`,
+        { duration: 6000 }
+      );
+    }
   };
 
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-hidden">
+        <div className="relative w-full max-w-6xl bg-white rounded-xl shadow-2xl max-h-[95vh] overflow-hidden">
           {/* Modal Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Package className="w-4 h-4 text-blue-600" />
+              <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Package className="w-3 h-3 text-blue-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="text-base font-semibold text-gray-900">
+                  {title}
+                </h3>
+                <p className="text-xs text-gray-600">
                   {product
                     ? "Update product metadata (stock managed via batches)"
                     : "Create new product with initial batch"}
@@ -611,412 +813,466 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
           </div>
 
           {/* Modal Body */}
-          <div className="p-4 max-h-96 overflow-y-auto">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Information Section */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <Package className="w-4 h-4 mr-2 text-gray-600" />
-                  Basic Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Product Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="Enter product name"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Category *
-                    </label>
-                    <select
-                      required
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                    >
-                      <option value="">Select category</option>
-                      {categories.map((category) => (
-                        <option
-                          key={category.id || category}
-                          value={category.name || category}
+          <div className="flex-1 overflow-hidden p-3">
+            <form onSubmit={handleSubmit} className="h-full">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full overflow-y-auto">
+                {/* Left Column */}
+                <div className="space-y-3 overflow-y-auto">
+                  {/* Basic Information Section */}
+                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                      <Package className="w-4 h-4 mr-1 text-blue-600" />
+                      Basic Information
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Generic Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.generic_name}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              generic_name: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter generic name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Brand Name
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.brand_name}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              brand_name: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter brand name (optional)"
+                        />
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Leave blank to use generic name
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Category *
+                        </label>
+                        <select
+                          required
+                          value={formData.category}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              category: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         >
-                          {category.name || category}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          description: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300 resize-none"
-                      placeholder="Enter product description"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Brand
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.brand}
-                      onChange={(e) =>
-                        setFormData({ ...formData, brand: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="Enter brand name"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced Pricing Section */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
-                <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                  <DollarSign className="h-6 w-6 mr-2 text-blue-600" />
-                  Enhanced Pricing Structure
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Cost Price (₱)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.cost_price}
-                      onChange={(e) => handleCostPriceChange(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="0.00"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Selling Price (₱) *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      value={formData.price_per_piece}
-                      onChange={(e) => handleSellPriceChange(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300 bg-white"
-                      placeholder="0.00"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Margin (%)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.margin_percentage}
-                      onChange={(e) => handleMarginChange(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="0.00"
-                      readOnly={
-                        !formData.cost_price || formData.cost_price <= 0
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Enhanced Pricing Summary */}
-                {formData.cost_price && formData.price_per_piece && (
-                  <div className="mt-6 p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-blue-200">
-                    <h5 className="text-sm font-semibold text-gray-700 mb-3">
-                      Pricing Summary
-                    </h5>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <div className="text-xs text-gray-500 uppercase tracking-wide">
-                          Cost Price
-                        </div>
-                        <div className="text-lg font-bold text-gray-900">
-                          ₱{parseFloat(formData.cost_price).toFixed(2)}
-                        </div>
+                          {categories.map((cat) => (
+                            <option key={cat.id || cat.name} value={cat.name}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <div className="text-center p-3 bg-blue-50 rounded-lg">
-                        <div className="text-xs text-blue-600 uppercase tracking-wide">
-                          Selling Price
-                        </div>
-                        <div className="text-lg font-bold text-blue-900">
-                          ₱{parseFloat(formData.price_per_piece).toFixed(2)}
-                        </div>
-                      </div>
-                      <div className="text-center p-3 bg-green-50 rounded-lg">
-                        <div className="text-xs text-green-600 uppercase tracking-wide">
-                          Profit per Unit
-                        </div>
-                        <div className="text-lg font-bold text-green-700">
-                          ₱
-                          {(
-                            parseFloat(formData.price_per_piece) -
-                            parseFloat(formData.cost_price)
-                          ).toFixed(2)}
-                        </div>
-                      </div>
-                      <div className="text-center p-3 bg-purple-50 rounded-lg">
-                        <div className="text-xs text-purple-600 uppercase tracking-wide">
-                          Margin
-                        </div>
-                        <div className="text-lg font-bold text-purple-700">
-                          {formData.margin_percentage}%
-                        </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Manufacturer
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.manufacturer}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              manufacturer: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter manufacturer"
+                        />
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Stock and Inventory Section */}
-              <div className="bg-gray-50 rounded-xl p-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                  <Package className="h-5 w-5 mr-2 text-gray-600" />
-                  Stock Management
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Stock input only shown when adding new products */}
-                  {!product && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Initial Stock (Pieces) *
+                  {/* Medicine Details Section */}
+                  <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                      <Pill className="w-4 h-4 mr-1 text-purple-600" />
+                      Medicine Specifications
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Dosage Form
+                        </label>
+                        <select
+                          value={formData.dosage_form}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              dosage_form: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="">Select dosage form</option>
+                          {dosageFormOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Dosage Strength
+                        </label>
+                        <select
+                          value={formData.dosage_strength}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              dosage_strength: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          <option value="">Select dosage strength</option>
+                          {dosageStrengthOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Drug Classification
                       </label>
-                      <input
-                        type="number"
-                        required
-                        value={formData.stock_in_pieces}
+                      <select
+                        value={formData.drug_classification}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            stock_in_pieces: e.target.value,
+                            drug_classification: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                        placeholder="Enter initial stock quantity"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        For existing products, use Batch Management to add stock
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Show current stock when editing (read-only) */}
-                  {product && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Current Stock (Calculated)
-                      </label>
-                      <div className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-600">
-                        {product.stock_in_pieces?.toLocaleString() || 0} pieces
-                      </div>
-                      <p className="text-xs text-blue-600 mt-1">
-                        💡 Stock is calculated from batches. Use Batch Management to modify.
-                      </p>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="flex items-center justify-between text-sm font-semibold text-gray-700 mb-2">
-                      <span>Batch Number *</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newBatch = generateSmartBatchNumber(
-                            formData.name,
-                            formData.category,
-                            formData.expiry_date
-                          );
-                          setFormData({
-                            ...formData,
-                            batch_number: newBatch,
-                          });
-                        }}
-                        className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors"
-                        title="Generate new batch number"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                       >
-                        🔄 Generate
-                      </button>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.batch_number}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          batch_number: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-300 bg-blue-50 font-mono text-sm"
-                      placeholder="Auto-generated batch number"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Format: CategoryProduct-Date-Sequence-ShelfLife
-                    </p>
+                        <option value="">Select drug classification</option>
+                        {drugClassificationOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Pieces per Sheet
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.pieces_per_sheet}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          pieces_per_sheet: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="1"
-                    />
+                  {/* Pricing Section */}
+                  <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                      <DollarSign className="w-4 h-4 mr-1 text-green-600" />
+                      Pricing & Margins
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Cost Price
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.cost_price}
+                          onChange={(e) =>
+                            handleCostPriceChange(e.target.value)
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Selling Price *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          value={formData.price_per_piece}
+                          onChange={(e) =>
+                            handleSellPriceChange(e.target.value)
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Margin %
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formData.margin_percentage}
+                            onChange={(e) => handleMarginChange(e.target.value)}
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 pr-6"
+                            placeholder="0"
+                          />
+                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+                            %
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Margin Calculation Display */}
+                    {formData.cost_price && formData.price_per_piece && (
+                      <div className="mt-2 p-2 bg-white rounded border text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">
+                            Profit per piece:
+                          </span>
+                          <span className="font-semibold text-green-600">
+                            ₱
+                            {(
+                              parseFloat(formData.price_per_piece) -
+                              parseFloat(formData.cost_price)
+                            ).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-3 overflow-y-auto">
+                  {/* Stock Management Section */}
+                  <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                      <BarChart3 className="w-4 h-4 mr-1 text-orange-600" />
+                      Stock Management
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Current Stock (pieces)
+                        </label>
+                        <input
+                          type="number"
+                          required={!product} // Only required for new products
+                          value={formData.stock_in_pieces}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              stock_in_pieces: e.target.value,
+                            })
+                          }
+                          readOnly={!!product} // Only readonly when editing existing product
+                          className={`w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500 ${
+                            product
+                              ? "bg-gray-50 text-gray-700 cursor-not-allowed"
+                              : ""
+                          }`}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Reorder Level
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.reorder_level}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              reorder_level: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                          placeholder="10"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Pieces per Sheet
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.pieces_per_sheet}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              pieces_per_sheet: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                          placeholder="10"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Sheets per Box
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.sheets_per_box}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              sheets_per_box: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                          placeholder="10"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Sheets per Box
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.sheets_per_box}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sheets_per_box: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="1"
-                    />
+                  {/* Supply Chain Section */}
+                  <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                      <Shield className="w-4 h-4 mr-1 text-indigo-600" />
+                      Supply Chain & Batch
+                    </h4>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Supplier
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.supplier}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              supplier: e.target.value,
+                            })
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                          placeholder="Enter supplier name"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                            Expiry Date
+                          </label>
+                          <input
+                            type="date"
+                            value={formData.expiry_date}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                expiry_date: e.target.value,
+                              })
+                            }
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="flex items-center justify-between text-xs font-semibold text-gray-700 mb-1">
+                            <span>Batch Number *</span>
+                            {product && (
+                              <span className="text-xs text-gray-500 italic">
+                                Read-only when editing
+                              </span>
+                            )}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={formData.batch_number}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                batch_number: e.target.value,
+                              })
+                            }
+                            readOnly={!!product} // Only readonly when editing existing product
+                            className={`w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${
+                              product
+                                ? "bg-gray-50 text-gray-700 cursor-not-allowed"
+                                : ""
+                            }`}
+                            placeholder="BT010125-123"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Reorder Level
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.reorder_level}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          reorder_level: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="0"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Supplier
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.supplier}
-                      onChange={(e) =>
-                        setFormData({ ...formData, supplier: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
-                      placeholder="Enter supplier name"
-                    />
-                  </div>
-
-                  {/* Expiry date only shown when adding new products */}
-                  {!product && (
+                  {/* Description Section */}
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-2">
+                      Additional Information
+                    </h4>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Initial Batch Expiry Date
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Description
                       </label>
-                      <input
-                        type="date"
-                        value={formData.expiry_date}
+                      <textarea
+                        value={formData.description}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            expiry_date: e.target.value,
+                            description: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-300"
+                        rows={3}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                        placeholder="Enter product description, usage instructions, or notes..."
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        For the initial batch. Additional batches can have different expiry dates.
-                      </p>
                     </div>
-                  )}
-                  
-                  {/* Show expiry info when editing (informational) */}
-                  {product && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Expiry Information
-                      </label>
-                      <div className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-600">
-                        {product.expiry_date ? formatDate(product.expiry_date) : 'Varies by batch'}
-                      </div>
-                      <p className="text-xs text-blue-600 mt-1">
-                        💡 Each batch can have different expiry dates. Check Batch Management for details.
-                      </p>
-                    </div>
-                  )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="border-t border-gray-200 bg-gray-50 px-3 py-3 flex-shrink-0">
+                <div className="flex justify-between items-center">
+                  <div className="text-xs text-gray-600">
+                    {product
+                      ? "Updating existing product"
+                      : "Creating new product"}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-3 py-1.5 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-100 hover:scale-105 transition-all duration-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 hover:scale-105 hover:shadow-lg transition-all duration-200 font-medium"
+                    >
+                      {product ? "Update Product" : "Add Product"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
-          </div>
-
-          {/* Modal Footer */}
-          <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex-shrink-0">
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="group px-6 py-2.5 border-2 border-gray-200 text-gray-700 font-medium rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="group px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
-              >
-                <span className="flex items-center space-x-2">
-                  <span>{product ? "Update Product" : "Add Product"}</span>
-                </span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -1024,446 +1280,484 @@ function ProductModal({ title, product, categories, onClose, onSave }) {
   );
 }
 
-// Product Details Modal Component
+// Product Details Modal Component - Simple Working Version
 function ProductDetailsModal({ product, onClose, onEdit }) {
-  const [batches, setBatches] = useState([]);
-  const [loadingBatches, setLoadingBatches] = useState(false);
-  const [showAddStockModal, setShowAddStockModal] = useState(false);
-  
-  const stockStatus = getStockStatus(product);
-  const expiryStatus = getExpiryStatus(product);
-  const stockBreakdown = getStockBreakdown(product.stock_in_pieces, product);
-
-  // Load batches when modal opens
-  useEffect(() => {
-    if (product?.id) {
-      loadBatches();
-    }
-  }, [product?.id]);
-
-  const loadBatches = async () => {
-    try {
-      setLoadingBatches(true);
-      const batchData = await ProductService.getBatchesForProduct(product.id);
-      setBatches(batchData);
-    } catch (error) {
-      console.warn('⚠️ Batch functions not available yet:', error);
-      setBatches([]);
-    } finally {
-      setLoadingBatches(false);
-    }
-  };
-
-  const handleStockAdded = async (result) => {
-    console.log('✅ Stock added successfully:', result);
-    // Refresh batches
-    await loadBatches();
-    // You might want to refresh the main product data here too
-  };
-
-  const getExpiryStatusForBatch = (expiryDate, daysUntilExpiry) => {
-    if (!expiryDate) return { status: 'none', color: 'gray', label: 'No expiry' };
-    
-    if (daysUntilExpiry < 0) {
-      return { status: 'expired', color: 'red', label: 'Expired' };
-    } else if (daysUntilExpiry === 0) {
-      return { status: 'expires-today', color: 'red', label: 'Expires today' };
-    } else if (daysUntilExpiry <= 30) {
-      return { status: 'expiring-soon', color: 'orange', label: 'Expiring soon' };
-    } else if (daysUntilExpiry <= 90) {
-      return { status: 'expiring', color: 'yellow', label: 'Expiring' };
-    } else {
-      return { status: 'good', color: 'green', label: 'Good' };
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center z-50 p-4 py-8 overflow-y-auto">
-      <div
-        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col my-auto"
-        style={{ minHeight: "90vh", maxHeight: "fit-content" }}
-      >
-        <div className="flex flex-col h-full min-h-0">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 flex-shrink-0">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-green-100 rounded-xl">
-                <Eye className="h-6 w-6 text-green-600" />
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl max-h-[95vh] overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Product Details
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 overflow-y-auto max-h-[calc(95vh-160px)]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Generic Name
+                </label>
+                <p className="text-lg font-semibold text-gray-900">
+                  {product.generic_name || "N/A"}
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900">
-                Product Details
-              </h3>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Brand Name
+                </label>
+                <p className="text-lg font-semibold text-gray-900">
+                  {product.brand_name || "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Category
+                </label>
+                <p className="text-lg font-semibold text-gray-900">
+                  {product.category || "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Manufacturer
+                </label>
+                <p className="text-lg font-semibold text-gray-900">
+                  {product.manufacturer || "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Dosage Strength
+                </label>
+                <p className="text-lg font-semibold text-gray-900">
+                  {product.dosage_strength || "N/A"}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setShowAddStockModal(true)}
-                className="group flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-xl hover:from-green-700 hover:to-green-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
-              >
-                <Plus className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-                <span>Add Stock</span>
-              </button>
-              <button
-                onClick={onEdit}
-                className="group flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
-              >
-                <Edit className="h-4 w-4 group-hover:rotate-12 transition-transform duration-200" />
-                <span>Edit</span>
-              </button>
-              <button
-                onClick={onClose}
-                className="group p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
-              >
-                <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
-              </button>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Price per Piece
+                </label>
+                <p className="text-lg font-semibold text-green-600">
+                  ?{product.price_per_piece || "0.00"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Stock (pieces)
+                </label>
+                <p className="text-lg font-semibold text-blue-600">
+                  {product.stock_in_pieces || "0"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Reorder Level
+                </label>
+                <p className="text-lg font-semibold text-orange-600">
+                  {product.reorder_level || "0"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Expiry Date
+                </label>
+                <p className="text-lg font-semibold text-gray-900">
+                  {product.expiry_date
+                    ? new Date(product.expiry_date).toLocaleDateString()
+                    : "N/A"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500">
+                  Batch Number
+                </label>
+                <p className="text-lg font-semibold text-gray-900">
+                  {product.batch_number || "N/A"}
+                </p>
+              </div>
             </div>
           </div>
 
+          {product.description && (
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-500 mb-2">
+                Description
+              </label>
+              <p className="text-gray-900 p-3 bg-gray-50 rounded-lg">
+                {product.description}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end space-x-3 p-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Close
+          </button>
+          <button
+            onClick={onEdit}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:scale-105 hover:shadow-lg transition-all duration-200 flex items-center space-x-2"
+          >
+            <Edit className="w-4 h-4" />
+            <span>Edit Product</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Improved Product Details Modal Component - Ultra-Compact Crosswise Design
+function ProductDetailsModalNew({ product, onClose, onEdit }) {
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
+
+  const handleStockAdded = () => {
+    setShowAddStockModal(false);
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="relative w-full max-w-6xl bg-white rounded-xl shadow-2xl max-h-[95vh] overflow-hidden">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+            <div className="flex items-center space-x-3">
+              <div className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center">
+                <Eye className="w-3 h-3 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">
+                  Product Details
+                </h3>
+                <p className="text-xs text-gray-600">
+                  Complete product information and current stock status
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
           {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto p-6 modal-scrollbar">
-            <div className="space-y-8">
-              {/* Basic Information */}
-              <div className="bg-gray-50 rounded-xl p-6">
-                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Package className="h-6 w-6 mr-3 text-blue-600" />
-                  Basic Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Product Name
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
-                      {product.name}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Brand
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
-                      {product.brand || "Not specified"}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Category
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                        {product.category}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-1">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Status
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    </p>
-                  </div>
-                  {product.description && (
-                    <div className="bg-white rounded-lg p-4 shadow-sm md:col-span-2">
-                      <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                        Description
-                      </span>
-                      <p className="text-base text-gray-800 mt-2 leading-relaxed">
-                        {product.description}
-                      </p>
+          <div className="p-3 overflow-y-auto max-h-[calc(95vh-140px)]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
+              {/* Left Column - Product Details */}
+              <div className="space-y-3 overflow-y-auto pr-2">
+                {/* General Information */}
+                <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                    <Package className="h-4 w-4 mr-1 text-blue-600" />
+                    General Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Generic Name
+                      </dt>
+                      <dd className="text-sm font-bold text-blue-900 truncate">
+                        {product.generic_name || "Not specified"}
+                      </dd>
                     </div>
-                  )}
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Brand Name
+                      </dt>
+                      <dd className="text-sm font-bold text-blue-900 truncate">
+                        {product.brand_name || "Not specified"}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Category
+                      </dt>
+                      <dd className="text-sm font-semibold text-gray-900">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">
+                          {product.category}
+                        </span>
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Dosage
+                      </dt>
+                      <dd className="text-sm font-bold text-purple-900 truncate">
+                        {product.dosage_strength || "Not specified"}
+                      </dd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stock Information */}
+                <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                    <BarChart3 className="h-4 w-4 mr-1 text-green-600" />
+                    Stock Status
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-white rounded p-2 text-center">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Stock
+                      </dt>
+                      <dd className="text-sm font-bold text-green-900">
+                        {product.stock_in_pieces || 0}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2 text-center">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Price
+                      </dt>
+                      <dd className="text-sm font-bold text-green-900">
+                        ₱{product.price_per_piece || 0}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2 text-center">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Reorder
+                      </dt>
+                      <dd className="text-sm font-bold text-orange-900">
+                        {product.reorder_level || 0}
+                      </dd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Medicine Details */}
+                <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                    <Pill className="h-4 w-4 mr-1 text-purple-600" />
+                    Medicine Details
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Dosage Form
+                      </dt>
+                      <dd className="text-sm font-bold text-purple-900">
+                        {product.dosage_form || "N/A"}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Manufacturer
+                      </dt>
+                      <dd className="text-sm font-bold text-purple-900">
+                        {product.manufacturer || "N/A"}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2 col-span-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Drug Classification
+                      </dt>
+                      <dd className="text-sm font-bold text-purple-900">
+                        {product.drug_classification || "N/A"}
+                      </dd>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing Information */}
+                <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                    <DollarSign className="h-4 w-4 mr-1 text-emerald-600" />
+                    Pricing Details
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Cost Price
+                      </dt>
+                      <dd className="text-sm font-bold text-emerald-900">
+                        ₱{product.cost_price || "0.00"}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Selling Price
+                      </dt>
+                      <dd className="text-sm font-bold text-emerald-900">
+                        ₱{product.price_per_piece || "0.00"}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Margin
+                      </dt>
+                      <dd className="text-sm font-bold text-emerald-900">
+                        {product.margin_percentage || "0"}%
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Total Value
+                      </dt>
+                      <dd className="text-sm font-bold text-emerald-900">
+                        ₱
+                        {(
+                          (product.stock_in_pieces || 0) *
+                          (product.price_per_piece || 0)
+                        ).toFixed(2)}
+                      </dd>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Stock Information */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Package className="h-6 w-6 mr-3 text-indigo-600" />
-                  Stock Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Current Stock
-                    </span>
-                    <div className="mt-3">
-                      <p className="text-2xl font-bold text-gray-900">
-                        {product.stock_in_pieces.toLocaleString()} pieces
-                      </p>
-                      <span
-                        className={`mt-2 inline-flex px-4 py-2 text-sm font-bold rounded-xl ${
-                          stockStatus === "critical_stock"
-                            ? "bg-red-100 text-red-800 border border-red-200"
-                            : stockStatus === "low_stock"
-                            ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                            : "bg-green-100 text-green-800 border border-green-200"
-                        }`}
-                      >
-                        {stockStatus.replace("_", " ").toUpperCase()}
-                      </span>
+              {/* Right Column - Supply Chain & Actions */}
+              <div className="space-y-3 overflow-y-auto">
+                {/* Supply Chain Information */}
+                <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                    <Shield className="h-4 w-4 mr-1 text-indigo-600" />
+                    Supply Chain
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Supplier
+                      </dt>
+                      <dd className="text-sm font-bold text-indigo-900">
+                        {product.supplier || "Not specified"}
+                      </dd>
                     </div>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Stock Breakdown
-                    </span>
-                    <div className="mt-3 space-y-2">
-                      <p className="text-lg font-semibold text-gray-900">
-                        {stockBreakdown.boxes} boxes, {stockBreakdown.sheets}{" "}
-                        sheets, {stockBreakdown.pieces} pieces
-                      </p>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p>
-                          •{" "}
-                          <span className="font-medium">
-                            {product.pieces_per_sheet}
-                          </span>{" "}
-                          pieces per sheet
-                        </p>
-                        <p>
-                          •{" "}
-                          <span className="font-medium">
-                            {product.sheets_per_box}
-                          </span>{" "}
-                          sheets per box
-                        </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-white rounded p-2">
+                        <dt className="text-xs font-semibold text-gray-600">
+                          Batch Number
+                        </dt>
+                        <dd className="text-sm font-bold text-indigo-900">
+                          {product.batch_number || "N/A"}
+                        </dd>
+                      </div>
+                      <div className="bg-white rounded p-2">
+                        <dt className="text-xs font-semibold text-gray-600">
+                          Expiry Date
+                        </dt>
+                        <dd className="text-sm font-bold text-indigo-900">
+                          {product.expiry_date
+                            ? new Date(product.expiry_date).toLocaleDateString()
+                            : "N/A"}
+                        </dd>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Reorder Level
-                    </span>
-                    <p className="text-xl font-bold text-gray-900 mt-2">
-                      {product.reorder_level} pieces
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-100">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Stock Status
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-2">
-                      {product.stock_in_pieces <= product.reorder_level ? (
-                        <span className="text-red-600">⚠️ Needs Reorder</span>
-                      ) : (
-                        <span className="text-green-600">
-                          ✅ Adequate Stock
-                        </span>
-                      )}
-                    </p>
-                  </div>
                 </div>
-              </div>
 
-              {/* Pricing Information */}
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
-                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                  <DollarSign className="h-6 w-6 mr-3 text-green-600" />
-                  Pricing Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Price per Piece
-                    </span>
-                    <p className="text-2xl font-bold text-green-700 mt-2">
-                      {formatCurrency(product.price_per_piece)}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Price per Sheet
-                    </span>
-                    <p className="text-xl font-bold text-gray-900 mt-2">
-                      {formatCurrency(
-                        product.price_per_piece * product.pieces_per_sheet
-                      )}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Price per Box
-                    </span>
-                    <p className="text-xl font-bold text-gray-900 mt-2">
-                      {formatCurrency(
-                        product.price_per_piece *
-                          product.pieces_per_sheet *
-                          product.sheets_per_box
-                      )}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-sm border border-green-100">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Total Stock Value
-                    </span>
-                    <p className="text-2xl font-bold text-green-700 mt-2">
-                      {formatCurrency(
-                        product.stock_in_pieces * product.price_per_piece
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Additional Information */}
-              <div className="bg-gray-50 rounded-xl p-6">
-                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Package className="h-6 w-6 mr-3 text-purple-600" />
-                  Additional Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Supplier
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
-                      {product.supplier || "Not specified"}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Batch Number
-                    </span>
-                    <p className="text-lg font-mono font-bold text-gray-900 mt-1 bg-gray-100 px-2 py-1 rounded">
-                      {product.batch_number}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Expiry Date
-                    </span>
-                    <div className="mt-2">
-                      <p className="text-lg font-semibold text-gray-900">
-                        {formatDate(product.expiry_date)}
-                      </p>
-                      <span
-                        className={`mt-1 inline-flex px-3 py-1 text-sm font-bold rounded-xl ${
-                          expiryStatus === "expired"
-                            ? "bg-red-100 text-red-800 border border-red-200"
-                            : expiryStatus === "expiring_soon"
-                            ? "bg-orange-100 text-orange-800 border border-orange-200"
-                            : expiryStatus === "expiring_warning"
-                            ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                            : "bg-green-100 text-green-800 border border-green-200"
-                        }`}
-                      >
-                        {expiryStatus.replace("_", " ").toUpperCase()}
-                      </span>
+                {/* Packaging Information */}
+                <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                    <Package className="h-4 w-4 mr-1 text-orange-600" />
+                    Packaging Details
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Pieces/Sheet
+                      </dt>
+                      <dd className="text-sm font-bold text-orange-900">
+                        {product.pieces_per_sheet || "1"}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Sheets/Box
+                      </dt>
+                      <dd className="text-sm font-bold text-orange-900">
+                        {product.sheets_per_box || "1"}
+                      </dd>
+                    </div>
+                    <div className="bg-white rounded p-2 col-span-2">
+                      <dt className="text-xs font-semibold text-gray-600">
+                        Total pieces per box
+                      </dt>
+                      <dd className="text-sm font-bold text-orange-900">
+                        {(product.pieces_per_sheet || 1) *
+                          (product.sheets_per_box || 1)}{" "}
+                        pieces
+                      </dd>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                      Last Updated
-                    </span>
-                    <p className="text-lg font-semibold text-gray-900 mt-1">
-                      {formatDate(new Date())}
-                    </p>
-                  </div>
                 </div>
-              </div>
 
-              {/* Batch Tracking Information */}
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
-                <div className="flex items-center justify-between mb-6">
-                  <h4 className="text-xl font-bold text-gray-900 flex items-center">
-                    <Package className="h-6 w-6 mr-3 text-purple-600" />
-                    Batch Tracking
-                  </h4>
-                  <span className="text-sm text-gray-600">
-                    {batches.length} batch{batches.length !== 1 ? 'es' : ''} found
-                  </span>
-                </div>
-                
-                {loadingBatches ? (
-                  <div className="bg-white rounded-xl p-8 shadow-sm border border-purple-100 text-center">
-                    <div className="animate-spin h-8 w-8 border-2 border-purple-600 border-t-transparent rounded-full mx-auto"></div>
-                    <p className="text-gray-600 mt-2">Loading batches...</p>
-                  </div>
-                ) : batches.length === 0 ? (
-                  <div className="bg-white rounded-xl p-8 shadow-sm border border-purple-100 text-center">
-                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <h5 className="text-lg font-semibold text-gray-900 mb-2">No Batches Found</h5>
-                    <p className="text-gray-600 mb-4">This product doesn't have any batch records yet.</p>
-                    <button
-                      onClick={() => setShowAddStockModal(true)}
-                      className="inline-flex items-center px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add First Batch
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-xl shadow-sm border border-purple-100 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Batch ID
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Batch No.
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Quantity
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Expiry Status
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Date Added
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {batches.map((batch) => {
-                            const batchExpiryStatus = getExpiryStatusForBatch(batch.expiry_date, batch.days_until_expiry);
-                            
-                            return (
-                              <tr key={batch.batch_id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span className="text-sm font-mono font-medium text-gray-900">
-                                    #{batch.batch_id}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span className="text-sm text-gray-900">
-                                    {batch.batch_number || '-'}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {batch.quantity?.toLocaleString()} pieces
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <div className="space-y-1">
-                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-${batchExpiryStatus.color}-100 text-${batchExpiryStatus.color}-800`}>
-                                      {batchExpiryStatus.label}
-                                    </span>
-                                    {batch.expiry_date && (
-                                      <div className="text-xs text-gray-500">
-                                        {formatDate(batch.expiry_date)}
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span className="text-sm text-gray-500">
-                                    {formatDate(batch.created_at)}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                {/* Description */}
+                {product.description && (
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <h4 className="text-sm font-bold text-gray-900 mb-2">
+                      Description
+                    </h4>
+                    <div className="bg-white rounded p-2">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {product.description}
+                      </p>
                     </div>
                   </div>
                 )}
+
+                {/* Quick Actions */}
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-2">
+                    Quick Actions
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={onEdit}
+                      className="flex items-center justify-center space-x-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                    >
+                      <Edit className="w-3 h-3" />
+                      <span>Edit Product</span>
+                    </button>
+                    <button
+                      onClick={() => setShowAddStockModal(true)}
+                      className="flex items-center justify-center space-x-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Stock</span>
+                    </button>
+                  </div>
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="border-t border-gray-200 bg-gray-50 px-3 py-3 flex-shrink-0">
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-gray-600">
+                Last updated:{" "}
+                {product.updated_at
+                  ? new Date(product.updated_at).toLocaleDateString()
+                  : "Unknown"}
+              </div>
+              <button
+                onClick={onClose}
+                className="px-4 py-1.5 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -1476,6 +1770,6 @@ function ProductDetailsModal({ product, onClose, onEdit }) {
         product={product}
         onSuccess={handleStockAdded}
       />
-    </div>
+    </>
   );
 }
