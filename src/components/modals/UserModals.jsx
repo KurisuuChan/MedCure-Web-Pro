@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { UserManagementService } from "../../services/domains/auth/userManagementService";
+import { UnifiedSpinner } from "../ui/loading/UnifiedSpinner";
 
 // Create User Modal Component
 export const CreateUserModal = ({ onClose, onSubmit }) => {
@@ -357,11 +358,11 @@ export const CreateUserModal = ({ onClose, onSubmit }) => {
               type="submit"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 disabled:opacity-50 flex items-center space-x-2"
+              className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 hover:scale-105 hover:shadow-lg rounded-lg transition-all duration-200 disabled:opacity-50 flex items-center space-x-2"
             >
               {isSubmitting ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <UnifiedSpinner variant="dots" size="xs" color="white" />
                   <span>Creating...</span>
                 </>
               ) : (
@@ -653,11 +654,11 @@ export const EditUserModal = ({ user, onClose, onSubmit }) => {
             type="submit"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-all duration-200 disabled:opacity-50 flex items-center space-x-2"
+            className="px-5 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 hover:scale-105 hover:shadow-lg rounded-lg transition-all duration-200 disabled:opacity-50 flex items-center space-x-2"
           >
             {isSubmitting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <UnifiedSpinner variant="dots" size="xs" color="white" />
                 <span>Saving...</span>
               </>
             ) : (
@@ -681,7 +682,7 @@ export const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await onConfirm();
+      await onConfirm(); // No more forceCascade parameter
     } catch (error) {
       console.error("Error deleting user:", error);
     } finally {
@@ -693,19 +694,40 @@ export const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
     confirmText.toLowerCase() ===
     `${user.first_name} ${user.last_name}`.toLowerCase();
 
+  // Determine if this is a hard delete (for inactive users) or soft delete (for active users)
+  const isHardDelete = !user.is_active;
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100">
+        <div
+          className={`p-6 ${
+            isHardDelete
+              ? "bg-gradient-to-r from-red-100 to-red-50"
+              : "bg-gradient-to-r from-orange-50 to-yellow-50"
+          } border-b ${isHardDelete ? "border-red-200" : "border-orange-100"}`}
+        >
           <div className="flex items-start space-x-4">
-            <div className="p-3 bg-red-100 rounded-xl">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
+            <div
+              className={`p-3 ${
+                isHardDelete ? "bg-red-200" : "bg-orange-100"
+              } rounded-xl`}
+            >
+              <AlertTriangle
+                className={`h-6 w-6 ${
+                  isHardDelete ? "text-red-700" : "text-orange-600"
+                }`}
+              />
             </div>
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-gray-900">Delete User</h3>
+              <h3 className="text-xl font-bold text-gray-900">
+                {isHardDelete ? "Permanently Delete User" : "Deactivate User"}
+              </h3>
               <p className="text-sm text-gray-600 mt-1">
-                This action cannot be undone
+                {isHardDelete
+                  ? "This action cannot be undone!"
+                  : "User will be deactivated"}
               </p>
             </div>
             <button
@@ -722,7 +744,13 @@ export const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
           {/* User Info */}
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex items-center space-x-3">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white font-semibold text-lg">
+              <div
+                className={`h-12 w-12 rounded-full ${
+                  isHardDelete
+                    ? "bg-gradient-to-br from-red-600 to-red-800"
+                    : "bg-gradient-to-br from-orange-500 to-red-500"
+                } flex items-center justify-center text-white font-semibold text-lg`}
+              >
                 {user.first_name?.[0]}
                 {user.last_name?.[0]}
               </div>
@@ -731,9 +759,16 @@ export const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
                   {user.first_name} {user.last_name}
                 </p>
                 <p className="text-sm text-gray-500">{user.email}</p>
-                <p className="text-xs text-gray-400 capitalize">
-                  {user.user_roles?.role || "employee"}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-gray-400 capitalize">
+                    {user.user_roles?.role || "employee"}
+                  </p>
+                  {!user.is_active && (
+                    <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                      Deactivated
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -741,21 +776,66 @@ export const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
           {/* Warning Message */}
           <div className="space-y-2">
             <p className="text-sm text-gray-700">
-              You are about to permanently delete this user account. This will:
+              {isHardDelete
+                ? "You are about to PERMANENTLY delete this user account. This will:"
+                : "You are about to deactivate this user account. This will:"}
             </p>
             <ul className="text-sm text-gray-600 space-y-1 ml-4">
-              <li className="flex items-start">
-                <span className="text-red-500 mr-2">•</span>
-                <span>Remove all user data and history</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-red-500 mr-2">•</span>
-                <span>Revoke all access and permissions</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-red-500 mr-2">•</span>
-                <span>Delete activity logs and audit trails</span>
-              </li>
+              {isHardDelete ? (
+                <>
+                  <li className="flex items-start">
+                    <span className="text-red-600 mr-2">•</span>
+                    <span className="font-semibold text-red-700">
+                      PERMANENTLY remove user account
+                    </span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-red-600 mr-2">•</span>
+                    <span>Delete user profile and credentials</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-red-600 mr-2">•</span>
+                    <span>Remove activity logs and audit trails</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-red-600 mr-2">•</span>
+                    <span>Delete stock movements created by this user</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-600 mr-2">ℹ</span>
+                    <span className="text-blue-700 font-medium">
+                      Sales records will be preserved (business data)
+                    </span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-red-600 mr-2">⚠</span>
+                    <span className="font-semibold text-red-700">
+                      This action CANNOT be undone!
+                    </span>
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Revoke all access and permissions</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Prevent user from logging in</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Preserve user data and history</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-600 mr-2">ℹ</span>
+                    <span className="text-blue-700">
+                      Can be reactivated later if needed
+                    </span>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
 
@@ -791,17 +871,25 @@ export const DeleteConfirmationModal = ({ user, onClose, onConfirm }) => {
             type="button"
             onClick={handleDelete}
             disabled={!isConfirmValid || isDeleting}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            className={`px-5 py-2.5 text-sm font-medium text-white ${
+              isHardDelete
+                ? "bg-red-700 hover:bg-red-800"
+                : "bg-orange-600 hover:bg-orange-700"
+            } hover:scale-105 hover:shadow-lg rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2`}
           >
             {isDeleting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                <span>Deleting...</span>
+                <UnifiedSpinner variant="dots" size="xs" color="white" />
+                <span>
+                  {isHardDelete ? "Permanently Deleting..." : "Deactivating..."}
+                </span>
               </>
             ) : (
               <>
                 <Trash2 className="h-4 w-4" />
-                <span>Delete User</span>
+                <span>
+                  {isHardDelete ? "Permanently Delete" : "Deactivate User"}
+                </span>
               </>
             )}
           </button>
@@ -904,11 +992,11 @@ export const ResetPasswordModal = ({ user, onClose, onConfirm }) => {
             type="button"
             onClick={handleReset}
             disabled={isResetting}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition-all duration-200 disabled:opacity-50 flex items-center space-x-2"
+            className="px-5 py-2.5 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 hover:scale-105 hover:shadow-lg rounded-lg transition-all duration-200 disabled:opacity-50 flex items-center space-x-2"
           >
             {isResetting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <UnifiedSpinner variant="dots" size="xs" color="white" />
                 <span>Sending...</span>
               </>
             ) : (
@@ -931,8 +1019,12 @@ export const SuccessModal = ({
   title = "Success!",
   message = "Operation completed successfully.",
   user = null,
+  isUpdate = false, // New prop to differentiate update vs create
 }) => {
   if (!isOpen) return null;
+
+  // Determine if this is an update based on title or explicit prop
+  const isUserUpdate = isUpdate || title.includes("Updated");
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -998,12 +1090,21 @@ export const SuccessModal = ({
               <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-green-800">
                 <p className="font-medium mb-1">What's Next:</p>
-                <ul className="space-y-1 text-green-700">
-                  <li>• User account is now active</li>
-                  <li>• Credentials have been created successfully</li>
-                  <li>• User can log in immediately</li>
-                  <li>• User will appear in the user list</li>
-                </ul>
+                {isUserUpdate ? (
+                  <ul className="space-y-1 text-green-700">
+                    <li>• User information has been updated</li>
+                    <li>• Changes are effective immediately</li>
+                    <li>• User can continue using their account</li>
+                    <li>• Updated details will reflect in the user list</li>
+                  </ul>
+                ) : (
+                  <ul className="space-y-1 text-green-700">
+                    <li>• User account is now active</li>
+                    <li>• Credentials have been created successfully</li>
+                    <li>• User can log in immediately</li>
+                    <li>• User will appear in the user list</li>
+                  </ul>
+                )}
               </div>
             </div>
           </div>
@@ -1017,6 +1118,168 @@ export const SuccessModal = ({
             className="px-8 py-3 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
           >
             Got it!
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Activation Confirmation Modal Component
+export const ActivationConfirmationModal = ({
+  user,
+  onClose,
+  onConfirm,
+  isActivating = false,
+}) => {
+  const [confirmText, setConfirmText] = useState("");
+
+  const isConfirmValid =
+    confirmText.toLowerCase() ===
+    `${user.first_name} ${user.last_name}`.toLowerCase();
+
+  const handleConfirm = () => {
+    if (isConfirmValid) {
+      onConfirm();
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && isConfirmValid) {
+      handleConfirm();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-green-100 rounded-xl">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                Reactivate User
+              </h2>
+              <p className="text-sm text-gray-600 mt-0.5">
+                Restore user access and permissions
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={isActivating}
+            className="p-2 hover:bg-green-100 rounded-lg transition-colors duration-200 disabled:opacity-50"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-5">
+          {/* User Info */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+            <div className="space-y-2">
+              <div className="flex items-center text-sm">
+                <User className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-gray-600 w-20 font-medium">Name:</span>
+                <span className="text-gray-900 font-semibold">
+                  {user.first_name} {user.last_name}
+                </span>
+              </div>
+              <div className="flex items-center text-sm">
+                <Mail className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-gray-600 w-20 font-medium">Email:</span>
+                <span className="text-gray-900">{user.email}</span>
+              </div>
+              <div className="flex items-center text-sm">
+                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <span className="text-gray-600 w-20 font-medium">Role:</span>
+                <span className="text-gray-900 capitalize">{user.role}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Warning/Info Box */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-blue-900 mb-2">
+                  This action will:
+                </p>
+                <ul className="space-y-1.5 text-blue-800">
+                  <li className="flex items-start">
+                    <span className="text-green-600 mr-2">✓</span>
+                    <span>Restore user account to active status</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-green-600 mr-2">✓</span>
+                    <span>Grant all previous access and permissions</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-green-600 mr-2">✓</span>
+                    <span>Allow user to log in immediately</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-green-600 mr-2">✓</span>
+                    <span>Preserve all existing data and history</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Confirmation Input */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Type the user's full name to confirm:
+              <span className="block text-xs font-normal text-gray-500 mt-1">
+                {user.first_name} {user.last_name}
+              </span>
+            </label>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Enter full name"
+              disabled={isActivating}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:outline-none transition-all duration-200 disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end space-x-3 p-6 bg-gray-50 border-t border-gray-200">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isActivating}
+            className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-all duration-200 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={!isConfirmValid || isActivating}
+            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:scale-105 hover:shadow-xl rounded-lg transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+          >
+            {isActivating ? (
+              <>
+                <UnifiedSpinner variant="dots" size="xs" color="white" />
+                <span>Activating...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                <span>Reactivate User</span>
+              </>
+            )}
           </button>
         </div>
       </div>

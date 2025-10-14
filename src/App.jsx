@@ -9,9 +9,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AuthProvider } from "./providers/AuthProvider";
 import { SettingsProvider } from "./contexts/SettingsContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import { useAuth } from "./hooks/useAuth";
 import { notificationService } from "./services/notifications/NotificationService.js";
-import { supabase } from "./config/supabase.js";
+import { emailService } from "./services/notifications/EmailService.js";
 import { CustomerService } from "./services/CustomerService";
 import { GlobalSpinner } from "./components/common/GlobalSpinner";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
@@ -65,6 +66,14 @@ const queryClient = new QueryClient({
   },
 });
 
+// Wrapper to provide userId to NotificationProvider
+function NotificationProviderWrapper({ children }) {
+  const { user } = useAuth();
+  return (
+    <NotificationProvider userId={user?.id}>{children}</NotificationProvider>
+  );
+}
+
 function AppContent() {
   const { isLoadingAuth, user } = useAuth();
 
@@ -96,52 +105,20 @@ function AppContent() {
           // Initialize database-backed notification service
           await notificationService.initialize();
 
-          // ✅ IMPROVED: Health checks with duplicate prevention
-          // Only runs if 15+ minutes have passed (database checks this)
-          console.log("🔍 Checking if health checks needed...");
+          // Run initial health checks
           await notificationService.runHealthChecks();
 
-          // Start health checks every 15 minutes
+          // Schedule health checks every 15 minutes
           const healthCheckInterval = setInterval(() => {
-            console.log("⏰ Scheduled health check triggered");
             notificationService.runHealthChecks();
-          }, 15 * 60 * 1000); // 15 minutes
+          }, 15 * 60 * 1000);
 
-          // Make notification service available for debugging
+          // Development debugging
           if (import.meta.env.DEV) {
             window.notificationService = notificationService;
-
-            // ✅ ADD: Debug helper to view last health check time
-            window.checkHealthStatus = async () => {
-              const { data, error } = await supabase
-                .from("notification_health_checks")
-                .select("*")
-                .eq("check_type", "all")
-                .single();
-
-              if (error) {
-                console.log(
-                  "ℹ️ Health check tracking not set up yet. Run the database script from NOTIFICATION_DUPLICATE_FIX.md"
-                );
-                return;
-              }
-
-              console.log("📊 Last health check:", {
-                lastRun: new Date(data.last_run_at).toLocaleString(),
-                nextRun: new Date(data.next_run_at).toLocaleString(),
-                status: data.status,
-                notificationsCreated: data.notifications_created,
-              });
-            };
-
-            console.log(
-              "💡 Debug helpers available: window.notificationService, window.checkHealthStatus()"
-            );
+            window.emailService = emailService;
           }
-          console.log(
-            "✅ Notification system initialized with database backend"
-          );
-          console.log("✅ Health checks scheduled every 15 minutes");
+          console.log("✅ Notification system initialized");
 
           // Cleanup function
           return () => {
@@ -350,11 +327,13 @@ function App() {
         <Router>
           <SettingsProvider>
             <AuthProvider>
-              <ToastProvider>
-                <div className="App">
-                  <AppContent />
-                </div>
-              </ToastProvider>
+              <NotificationProviderWrapper>
+                <ToastProvider>
+                  <div className="App">
+                    <AppContent />
+                  </div>
+                </ToastProvider>
+              </NotificationProviderWrapper>
             </AuthProvider>
           </SettingsProvider>
         </Router>

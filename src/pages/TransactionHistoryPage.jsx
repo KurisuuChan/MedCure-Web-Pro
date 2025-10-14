@@ -4,6 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useDebounce } from "../hooks/useDebounce";
 import unifiedTransactionService from "../services/domains/sales/transactionService";
 import SimpleReceipt from "../components/ui/SimpleReceipt";
+import { UnifiedSpinner } from "../components/ui/loading/UnifiedSpinner";
+import { LoadingTransactionTable } from "../components/ui/loading/PharmacyLoadingStates";
 import {
   Search,
   Eye,
@@ -24,6 +26,9 @@ import {
   X,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "../utils/formatting";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { format } from "date-fns";
 
 const TransactionHistoryPage = () => {
   const navigate = useNavigate();
@@ -132,7 +137,9 @@ const TransactionHistoryPage = () => {
     return transactions.filter((transaction) => {
       const matchesSearch =
         debouncedSearchTerm === "" ||
-        transaction.id?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        transaction.id
+          ?.toLowerCase()
+          .includes(debouncedSearchTerm.toLowerCase()) ||
         transaction.customer_name
           ?.toLowerCase()
           .includes(debouncedSearchTerm.toLowerCase()) ||
@@ -196,6 +203,212 @@ const TransactionHistoryPage = () => {
     );
   };
 
+  // Print Transaction Report to PDF
+  const handlePrintReport = () => {
+    try {
+      if (filteredTransactions.length === 0) {
+        alert("No transactions to print");
+        return;
+      }
+
+      console.log(
+        "📊 [Print Report] Generating PDF for",
+        filteredTransactions.length,
+        "transactions"
+      );
+
+      const doc = new jsPDF();
+      doc.setLanguage("en-US");
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Professional color scheme
+      const colors = {
+        primary: [37, 99, 235], // Blue-600
+        text: [17, 24, 39], // Gray-900
+        lightGray: [243, 244, 246], // Gray-100
+        success: [34, 197, 94], // Green-500
+        warning: [234, 179, 8], // Yellow-500
+        danger: [239, 68, 68], // Red-500
+      };
+
+      // Header Section
+      doc.setFillColor(...colors.primary);
+      doc.rect(0, 0, pageWidth, 35, "F");
+
+      // Company Logo/Name
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont(undefined, "bold");
+      doc.text("MedCure Pharmacy", 14, 15);
+
+      // Report Title
+      doc.setFontSize(12);
+      doc.setFont(undefined, "normal");
+      doc.text("TRANSACTION HISTORY REPORT", 14, 25);
+
+      // Generation Date and Filters
+      doc.setFontSize(9);
+      doc.text(
+        `Generated: ${format(new Date(), "MMM dd, yyyy HH:mm")}`,
+        pageWidth - 14,
+        15,
+        { align: "right" }
+      );
+      doc.text(
+        `Filter: ${dateFilter.toUpperCase()} | Status: ${statusFilter.toUpperCase()}`,
+        pageWidth - 14,
+        22,
+        { align: "right" }
+      );
+
+      let yPosition = 45;
+
+      // Summary Section
+      doc.setFillColor(...colors.lightGray);
+      doc.rect(14, yPosition, pageWidth - 28, 8, "F");
+      doc.setTextColor(...colors.text);
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.text("SUMMARY", 16, yPosition + 5.5);
+      yPosition += 12;
+
+      // Calculate summary metrics
+      const completedTransactions = filteredTransactions.filter(
+        (t) => t.status === "completed"
+      );
+      const totalRevenue = completedTransactions.reduce(
+        (sum, t) => sum + (t.total_amount || 0),
+        0
+      );
+      const totalDiscount = completedTransactions.reduce(
+        (sum, t) => sum + (t.discount_amount || 0),
+        0
+      );
+      const totalRefunded = filteredTransactions.filter(
+        (t) => t.status === "refunded"
+      ).length;
+
+      const summaryMetrics = [
+        ["Total Transactions", filteredTransactions.length],
+        ["Completed Transactions", completedTransactions.length],
+        [
+          "Total Revenue",
+          `P ${totalRevenue
+            .toFixed(2)
+            .replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",")}`,
+        ],
+        [
+          "Total Discounts",
+          `P ${totalDiscount
+            .toFixed(2)
+            .replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",")}`,
+        ],
+        ["Refunded Transactions", totalRefunded],
+      ];
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [["Metric", "Value"]],
+        body: summaryMetrics,
+        theme: "plain",
+        headStyles: {
+          fillColor: colors.primary,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 10,
+        },
+        bodyStyles: {
+          fontSize: 9,
+          textColor: colors.text,
+        },
+        alternateRowStyles: {
+          fillColor: colors.lightGray,
+        },
+        margin: { left: 14, right: 14 },
+      });
+
+      // Transaction Details Table
+      yPosition = doc.lastAutoTable.finalY + 10;
+
+      doc.setFillColor(...colors.lightGray);
+      doc.rect(14, yPosition, pageWidth - 28, 8, "F");
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.text("TRANSACTION DETAILS", 16, yPosition + 5.5);
+      yPosition += 10;
+
+      const transactionData = filteredTransactions.map((t) => [
+        format(new Date(t.created_at), "MMM dd, yyyy HH:mm"),
+        t.id.substring(0, 8).toUpperCase(),
+        t.customer_name || "Walk-in",
+        t.sale_items?.length || 0,
+        `P ${(t.total_amount || 0).toFixed(2)}`,
+        t.status.charAt(0).toUpperCase() + t.status.slice(1),
+      ]);
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [["Date/Time", "ID", "Customer", "Items", "Amount", "Status"]],
+        body: transactionData,
+        theme: "plain",
+        headStyles: {
+          fillColor: colors.primary,
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 9,
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: colors.text,
+        },
+        alternateRowStyles: {
+          fillColor: colors.lightGray,
+        },
+        margin: { left: 14, right: 14 },
+        columnStyles: {
+          0: { cellWidth: 35 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 35 },
+          3: { cellWidth: 15 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 25 },
+        },
+      });
+
+      // Footer
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(
+          `Page ${i} of ${pageCount}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: "center" }
+        );
+        doc.text(
+          "MedCure Pharmacy - Transaction History Report",
+          14,
+          doc.internal.pageSize.getHeight() - 10
+        );
+      }
+
+      // Save the PDF
+      const fileName = `Transaction_Report_${format(
+        new Date(),
+        "yyyy-MM-dd_HHmm"
+      )}.pdf`;
+      doc.save(fileName);
+
+      console.log("✅ [Print Report] PDF generated successfully:", fileName);
+    } catch (error) {
+      console.error("❌ [Print Report] Error generating PDF:", error);
+      alert("Failed to generate report. Please try again.");
+    }
+  };
+
   // Action Handlers
   const handleViewReceipt = (transaction) => {
     console.log(
@@ -215,7 +428,10 @@ const TransactionHistoryPage = () => {
       "📋 [TransactionHistory] Current selectedTransaction:",
       selectedTransaction?.id
     );
-    console.log("🔍 [TransactionHistory] Raw transaction from database:", transaction);
+    console.log(
+      "🔍 [TransactionHistory] Raw transaction from database:",
+      transaction
+    );
     console.log("🔍 [TransactionHistory] PWD fields in raw transaction:", {
       pwd_senior_id: transaction.pwd_senior_id,
       pwd_senior_holder_name: transaction.pwd_senior_holder_name,
@@ -223,7 +439,7 @@ const TransactionHistoryPage = () => {
       discount_percentage: transaction.discount_percentage,
       discount_amount: transaction.discount_amount,
     });
-    
+
     try {
       // Clear any existing selection first
       setSelectedTransaction(null);
@@ -233,19 +449,31 @@ const TransactionHistoryPage = () => {
       const enhancedTransaction = {
         ...transaction,
         // Ensure discount fields are properly set
-        discount_type: transaction.discount_type || 
-          (transaction.discount_amount > 0 && transaction.discount_percentage === 20 ? 'pwd' : 
-           transaction.discount_amount > 0 && transaction.discount_percentage === 20 ? 'senior' : 'none'),
-        discount_percentage: transaction.discount_percentage || 
+        discount_type:
+          transaction.discount_type ||
+          (transaction.discount_amount > 0 &&
+          transaction.discount_percentage === 20
+            ? "pwd"
+            : transaction.discount_amount > 0 &&
+              transaction.discount_percentage === 20
+            ? "senior"
+            : "none"),
+        discount_percentage:
+          transaction.discount_percentage ||
           (transaction.discount_amount > 0 ? 20 : 0),
         // For PWD/Senior fields, if missing but discount exists, show appropriate message
-        pwd_senior_id: transaction.pwd_senior_id || 
-          (transaction.discount_amount > 0 ? 'ID Not Recorded' : null),
-        pwd_senior_holder_name: transaction.pwd_senior_holder_name || 
-          (transaction.discount_amount > 0 ? 'Holder Name Not Recorded' : null),
+        pwd_senior_id:
+          transaction.pwd_senior_id ||
+          (transaction.discount_amount > 0 ? "ID Not Recorded" : null),
+        pwd_senior_holder_name:
+          transaction.pwd_senior_holder_name ||
+          (transaction.discount_amount > 0 ? "Holder Name Not Recorded" : null),
       };
 
-      console.log("🔄 [TransactionHistory] Enhanced transaction:", enhancedTransaction);
+      console.log(
+        "🔄 [TransactionHistory] Enhanced transaction:",
+        enhancedTransaction
+      );
 
       // Then set the enhanced transaction
       setTimeout(() => {
@@ -277,12 +505,15 @@ const TransactionHistoryPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-sm p-8">
-          <div className="flex items-center space-x-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <span className="text-gray-700">Loading transactions...</span>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Transaction History
+            </h1>
+            <p className="text-gray-600">Loading transaction records...</p>
           </div>
+          <LoadingTransactionTable rows={8} />
         </div>
       </div>
     );
@@ -291,16 +522,16 @@ const TransactionHistoryPage = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-sm p-8 max-w-md">
+        <div className="bg-white rounded-lg shadow-sm p-8 max-w-md animate-shake">
           <div className="text-center">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4 animate-wiggle" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Error Loading Transactions
             </h3>
             <p className="text-gray-600 mb-4">{error}</p>
             <button
               onClick={fetchTransactions}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:scale-105 transition-all duration-200"
             >
               Retry
             </button>
@@ -339,15 +570,7 @@ const TransactionHistoryPage = () => {
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => {
-                if (filteredTransactions.length === 0) {
-                  alert("No transactions to print");
-                  return;
-                }
-                alert(
-                  `Print Report: ${filteredTransactions.length} transactions would be printed as a detailed report`
-                );
-              }}
+              onClick={handlePrintReport}
               className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               title="Print transaction report"
             >

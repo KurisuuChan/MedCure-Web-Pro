@@ -395,26 +395,23 @@ export function usePOS() {
         // Reload available products to update stock
         await loadAvailableProducts();
 
-        // ✅ NEW: Check for low stock notifications after sale
+        // ✅ NEW: Check for low stock and out-of-stock notifications after sale
         // Wait a moment for stock to update, then check
         setTimeout(async () => {
           try {
-            // Re-fetch products to get updated stock levels
-            const updatedProducts =
-              await inventoryService.getAvailableProducts();
+            // IMPORTANT: Get ALL products (not just available) to catch out-of-stock
+            const allProducts = await inventoryService.getProducts();
 
-            // Check each sold product for low stock
+            // Check each sold product for stock alerts
             for (const item of cartItems) {
-              const product = updatedProducts.find(
-                (p) => p.id === item.productId
-              );
+              const product = allProducts.find((p) => p.id === item.productId);
               if (product) {
                 // Use stock_in_pieces (base unit) for accuracy and coerce to Number
                 const currentStock = Number(product.stock_in_pieces || 0);
                 const reorderLevel = Number(product.reorder_level || 50);
 
-                // Defensive logging for debugging incorrect zero values
-                console.log("🔎 [LowStockCheck]", {
+                // Defensive logging for debugging
+                console.log("🔎 [StockCheck]", {
                   productId: product.id,
                   sku: product.sku || null,
                   brand: product.brand_name || product.generic_name,
@@ -422,8 +419,21 @@ export function usePOS() {
                   reorderLevel,
                 });
 
-                // Notify if stock is below or equal to reorder level
-                if (currentStock <= reorderLevel) {
+                // CRITICAL: Check for out of stock FIRST (immediate alert)
+                if (currentStock === 0) {
+                  console.log(
+                    `🚨 [CRITICAL] Sending IMMEDIATE out-of-stock notification for ${
+                      product.brand_name || product.generic_name
+                    } - stock is now ZERO!`
+                  );
+                  await notificationService.notifyOutOfStock(
+                    product.id,
+                    product.brand_name || product.generic_name,
+                    user?.id
+                  );
+                }
+                // WARNING: Check for low stock (if not out of stock)
+                else if (currentStock <= reorderLevel) {
                   console.log(
                     `📢 Sending low stock notification for ${
                       product.brand_name || product.generic_name
@@ -437,6 +447,10 @@ export function usePOS() {
                     user?.id
                   );
                 }
+              } else {
+                console.warn(
+                  `⚠️ Product ${item.productId} not found in database after sale`
+                );
               }
             }
           } catch (notifError) {

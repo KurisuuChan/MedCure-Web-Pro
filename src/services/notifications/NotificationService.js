@@ -66,7 +66,31 @@ class NotificationService {
     this.realtimeSubscription = null;
     this.isInitialized = false;
     this.lastHealthCheckRun = null; // ✅ Local debounce timestamp
-    this.healthCheckDebounceMs = 15 * 60 * 1000; // 15 minutes in milliseconds
+    this.healthCheckDebounceMs = 15 * 60 * 1000; // 15 minutes in milliseconds (default)
+    this.lastLowStockCheck = null; // Track last low stock check
+    this.lastExpiringCheck = null; // Track last expiring check
+  }
+
+  /**
+   * Get user notification settings from localStorage
+   * @private
+   */
+  getUserNotificationSettings() {
+    try {
+      const settings = localStorage.getItem("medcure-notification-settings");
+      if (settings) {
+        return JSON.parse(settings);
+      }
+    } catch (err) {
+      logger.warn("[NotificationService] Failed to load user settings:", err);
+    }
+
+    // Default settings
+    return {
+      lowStockCheckInterval: 60, // 1 hour default
+      expiringCheckInterval: 360, // 6 hours default
+      emailAlertsEnabled: false,
+    };
   }
 
   /**
@@ -173,13 +197,6 @@ class NotificationService {
       }
 
       // Insert to database
-      logger.debug("[NotificationService] Creating notification:", {
-        userId,
-        title,
-        category,
-        priority,
-        type,
-      });
 
       const { data: notification, error } = await supabase
         .from("user_notifications")
@@ -202,23 +219,11 @@ class NotificationService {
         throw error;
       }
 
-      logger.success(
-        "[NotificationService] Notification created:",
-        notification.id,
-        "-",
-        title
-      );
-
       // Send email if critical (priority 1 or 2)
       if (priority <= NOTIFICATION_PRIORITY.HIGH) {
-        // Fire and forget - don't block notification creation
-        // Note: Email sending requires server-side implementation due to CORS
-        this.sendEmailNotification(notification).catch((err) => {
-          // Silently log email failures (expected in browser environment)
-          logger.debug(
-            "[NotificationService] Email send skipped (requires server):",
-            err.message
-          );
+        // Send email notification for critical alerts (fire and forget)
+        this.sendEmailNotification(notification).catch(() => {
+          // Silent fail - don't block notification creation
         });
       }
 
@@ -401,6 +406,282 @@ class NotificationService {
     });
   }
 
+  /**
+   * Notify about out of stock product
+   */
+  async notifyOutOfStock(productId, productName, userId) {
+    return await this.create({
+      userId,
+      title: "❌ Out of Stock Alert",
+      message: `${productName} is completely out of stock! Immediate reorder required.`,
+      type: NOTIFICATION_TYPE.ERROR,
+      priority: NOTIFICATION_PRIORITY.CRITICAL,
+      category: NOTIFICATION_CATEGORY.INVENTORY,
+      metadata: {
+        productId,
+        productName,
+        currentStock: 0,
+        actionUrl: `/inventory?product=${productId}`,
+        notification_key: `out-of-stock:${productId}`,
+      },
+    });
+  }
+
+  /**
+   * Notify about stock added via batch management
+   */
+  async notifyStockAdded(
+    productId,
+    productName,
+    quantityAdded,
+    batchNumber,
+    newStockLevel,
+    userId
+  ) {
+    return await this.create({
+      userId,
+      title: "📦 Stock Added",
+      message: `${quantityAdded} units of ${productName} added (Batch: ${batchNumber}). New stock: ${newStockLevel} pieces.`,
+      type: NOTIFICATION_TYPE.SUCCESS,
+      priority: NOTIFICATION_PRIORITY.INFO,
+      category: NOTIFICATION_CATEGORY.INVENTORY,
+      metadata: {
+        productId,
+        productName,
+        quantityAdded,
+        batchNumber,
+        newStockLevel,
+        actionUrl: `/batch-management?product=${productId}`,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Notify about batch created/received
+   */
+  async notifyBatchReceived(
+    batchNumber,
+    productName,
+    quantity,
+    expiryDate,
+    userId
+  ) {
+    return await this.create({
+      userId,
+      title: "✅ Batch Received",
+      message: `Batch ${batchNumber} of ${productName} (${quantity} units) received. Expires: ${expiryDate}`,
+      type: NOTIFICATION_TYPE.SUCCESS,
+      priority: NOTIFICATION_PRIORITY.LOW,
+      category: NOTIFICATION_CATEGORY.INVENTORY,
+      metadata: {
+        batchNumber,
+        productName,
+        quantity,
+        expiryDate,
+        actionUrl: `/batch-management?batch=${batchNumber}`,
+      },
+    });
+  }
+
+  // ============================================================================
+  // ENHANCED NOTIFICATION METHODS WITH SMART COOLDOWN
+  // ============================================================================
+
+  /**
+   * Enhanced low stock notification with custom cooldown
+   */
+  async notifyLowStockWithCooldown(
+    productId,
+    productName,
+    currentStock,
+    reorderLevel,
+    userId,
+    cooldownHours = 24,
+    notificationKey = null
+  ) {
+    // Check if we should send this notification (respects cooldown)
+    const shouldSend = await this.shouldSendNotification(
+      userId,
+      notificationKey || `low-stock:${productId}`,
+      cooldownHours
+    );
+
+    if (!shouldSend) {
+      logger.debug(
+        `⏰ Skipping low stock notification for ${productName} - cooldown active`
+      );
+      return { skipped: true, reason: "cooldown" };
+    }
+
+    return await this.create({
+      userId,
+      title: "⚠️ Low Stock Alert",
+      message: `${productName} is running low: ${currentStock} pieces remaining (reorder at ${reorderLevel})`,
+      type: NOTIFICATION_TYPE.WARNING,
+      priority: NOTIFICATION_PRIORITY.HIGH,
+      category: NOTIFICATION_CATEGORY.INVENTORY,
+      metadata: {
+        productId,
+        productName,
+        currentStock,
+        reorderLevel,
+        actionUrl: `/inventory?product=${productId}`,
+        notification_key: notificationKey || `low-stock:${productId}`,
+        cooldown_hours: cooldownHours,
+        severity: "low",
+      },
+    });
+  }
+
+  /**
+   * Enhanced critical stock notification with custom cooldown
+   */
+  async notifyCriticalStockWithCooldown(
+    productId,
+    productName,
+    currentStock,
+    userId,
+    cooldownHours = 6,
+    notificationKey = null
+  ) {
+    // Check if we should send this notification (respects cooldown)
+    const shouldSend = await this.shouldSendNotification(
+      userId,
+      notificationKey || `critical-stock:${productId}`,
+      cooldownHours
+    );
+
+    if (!shouldSend) {
+      logger.debug(
+        `⏰ Skipping critical stock notification for ${productName} - cooldown active`
+      );
+      return { skipped: true, reason: "cooldown" };
+    }
+
+    return await this.create({
+      userId,
+      title: "🚨 Critical Stock Alert",
+      message: `${productName} is critically low: Only ${currentStock} pieces left!`,
+      type: NOTIFICATION_TYPE.ERROR,
+      priority: NOTIFICATION_PRIORITY.CRITICAL,
+      category: NOTIFICATION_CATEGORY.INVENTORY,
+      metadata: {
+        productId,
+        productName,
+        currentStock,
+        actionUrl: `/inventory?product=${productId}`,
+        notification_key: notificationKey || `critical-stock:${productId}`,
+        cooldown_hours: cooldownHours,
+        severity: "critical",
+      },
+    });
+  }
+
+  /**
+   * Enhanced out of stock notification with custom cooldown
+   */
+  async notifyOutOfStockWithCooldown(
+    productId,
+    productName,
+    userId,
+    cooldownHours = 12,
+    notificationKey = null
+  ) {
+    // Check if we should send this notification (respects cooldown)
+    const shouldSend = await this.shouldSendNotification(
+      userId,
+      notificationKey || `out-of-stock:${productId}`,
+      cooldownHours
+    );
+
+    if (!shouldSend) {
+      logger.debug(
+        `⏰ Skipping out of stock notification for ${productName} - cooldown active`
+      );
+      return { skipped: true, reason: "cooldown" };
+    }
+
+    return await this.create({
+      userId,
+      title: "❌ Out of Stock Alert",
+      message: `${productName} is completely out of stock! Urgent restocking required.`,
+      type: NOTIFICATION_TYPE.ERROR,
+      priority: NOTIFICATION_PRIORITY.CRITICAL,
+      category: NOTIFICATION_CATEGORY.INVENTORY,
+      metadata: {
+        productId,
+        productName,
+        currentStock: 0,
+        actionUrl: `/inventory?product=${productId}`,
+        notification_key: notificationKey || `out-of-stock:${productId}`,
+        cooldown_hours: cooldownHours,
+        severity: "out_of_stock",
+      },
+    });
+  }
+
+  /**
+   * Helper method to check if notification should be sent (respects cooldown)
+   */
+  async shouldSendNotification(userId, notificationKey, cooldownHours = 24) {
+    try {
+      const { data: shouldSend, error } = await supabase.rpc(
+        "should_send_notification",
+        {
+          p_user_id: userId,
+          p_notification_key: notificationKey,
+          p_cooldown_hours: cooldownHours,
+        }
+      );
+
+      if (error) {
+        logger.error("❌ Error checking notification cooldown:", error);
+        return true; // Default to sending if check fails
+      }
+
+      return shouldSend;
+    } catch (error) {
+      logger.error("❌ Exception in notification cooldown check:", error);
+      return true; // Default to sending if check fails
+    }
+  }
+
+  /**
+   * Notify about stock adjustment
+   */
+  async notifyStockAdjustment(
+    productId,
+    productName,
+    oldStock,
+    newStock,
+    reason,
+    userId
+  ) {
+    const difference = newStock - oldStock;
+    const action = difference > 0 ? "increased" : "decreased";
+    const icon = difference > 0 ? "📈" : "📉";
+
+    return await this.create({
+      userId,
+      title: `${icon} Stock Adjusted`,
+      message: `${productName} stock ${action} from ${oldStock} to ${newStock} pieces. Reason: ${reason}`,
+      type:
+        difference > 0 ? NOTIFICATION_TYPE.SUCCESS : NOTIFICATION_TYPE.WARNING,
+      priority: NOTIFICATION_PRIORITY.LOW,
+      category: NOTIFICATION_CATEGORY.INVENTORY,
+      metadata: {
+        productId,
+        productName,
+        oldStock,
+        newStock,
+        difference,
+        reason,
+        actionUrl: `/inventory?product=${productId}`,
+      },
+    });
+  }
+
   // ============================================================================
   // EMAIL: Send Critical Notifications
   // ============================================================================
@@ -454,96 +735,152 @@ class NotificationService {
   }
 
   /**
-   * Generate HTML email template
+   * Generate clean email template (FormSubmit compatible)
    * @private
    */
   generateEmailTemplate(notification, userName) {
-    const priorityColor =
-      notification.priority <= NOTIFICATION_PRIORITY.HIGH
-        ? "#dc2626"
-        : "#f59e0b";
-    const appUrl = import.meta.env.VITE_APP_URL || "http://localhost:5173";
+    const isInventoryAlert =
+      notification.category === NOTIFICATION_CATEGORY.INVENTORY;
+    const isOutOfStock = notification.metadata?.currentStock === 0;
+    const isLowStock =
+      notification.metadata?.currentStock > 0 &&
+      notification.metadata?.reorderLevel;
+    const isCriticalStock =
+      notification.priority === NOTIFICATION_PRIORITY.CRITICAL &&
+      isInventoryAlert;
 
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${notification.title}</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f3f4f6; }
-          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-          .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 32px 24px; text-align: center; }
-          .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
-          .header p { margin: 8px 0 0; font-size: 14px; opacity: 0.9; }
-          .content { padding: 32px 24px; }
-          .greeting { font-size: 16px; margin-bottom: 24px; }
-          .notification-box { background: #f9fafb; padding: 24px; border-radius: 8px; border-left: 4px solid ${priorityColor}; margin-bottom: 24px; }
-          .notification-title { font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 12px; }
-          .notification-message { font-size: 15px; color: #4b5563; line-height: 1.6; margin: 0; }
-          .button { display: inline-block; padding: 14px 28px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; margin-top: 24px; font-weight: 500; transition: background 0.2s; }
-          .button:hover { background: #1d4ed8; }
-          .meta { margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; }
-          .footer { text-align: center; padding: 24px; background: #f9fafb; color: #6b7280; font-size: 12px; }
-          .footer a { color: #2563eb; text-decoration: none; }
-          .priority-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; margin-bottom: 12px; background: ${priorityColor}; color: white; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🏥 MedCure Pharmacy</h1>
-            <p>Notification System</p>
-          </div>
-          
-          <div class="content">
-            <p class="greeting">Hi ${userName},</p>
-            
-            <div class="notification-box">
-              <span class="priority-badge">${
-                notification.priority <= NOTIFICATION_PRIORITY.HIGH
-                  ? "URGENT"
-                  : "Important"
-              }</span>
-              <h2 class="notification-title">${notification.title}</h2>
-              <p class="notification-message">${notification.message}</p>
-              
-              ${
-                notification.metadata?.actionUrl
-                  ? `
-                <a href="${appUrl}${notification.metadata.actionUrl}" class="button">
-                  View Details →
-                </a>
-              `
-                  : ""
-              }
-            </div>
-            
-            <div class="meta">
-              <strong>Category:</strong> ${notification.category}<br>
-              <strong>Time:</strong> ${new Date(
-                notification.created_at
-              ).toLocaleString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </div>
-          </div>
-          
-          <div class="footer">
-            <p>This is an automated notification from MedCure Pharmacy Management System.</p>
-            <p>© ${new Date().getFullYear()} MedCure Pharmacy. All rights reserved.</p>
-            <p><a href="${appUrl}/settings/notifications">Manage notification preferences</a></p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    // Dynamic icon and type based on alert type
+    let alertIcon, alertType;
+    if (isOutOfStock) {
+      alertIcon = "🚨";
+      alertType = "OUT OF STOCK";
+    } else if (isCriticalStock) {
+      alertIcon = "⚠️";
+      alertType = "CRITICAL LOW";
+    } else if (isLowStock) {
+      alertIcon = "📦";
+      alertType = "LOW STOCK";
+    } else {
+      alertIcon = "🔔";
+      alertType =
+        notification.priority <= NOTIFICATION_PRIORITY.HIGH
+          ? "URGENT"
+          : "Important";
+    }
+
+    // Create clean, formatted text email for FormSubmit
+    const productInfo = notification.metadata || {};
+    const timestamp = new Date(
+      notification.created_at || new Date()
+    ).toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    // Generate clean text content based on alert type
+    let alertDetails = "";
+
+    if (isInventoryAlert) {
+      const productName = productInfo.productName || "Unknown Product";
+      const currentStock = productInfo.currentStock || 0;
+      const reorderLevel = productInfo.reorderLevel || 0;
+
+      if (isOutOfStock) {
+        alertDetails = `
+🚨 URGENT: OUT OF STOCK ALERT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Product: ${productName}
+Current Stock: ${currentStock} pieces
+Status: COMPLETELY OUT OF STOCK
+
+⚠️ IMMEDIATE ACTION REQUIRED:
+• Contact suppliers immediately for emergency restocking
+• Check for alternative products to recommend to customers  
+• Update customers about stock availability
+• Prioritize this product in next delivery
+`;
+      } else if (isCriticalStock) {
+        alertDetails = `
+🔥 CRITICAL: LOW STOCK ALERT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Product: ${productName}
+Current Stock: ${currentStock} pieces
+Reorder Level: ${reorderLevel} pieces
+Status: CRITICALLY LOW (≤ 30% of reorder level)
+
+⚡ URGENT ACTIONS NEEDED:
+• Place immediate reorder - stock is dangerously low
+• Consider expedited shipping options
+• Monitor sales closely over next 24-48 hours
+• Notify management of critical stock situation
+`;
+      } else if (isLowStock) {
+        alertDetails = `
+⚠️ WARNING: LOW STOCK ALERT  
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Product: ${productName}
+Current Stock: ${currentStock} pieces
+Reorder Level: ${reorderLevel} pieces
+Status: BELOW OPTIMAL LEVEL
+
+📋 RECOMMENDED ACTIONS:
+• Schedule reorder within next 24-48 hours
+• Review recent sales patterns for this product
+• Check if bulk pricing is available
+• Ensure supplier contact information is current
+`;
+      }
+    } else {
+      alertDetails = `
+📋 NOTIFICATION DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${notification.message}
+`;
+    }
+
+    return `🏥 MEDCURE PHARMACY - INVENTORY ALERT
+${alertIcon} ${alertType}
+
+Hi ${userName},
+
+${alertDetails}
+
+📊 NOTIFICATION SUMMARY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Category: ${notification.category.toUpperCase()}
+Priority: ${
+      notification.priority === 1
+        ? "CRITICAL"
+        : notification.priority === 2
+        ? "HIGH"
+        : "NORMAL"
+    }  
+Time: ${timestamp}
+System: MedCure Pharmacy Management
+
+🔗 QUICK ACTIONS:
+• View Dashboard: http://localhost:5173/dashboard
+• Check Inventory: http://localhost:5173/inventory
+${
+  productInfo.actionUrl
+    ? `• Product Details: http://localhost:5173${productInfo.actionUrl}`
+    : ""
+}
+
+This is an automated notification from your MedCure Pharmacy Management System.
+For support, visit: http://localhost:5173/help
+
+─────────────────────────────────────────
+© ${new Date().getFullYear()} MedCure Pharmacy | Inventory Management System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
   }
 
   // ============================================================================
@@ -823,211 +1160,383 @@ class NotificationService {
    * Only runs if 15+ minutes have passed since last run
    */
   async runHealthChecks() {
-    // ✅ LOCAL DEBOUNCE CHECK FIRST (fallback if database function fails)
     const now = Date.now();
+    logger.info("🏥 [Health Check] Starting health checks...");
+
+    // Local debounce check
     if (
       this.lastHealthCheckRun &&
       now - this.lastHealthCheckRun < this.healthCheckDebounceMs
     ) {
-      logger.debug(
-        "⏸️ [NotificationService] Health check debounced locally - too soon since last run"
+      const timeSinceLastRun = Math.floor(
+        (now - this.lastHealthCheckRun) / (1000 * 60)
       );
-      return;
+      logger.debug(
+        `⏰ Health check skipped - last run was ${timeSinceLastRun} minutes ago (minimum: 15 minutes)`
+      );
+      return { skipped: true, reason: "Too soon since last run" };
     }
 
     try {
-      // Database check (as before)
-      const { data: shouldRunData, error: checkError } = await supabase.rpc(
-        "should_run_health_check",
-        {
-          p_check_type: "all",
-          p_interval_minutes: 15, // Don't run more than once per 15 minutes
-        }
-      );
-
-      // If function doesn't exist yet, allow the check (backward compatibility)
-      if (checkError && checkError.code === "42883") {
-        logger.warn(
-          "⚠️ Health check scheduling not set up yet - running checks anyway"
-        );
-      } else if (checkError) {
-        logger.error("❌ Failed to check health check schedule:", checkError);
-        return;
-      } else if (!shouldRunData) {
+      // Check if we should run (database-backed scheduling)
+      const shouldRun = await this.shouldRunHealthCheck();
+      if (!shouldRun) {
         logger.debug(
-          "⏸️ Skipping health checks - ran recently (within last 15 minutes)"
+          "⏰ Health check skipped - database scheduling says not to run"
         );
-        return;
+        return { skipped: true, reason: "Database scheduling" };
       }
 
-      logger.debug("🔍 Running notification health checks...");
-
-      // ✅ Get ONE primary user to receive notifications (prevent spam)
-      const { data: users, error: usersError } = await supabase
-        .from("users")
-        .select("id, email, role")
-        .eq("is_active", true)
-        .in("role", ["admin", "manager", "pharmacist"])
-        .order("role", { ascending: true }) // Admin first
-        .limit(1); // ✅ ONLY ONE USER
-
-      if (usersError) {
-        throw usersError;
+      // Get primary user for notifications
+      const primaryUser = await this.getPrimaryNotificationUser();
+      if (!primaryUser) {
+        logger.warn("⚠️ No primary user found for notifications");
+        return { skipped: true, reason: "No primary user found" };
       }
 
-      if (!users || users.length === 0) {
-        logger.debug("ℹ️ No active users found for notifications");
-        return;
-      }
-
-      logger.debug(`👥 Found ${users.length} user(s) to notify`);
-
-      // ✅ Use the single user we got from query
-      const primaryUser = users[0];
-      logger.debug(
-        `📧 Sending notifications to primary user: ${primaryUser.role} (${primaryUser.email})`
+      logger.info(
+        `👤 Primary user for notifications: ${primaryUser.email} (${primaryUser.role})`
       );
 
-      // Run checks (only for primary user)
-      const [lowStockCount, expiringCount] = await Promise.all([
-        this.checkLowStock([primaryUser]), // Only primary user
-        this.checkExpiringProducts([primaryUser]), // Only primary user
-      ]);
+      // Run all health checks
+      logger.info("🔍 Executing all health checks...");
+      const totalNotifications = await this.executeHealthChecks([primaryUser]);
 
-      const totalNotifications = lowStockCount + expiringCount;
-
-      // ✅ FIX: Record successful completion (if function exists)
-      try {
-        await supabase.rpc("record_health_check_run", {
-          p_check_type: "all",
-          p_notifications_created: totalNotifications,
-          p_error_message: null,
-        });
-      } catch (recordError) {
-        // Ignore if function doesn't exist (backward compatibility)
-        if (recordError.code !== "42883") {
-          logger.warn(
-            "⚠️ Failed to record health check run:",
-            recordError.message
-          );
-        }
-      }
-
-      logger.debug(
-        `✅ Health checks completed: ${lowStockCount} low stock, ${expiringCount} expiring products (${totalNotifications} total notifications)`
-      );
-
-      // ✅ Update local timestamp after successful run
+      // Record successful completion
+      await this.recordHealthCheckRun(totalNotifications, null);
       this.lastHealthCheckRun = now;
+
+      const result = {
+        success: true,
+        totalNotifications,
+        primaryUser: primaryUser.email,
+        timestamp: new Date().toISOString(),
+      };
+
+      logger.success(
+        `✅ Health check completed successfully! Created ${totalNotifications} notifications`
+      );
+      return result;
     } catch (error) {
       logger.error("❌ Health check failed:", error);
+      await this.recordHealthCheckRun(0, error.message);
+      await this.notifyHealthCheckFailure(error);
 
-      // ✅ FIX: Record failure (if function exists)
-      try {
-        await supabase.rpc("record_health_check_run", {
-          p_check_type: "all",
-          p_notifications_created: 0,
-          p_error_message: error.message,
-        });
-      } catch (recordError) {
-        // Ignore if function doesn't exist
-        if (recordError.code !== "42883") {
-          logger.error(
-            "❌ Failed to record health check failure:",
-            recordError
-          );
-        }
-      }
-
-      // Try to notify admins about the failure
-      try {
-        const { data: admins } = await supabase
-          .from("users")
-          .select("id")
-          .eq("role", "admin")
-          .eq("is_active", true)
-          .limit(1);
-
-        if (admins && admins[0]) {
-          await this.notifySystemError(
-            "Health check failed: " + error.message,
-            "HEALTH_CHECK_FAILURE",
-            admins[0].id
-          );
-        }
-      } catch (notifyError) {
-        logger.error(
-          "❌ Failed to notify admin about health check failure:",
-          notifyError
-        );
-      }
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      };
     }
   }
 
   /**
-   * Check for low stock products
+   * Check if health checks should run
+   * @private
+   */
+  async shouldRunHealthCheck() {
+    try {
+      const { data: shouldRun, error } = await supabase.rpc(
+        "should_run_health_check",
+        {
+          p_check_type: "all",
+          p_interval_minutes: 15,
+        }
+      );
+
+      if (error && error.code === "42883") {
+        // Function doesn't exist - run anyway for backward compatibility
+        return true;
+      }
+
+      return !error && shouldRun;
+    } catch {
+      return true; // Default to running if check fails
+    }
+  }
+
+  /**
+   * Get primary user for notifications
+   * @private
+   */
+  async getPrimaryNotificationUser() {
+    try {
+      const { data: users, error } = await supabase
+        .from("users")
+        .select("id, email, role")
+        .eq("is_active", true)
+        .in("role", ["admin", "manager", "pharmacist"])
+        .order("role", { ascending: true })
+        .limit(1);
+
+      if (error || !users?.length) {
+        return null;
+      }
+
+      return users[0];
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Execute all health checks
+   * @private
+   */
+  async executeHealthChecks(users) {
+    logger.info("🔍 Starting comprehensive health check...");
+
+    const userSettings = this.getUserNotificationSettings();
+    const now = Date.now();
+
+    // Check if enough time has passed for low stock check
+    const lowStockIntervalMs = userSettings.lowStockCheckInterval * 60 * 1000;
+    const shouldCheckLowStock =
+      !this.lastLowStockCheck ||
+      now - this.lastLowStockCheck >= lowStockIntervalMs;
+
+    // Check if enough time has passed for expiring check
+    const expiringIntervalMs = userSettings.expiringCheckInterval * 60 * 1000;
+    const shouldCheckExpiring =
+      !this.lastExpiringCheck ||
+      now - this.lastExpiringCheck >= expiringIntervalMs;
+
+    // Calculate time since last checks (for logging)
+    const minutesSinceLowStock = this.lastLowStockCheck
+      ? Math.floor((now - this.lastLowStockCheck) / (60 * 1000))
+      : "Never";
+    const minutesSinceExpiring = this.lastExpiringCheck
+      ? Math.floor((now - this.lastExpiringCheck) / (60 * 1000))
+      : "Never";
+
+    logger.info(
+      `⏱️ User Settings: Low Stock=${userSettings.lowStockCheckInterval}min, Expiring=${userSettings.expiringCheckInterval}min`
+    );
+    logger.info(
+      `📊 Last Checks: Low Stock=${minutesSinceLowStock}min ago, Expiring=${minutesSinceExpiring}min ago`
+    );
+    logger.info(
+      `🎯 Running Checks: Low Stock=${
+        shouldCheckLowStock ? "✅ YES" : "⏭️ SKIP"
+      }, ` +
+        `Expiring=${
+          shouldCheckExpiring ? "✅ YES" : "⏭️ SKIP"
+        }, Out-of-Stock=✅ ALWAYS`
+    );
+
+    // Run checks based on intervals
+    const [lowStockCount, expiringCount, outOfStockCount] = await Promise.all([
+      shouldCheckLowStock ? this.checkLowStock(users) : Promise.resolve(0),
+      shouldCheckExpiring
+        ? this.checkExpiringProducts(users)
+        : Promise.resolve(0),
+      this.checkOutOfStock(users), // Always check (critical safety feature)
+    ]);
+
+    // Update last check timestamps
+    if (shouldCheckLowStock) {
+      this.lastLowStockCheck = now;
+      logger.debug(`✅ Updated lastLowStockCheck timestamp`);
+    }
+    if (shouldCheckExpiring) {
+      this.lastExpiringCheck = now;
+      logger.debug(`✅ Updated lastExpiringCheck timestamp`);
+    }
+
+    const totalNotifications = lowStockCount + expiringCount + outOfStockCount;
+
+    logger.success(
+      `✅ Health check completed: ${totalNotifications} total notifications ` +
+        `(${lowStockCount} low stock, ${expiringCount} expiring, ${outOfStockCount} out-of-stock)`
+    );
+
+    return totalNotifications;
+  }
+
+  /**
+   * Record health check completion
+   * @private
+   */
+  async recordHealthCheckRun(notificationCount, errorMessage) {
+    try {
+      await supabase.rpc("record_health_check_run", {
+        p_check_type: "all",
+        p_notifications_created: notificationCount,
+        p_error_message: errorMessage,
+      });
+    } catch {
+      // Ignore if function doesn't exist
+    }
+  }
+
+  /**
+   * Notify admins about health check failure
+   * @private
+   */
+  async notifyHealthCheckFailure(error) {
+    try {
+      const { data: admins } = await supabase
+        .from("users")
+        .select("id")
+        .eq("role", "admin")
+        .eq("is_active", true)
+        .limit(1);
+
+      if (admins?.[0]) {
+        await this.notifySystemError(
+          "Health check failed: " + error.message,
+          "HEALTH_CHECK_FAILURE",
+          admins[0].id
+        );
+      }
+    } catch {
+      // Silent fail
+    }
+  }
+
+  /**
+   * Check for low stock products (ENHANCED VERSION)
    * @private
    */
   async checkLowStock(users) {
     try {
-      // Fetch all active products and filter in JavaScript
+      logger.debug("🔍 [Health Check] Starting ENHANCED low stock check...");
+
+      // OPTIMIZATION 1: Fetch ALL active products (not just those with reorder levels)
       const { data: allProducts, error } = await supabase
         .from("products")
-        .select("id, brand_name, generic_name, stock_in_pieces, reorder_level")
-        .gt("stock_in_pieces", 0)
+        .select(
+          "id, brand_name, generic_name, stock_in_pieces, reorder_level, category_id"
+        )
+        .gt("stock_in_pieces", 0) // Only products with stock > 0
         .eq("is_active", true);
 
       if (error) {
+        logger.error("❌ Database error fetching products:", error);
         throw error;
       }
 
-      // Filter products where stock_in_pieces <= reorder_level
-      const products =
-        allProducts?.filter(
-          (p) => p.stock_in_pieces <= (p.reorder_level || 0)
-        ) || [];
+      logger.debug(
+        `📦 Found ${allProducts?.length || 0} active products with stock`
+      );
 
-      if (error) {
-        throw error;
-      }
+      // OPTIMIZATION 2: Enhanced filtering with intelligent defaults
+      const lowStockProducts =
+        allProducts?.filter((product) => {
+          const stock = product.stock_in_pieces || 0;
+          let reorderLevel = product.reorder_level || 0;
 
-      if (!products || products.length === 0) {
-        return 0;
-      }
-
-      logger.debug(`📦 Found ${products.length} low stock products`);
-
-      let notificationCount = 0;
-
-      // Notify each relevant user
-      for (const user of users) {
-        for (const product of products) {
-          const productName =
-            product.brand_name || product.generic_name || "Unknown Product";
-          const isCritical =
-            product.stock_in_pieces <= Math.floor(product.reorder_level * 0.3);
-
-          if (isCritical) {
-            await this.notifyCriticalStock(
-              product.id,
-              productName,
-              product.stock_in_pieces,
-              user.id
-            );
-          } else {
-            await this.notifyLowStock(
-              product.id,
-              productName,
-              product.stock_in_pieces,
-              product.reorder_level,
-              user.id
+          // SMART DEFAULT: If no reorder level set, use intelligent default based on stock
+          if (!reorderLevel || reorderLevel === 0) {
+            // Default to 20% of current stock or minimum of 5 pieces
+            reorderLevel = Math.max(Math.floor(stock * 0.2), 5);
+            logger.debug(
+              `📊 Using smart default reorder level for ${
+                product.brand_name || product.generic_name
+              }: ${reorderLevel} (stock: ${stock})`
             );
           }
 
-          notificationCount++;
+          const isLowStock = stock > 0 && stock <= reorderLevel;
+
+          if (isLowStock) {
+            logger.debug(
+              `⚠️ Low stock detected: ${
+                product.brand_name || product.generic_name
+              } (Stock: ${stock}, Reorder: ${reorderLevel})`
+            );
+          }
+
+          return isLowStock;
+        }) || [];
+
+      logger.debug(`🚨 Found ${lowStockProducts.length} low stock products`);
+
+      if (lowStockProducts.length === 0) {
+        logger.debug("✅ No low stock products found");
+        return 0;
+      }
+
+      // OPTIMIZATION 3: Batch notification creation for better performance
+      const notificationPromises = [];
+
+      for (const user of users) {
+        logger.debug(`📧 Preparing notifications for user: ${user.email}`);
+
+        for (const product of lowStockProducts) {
+          const productName =
+            product.brand_name || product.generic_name || "Unknown Product";
+          const stock = product.stock_in_pieces;
+          let reorderLevel = product.reorder_level;
+
+          // Apply same smart default logic as in filtering
+          if (!reorderLevel || reorderLevel === 0) {
+            reorderLevel = Math.max(Math.floor(stock * 0.2), 5);
+          }
+
+          // Determine if this is critical (30% or less of reorder level)
+          const criticalThreshold = Math.floor(reorderLevel * 0.3);
+          const isCritical = stock <= criticalThreshold;
+
+          logger.debug(
+            `📦 Processing: ${productName} (Stock: ${stock}, Reorder: ${reorderLevel}, Critical: ${isCritical})`
+          );
+
+          // SMART DEDUPLICATION: Different cooldown periods based on severity
+          const cooldownHours = isCritical ? 6 : 24; // Critical alerts every 6 hours, regular every 24 hours
+          const notificationKey = `${isCritical ? "critical" : "low"}_stock_${
+            product.id
+          }`;
+
+          if (isCritical) {
+            notificationPromises.push(
+              this.notifyCriticalStockWithCooldown(
+                product.id,
+                productName,
+                stock,
+                user.id,
+                cooldownHours,
+                notificationKey
+              )
+            );
+          } else {
+            notificationPromises.push(
+              this.notifyLowStockWithCooldown(
+                product.id,
+                productName,
+                stock,
+                reorderLevel,
+                user.id,
+                cooldownHours,
+                notificationKey
+              )
+            );
+          }
         }
       }
 
+      // Execute all notifications in parallel for better performance
+      const results = await Promise.allSettled(notificationPromises);
+
+      let notificationCount = 0;
+      let failureCount = 0;
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          notificationCount++;
+        } else {
+          failureCount++;
+          logger.error(`❌ Notification ${index} failed:`, result.reason);
+        }
+      });
+
+      logger.debug(
+        `✅ Low stock check completed. Created ${notificationCount} notifications, ${failureCount} failures`
+      );
+
+      logger.debug(
+        `✅ Low stock check completed. Created ${notificationCount} notifications`
+      );
       return notificationCount;
     } catch (error) {
       logger.error("❌ Low stock check failed:", error);
@@ -1061,8 +1570,6 @@ class NotificationService {
         return 0;
       }
 
-      logger.debug(`📅 Found ${products.length} expiring products`);
-
       let notificationCount = 0;
 
       for (const user of users) {
@@ -1090,6 +1597,207 @@ class NotificationService {
     } catch (error) {
       logger.error("❌ Expiry check failed:", error);
       return 0;
+    }
+  }
+
+  /**
+   * Check for out of stock products
+   * CRITICAL: Out of stock alerts are ALWAYS IMMEDIATE - no cooldown
+   * Uses database deduplication to prevent spam
+   * @private
+   */
+  async checkOutOfStock(users) {
+    try {
+      logger.debug("🔍 [Health Check] Starting out of stock check...");
+
+      const { data: products, error } = await supabase
+        .from("products")
+        .select("id, brand_name, generic_name, stock_in_pieces")
+        .eq("stock_in_pieces", 0)
+        .eq("is_active", true);
+
+      if (error) {
+        logger.error(
+          "❌ Database error fetching out of stock products:",
+          error
+        );
+        throw error;
+      }
+
+      logger.debug(`📦 Found ${products?.length || 0} out of stock products`);
+
+      if (!products || products.length === 0) {
+        logger.debug("✅ No out of stock products found");
+        return 0;
+      }
+
+      // CRITICAL: Use direct notification method (NO COOLDOWN)
+      // Database RPC function handles deduplication
+      const notificationPromises = [];
+
+      for (const user of users) {
+        logger.debug(
+          `📧 Preparing out of stock notifications for user: ${user.email}`
+        );
+
+        for (const product of products) {
+          const productName =
+            product.brand_name || product.generic_name || "Unknown Product";
+
+          logger.debug(
+            `🚨 Creating IMMEDIATE out of stock alert for: ${productName}`
+          );
+
+          // Use direct method - database handles deduplication
+          notificationPromises.push(
+            this.notifyOutOfStock(product.id, productName, user.id)
+          );
+        }
+      }
+
+      // Execute all notifications in parallel
+      const results = await Promise.allSettled(notificationPromises);
+
+      let notificationCount = 0;
+      let dedupedCount = 0;
+      let failureCount = 0;
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          if (result.value === null) {
+            // Database deduplication prevented this notification
+            dedupedCount++;
+          } else {
+            notificationCount++;
+          }
+        } else {
+          failureCount++;
+          logger.error(
+            `❌ Out of stock notification ${index} failed:`,
+            result.reason
+          );
+        }
+      });
+
+      logger.info(
+        `✅ Out of stock check completed. Created ${notificationCount} new notifications, ` +
+          `${dedupedCount} blocked by database deduplication, ${failureCount} failures`
+      );
+
+      return notificationCount;
+    } catch (error) {
+      logger.error("❌ Out of stock check failed:", error);
+      return 0;
+    }
+  }
+
+  /**
+   * Debug method to check products and stock levels
+   * Use this to diagnose why health checks aren't detecting issues
+   */
+  async debugProductStockLevels() {
+    try {
+      logger.info("🔍 [DEBUG] Analyzing all products for stock issues...");
+
+      // Get all active products
+      const { data: allProducts, error } = await supabase
+        .from("products")
+        .select(
+          "id, brand_name, generic_name, stock_in_pieces, reorder_level, is_active"
+        )
+        .eq("is_active", true)
+        .order("stock_in_pieces", { ascending: true });
+
+      if (error) {
+        logger.error("❌ Failed to fetch products:", error);
+        return { error: error.message };
+      }
+
+      const stats = {
+        total: allProducts?.length || 0,
+        outOfStock: 0,
+        lowStock: 0,
+        criticalStock: 0,
+        normal: 0,
+        noReorderLevel: 0,
+      };
+
+      const issues = {
+        outOfStock: [],
+        lowStock: [],
+        criticalStock: [],
+        noReorderLevel: [],
+      };
+
+      console.table(allProducts?.slice(0, 10) || []); // Show first 10 products
+
+      allProducts?.forEach((product) => {
+        const stock = product.stock_in_pieces || 0;
+        const reorderLevel = product.reorder_level || 0;
+        const productName =
+          product.brand_name || product.generic_name || "Unknown";
+
+        if (stock === 0) {
+          stats.outOfStock++;
+          issues.outOfStock.push({ name: productName, stock, reorderLevel });
+        } else if (!reorderLevel || reorderLevel === 0) {
+          stats.noReorderLevel++;
+          issues.noReorderLevel.push({
+            name: productName,
+            stock,
+            reorderLevel,
+          });
+        } else if (stock <= reorderLevel) {
+          const criticalThreshold = Math.floor(reorderLevel * 0.3);
+          if (stock <= criticalThreshold) {
+            stats.criticalStock++;
+            issues.criticalStock.push({
+              name: productName,
+              stock,
+              reorderLevel,
+            });
+          } else {
+            stats.lowStock++;
+            issues.lowStock.push({ name: productName, stock, reorderLevel });
+          }
+        } else {
+          stats.normal++;
+        }
+      });
+
+      logger.info("📊 Product Stock Analysis:", stats);
+
+      if (issues.outOfStock.length > 0) {
+        logger.warn("❌ Out of Stock Products:", issues.outOfStock.slice(0, 5));
+      }
+
+      if (issues.criticalStock.length > 0) {
+        logger.warn(
+          "🚨 Critical Stock Products:",
+          issues.criticalStock.slice(0, 5)
+        );
+      }
+
+      if (issues.lowStock.length > 0) {
+        logger.warn("⚠️ Low Stock Products:", issues.lowStock.slice(0, 5));
+      }
+
+      if (issues.noReorderLevel.length > 0) {
+        logger.warn(
+          "❓ Products without reorder level:",
+          issues.noReorderLevel.slice(0, 5)
+        );
+      }
+
+      return {
+        success: true,
+        stats,
+        issues,
+        sampleProducts: allProducts?.slice(0, 5) || [],
+      };
+    } catch (error) {
+      logger.error("❌ Debug analysis failed:", error);
+      return { error: error.message };
     }
   }
 

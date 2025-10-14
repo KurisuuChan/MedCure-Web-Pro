@@ -21,7 +21,8 @@ export default function LoginForm({
     if (!formData.email) {
       errors.email = "Email address is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email address (e.g., user@example.com)";
+      errors.email =
+        "Please enter a valid email address (e.g., user@example.com)";
     } else if (formData.email.length > 255) {
       errors.email = "Email address is too long";
     }
@@ -86,9 +87,13 @@ export default function LoginForm({
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Mail className={`h-5 w-5 ${
-              validationErrors.email || error ? "text-red-400" : "text-gray-400"
-            }`} />
+            <Mail
+              className={`h-5 w-5 ${
+                validationErrors.email || error
+                  ? "text-red-400"
+                  : "text-gray-400"
+              }`}
+            />
           </div>
           <input
             id="email"
@@ -98,7 +103,7 @@ export default function LoginForm({
             disabled={isLoading}
             className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
               validationErrors.email || error
-                ? "border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50/50"  
+                ? "border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50/50"
                 : "border-gray-300 hover:border-gray-400"
             } ${isLoading ? "bg-gray-50 cursor-not-allowed" : "bg-white"}`}
             placeholder="your.email@example.com"
@@ -115,25 +120,21 @@ export default function LoginForm({
 
       {/* Password Field */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label
-            htmlFor="password"
-            className="block text-sm font-semibold text-gray-700"
-          >
-            Password
-          </label>
-          <a
-            href="#"
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Forgot password?
-          </a>
-        </div>
+        <label
+          htmlFor="password"
+          className="block text-sm font-semibold text-gray-700 mb-2"
+        >
+          Password
+        </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Lock className={`h-5 w-5 ${
-              validationErrors.password || error ? "text-red-400" : "text-gray-400"
-            }`} />
+            <Lock
+              className={`h-5 w-5 ${
+                validationErrors.password || error
+                  ? "text-red-400"
+                  : "text-gray-400"
+              }`}
+            />
           </div>
           <input
             id="password"
@@ -145,7 +146,7 @@ export default function LoginForm({
               validationErrors.password || error
                 ? "border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50/50"
                 : "border-gray-300 hover:border-gray-400"
-            } ${isLoading ? "bg-gray-50 cursor-not-allowed" : "bg-white"}`}         
+            } ${isLoading ? "bg-gray-50 cursor-not-allowed" : "bg-white"}`}
             placeholder="Enter your password"
             autoComplete="current-password"
           />
@@ -169,22 +170,6 @@ export default function LoginForm({
             <span>{validationErrors.password}</span>
           </p>
         )}
-      </div>
-
-      {/* Remember Me Checkbox */}
-      <div className="flex items-center">
-        <input
-          id="remember-me"
-          name="remember-me"
-          type="checkbox"
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-        />
-        <label
-          htmlFor="remember-me"
-          className="ml-2 block text-sm text-gray-700"
-        >
-          Remember me for 30 days
-        </label>
       </div>
 
       {/* Submit Button */}

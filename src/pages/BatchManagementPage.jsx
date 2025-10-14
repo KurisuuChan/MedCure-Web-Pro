@@ -30,6 +30,11 @@ import { formatCurrency } from "../utils/formatting";
 import AddStockModal from "../components/modals/AddStockModal";
 import BulkBatchImportModal from "../components/modals/BulkBatchImportModal";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
+import { UnifiedSpinner } from "../components/ui/loading/UnifiedSpinner";
+import {
+  LoadingTransactionTable,
+  LoadingBatchManagementPage,
+} from "../components/ui/loading/PharmacyLoadingStates";
 import ProductSelectionCard from "../components/ui/ProductSelectionCard";
 
 const BatchManagementPage = () => {
@@ -102,8 +107,6 @@ const BatchManagementPage = () => {
         } else {
           console.log("⚠️ No batch data returned from EnhancedBatchService");
         }
-
-
       } catch (enhancedError) {
         console.warn(
           "⚠️ Enhanced batch service not available, using basic service:",
@@ -164,10 +167,12 @@ const BatchManagementPage = () => {
       const today = new Date();
       filtered = filtered.filter((batch) => {
         if (!batch.received_date) return true;
-        
+
         const receivedDate = new Date(batch.received_date);
-        const daysDiff = Math.floor((today - receivedDate) / (1000 * 60 * 60 * 24));
-        
+        const daysDiff = Math.floor(
+          (today - receivedDate) / (1000 * 60 * 60 * 24)
+        );
+
         switch (batchAgeFilter) {
           case "new":
             return daysDiff <= 30;
@@ -494,8 +499,10 @@ const BatchManagementPage = () => {
 
   if (loading && !refreshing) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" />
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <LoadingBatchManagementPage />
+        </div>
       </div>
     );
   }
@@ -543,8 +550,6 @@ const BatchManagementPage = () => {
           </div>
         </div>
       </div>
-
-
 
       {/* Primary Action: Add New Stock Section */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-200">
@@ -628,7 +633,7 @@ const BatchManagementPage = () => {
           loading={loading}
           loadingComponent={
             <div className="flex items-center justify-center p-12">
-              <LoadingSpinner size="lg" />
+              <UnifiedSpinner variant="gradient" size="lg" />
             </div>
           }
           paginationProps={{

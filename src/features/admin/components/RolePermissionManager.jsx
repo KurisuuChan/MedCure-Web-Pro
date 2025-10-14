@@ -25,7 +25,25 @@ const RolePermissionManager = () => {
   }, []);
 
   const loadRolePermissions = () => {
-    setRolePermissions(UserManagementService.ROLE_PERMISSIONS);
+    const permissions = UserManagementService.ROLE_PERMISSIONS;
+    console.log("🔍 [RolePermissionManager] Loading permissions:");
+    console.log(
+      "  Admin permissions count:",
+      permissions[UserManagementService.ROLES.ADMIN]?.length
+    );
+    console.log(
+      "  Pharmacist permissions count:",
+      permissions[UserManagementService.ROLES.PHARMACIST]?.length
+    );
+    console.log(
+      "  Employee permissions count:",
+      permissions[UserManagementService.ROLES.EMPLOYEE]?.length
+    );
+    console.log(
+      "  Total permissions defined:",
+      Object.keys(UserManagementService.PERMISSIONS).length
+    );
+    setRolePermissions(permissions);
   };
 
   // Permission categories that map to the actual permissions defined in
@@ -53,18 +71,42 @@ const RolePermissionManager = () => {
       "view_sales_reports",
       "manage_discounts",
     ],
-    Financial: ["view_financial_reports", "manage_pricing"],
-    "Customer Management": ["view_customers", "manage_customers"],
-    System: ["view_activity_logs"],
+    "Transaction History": [
+      "view_transaction_history",
+      "export_transactions",
+      "refund_transactions",
+    ],
+    "Analytics & Reports": [
+      "view_analytics",
+      "generate_reports",
+      "export_reports",
+      "view_financial_reports",
+    ],
+    "Customer Management": [
+      "view_customers",
+      "manage_customers",
+      "view_customer_history",
+    ],
+    "System Settings": [
+      "view_system_settings",
+      "manage_system_settings",
+      "manage_pricing",
+    ],
+    "Backup & Security": [
+      "create_backup",
+      "restore_backup",
+      "view_activity_logs",
+      "view_audit_trails",
+    ],
   };
 
   const roleDescriptions = {
     [UserManagementService.ROLES.ADMIN]:
-      "Administrative access with full system control, user management and configuration capabilities.",
+      "Full system access including user management, settings, backups, and all administrative functions.",
     [UserManagementService.ROLES.PHARMACIST]:
-      "Pharmacist access: inventory, batch management, sales, and customer handling.",
+      "Comprehensive access: inventory, sales, analytics, reports, and customer management. No user or system administration.",
     [UserManagementService.ROLES.EMPLOYEE]:
-      "Employee access: basic sales, inventory viewing and customer lookup.",
+      "Basic operational access: process sales, view inventory, and lookup customer information. Read-only for most features.",
   };
 
   const hasPermission = (role, permission) => {
@@ -73,27 +115,54 @@ const RolePermissionManager = () => {
 
   const getPermissionDescription = (permission) => {
     const descriptions = {
-      create_users: "Create new user accounts",
-      edit_users: "Modify existing user information",
-      delete_users: "Deactivate or remove user accounts",
-      view_users: "View user profiles and information",
-      manage_roles: "Assign and modify user roles",
-      create_products: "Add new products to inventory",
+      // User Management
+      create_users: "Create new user accounts and staff profiles",
+      edit_users: "Modify existing user information and roles",
+      delete_users: "Deactivate or permanently remove user accounts",
+      view_users: "View user profiles and staff information",
+      manage_roles: "Assign and modify user roles and permissions",
+
+      // Inventory Management
+      create_products: "Add new products to inventory catalog",
       edit_products: "Modify product information and details",
       delete_products: "Remove products from inventory",
       view_inventory: "View product inventory and stock levels",
       manage_stock: "Update stock quantities and manage inventory",
       manage_batches: "Manage product batch information (FEFO/expiry)",
+
+      // Sales & POS
       process_sales: "Process customer transactions and sales",
-      handle_returns: "Process returns and refunds",
-      void_transactions: "Cancel or void transactions",
+      handle_returns: "Process returns and refunds for customers",
+      void_transactions: "Cancel or void completed transactions",
       view_sales_reports: "Access sales analytics and reports",
       manage_discounts: "Apply discounts and promotional pricing",
-      view_financial_reports: "Access financial analytics and reports",
-      manage_pricing: "Set and modify product pricing",
-      view_customers: "Access customer profiles and history",
+
+      // Transaction History
+      view_transaction_history: "View complete transaction history and records",
+      export_transactions: "Export transaction data to CSV/Excel",
+      refund_transactions: "Process refunds and return stock to inventory",
+
+      // Analytics & Reports
+      view_analytics: "Access analytics dashboard and insights",
+      generate_reports: "Generate business intelligence reports",
+      export_reports: "Export reports to PDF, CSV, or Excel",
+      view_financial_reports: "Access financial analytics and profit margins",
+
+      // Customer Management
+      view_customers: "Access customer profiles and information",
       manage_customers: "Create and update customer profiles",
+      view_customer_history: "View customer purchase history and transactions",
+
+      // System Settings
+      view_system_settings: "View system configuration and preferences",
+      manage_system_settings: "Modify system settings and configuration",
+      manage_pricing: "Set and modify product pricing strategies",
+
+      // Backup & Security
+      create_backup: "Create database backups manually or scheduled",
+      restore_backup: "Restore database from backup files",
       view_activity_logs: "Access system activity logs and audit trails",
+      view_audit_trails: "View detailed audit trails and compliance reports",
     };
     return (
       descriptions[permission] || permission.replace("_", " ").toUpperCase()
@@ -295,16 +364,28 @@ const RolePermissionManager = () => {
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-medium text-blue-900 mb-2 flex items-center space-x-2">
                 <Info className="h-4 w-4" />
-                <span>Role Hierarchy</span>
+                <span>Role Hierarchy & Access Levels</span>
               </h4>
-              <p className="text-sm text-blue-800">
-                <strong>Admin</strong> has full administrative access including
-                user management and system configuration.
-                <strong> Pharmacist</strong> is responsible for inventory, batch
-                management, sales operations, and customer handling.
-                <strong> Employee</strong> has limited access for day-to-day
-                tasks such as processing sales and viewing inventory.
-              </p>
+              <div className="space-y-2 text-sm text-blue-800">
+                <p>
+                  <strong className="text-red-700">🔴 Admin:</strong> Complete
+                  system control including user management, system settings,
+                  backups, and all operational features. Can create/edit/delete
+                  users and modify system configuration.
+                </p>
+                <p>
+                  <strong className="text-green-700">🟢 Pharmacist:</strong>{" "}
+                  Full operational access to inventory management, sales
+                  operations, analytics/reports, transaction history, and
+                  customer management. Cannot manage users or system settings.
+                </p>
+                <p>
+                  <strong className="text-gray-700">⚪ Employee:</strong> Basic
+                  access for daily operations including processing sales,
+                  viewing inventory, and looking up customer information.
+                  Read-only access to transaction history and reports.
+                </p>
+              </div>
             </div>
 
             {/* Security Notice */}

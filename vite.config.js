@@ -10,18 +10,41 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.js"],
     globals: true,
   },
+  optimizeDeps: {
+    include: ["react", "react-dom", "react/jsx-runtime"],
+  },
   build: {
     target: "esnext",
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
+        // Ensure proper chunk loading order
+        inlineDynamicImports: false,
         manualChunks: (id) => {
           // Group node_modules by category
           if (id.includes("node_modules")) {
-            // Core React libraries
-            if (id.includes("react") || id.includes("react-dom")) {
-              return "vendor-react";
+            // Core React libraries + UI libraries that depend on React
+            // CRITICAL: lucide-react MUST be in the same chunk as React
+            // because it uses React.forwardRef internally
+            if (
+              id.includes("node_modules/react") ||
+              id.includes("node_modules/scheduler") ||
+              id.includes("node_modules/lucide-react")
+            ) {
+              // Exclude React-based libraries that can be separated
+              if (
+                !id.includes("react-router") &&
+                !id.includes("react-hook-form") &&
+                !id.includes("react-chartjs") &&
+                !id.includes("@tanstack/react-query")
+              ) {
+                return "vendor-react";
+              }
             }
-            // Chart libraries - split these more granularly
+            // Chart libraries
             if (id.includes("chart.js") || id.includes("react-chartjs")) {
               return "vendor-charts";
             }
@@ -52,12 +75,8 @@ export default defineConfig({
             ) {
               return "vendor-pdf";
             }
-            // UI libraries
-            if (
-              id.includes("lucide-react") ||
-              id.includes("@headlessui") ||
-              id.includes("tailwind")
-            ) {
+            // Other UI libraries (not lucide-react, that's with React now)
+            if (id.includes("@headlessui") || id.includes("tailwind")) {
               return "vendor-ui";
             }
             // Router
@@ -76,46 +95,12 @@ export default defineConfig({
             return "vendor-misc";
           }
 
-          // Group our application code more granularly
-          if (id.includes("/src/services/")) {
-            // Split services by domain
-            if (id.includes("/src/services/domains/analytics/")) {
-              return "app-services-analytics";
-            }
-            if (id.includes("/src/services/domains/inventory/")) {
-              return "app-services-inventory";
-            }
-            if (id.includes("/src/services/domains/auth/")) {
-              return "app-services-auth";
-            }
-            return "app-services-core";
-          }
-          if (id.includes("/src/components/")) {
-            // Split large component groups
-            if (id.includes("/src/components/admin/")) {
-              return "app-components-admin";
-            }
-            if (id.includes("/src/components/ui/")) {
-              return "app-components-ui";
-            }
-            return "app-components";
-          }
-          if (id.includes("/src/pages/")) {
-            return "app-pages";
-          }
-          if (id.includes("/src/features/")) {
-            // Split features by domain
-            if (id.includes("/src/features/pos/")) {
-              return "app-features-pos";
-            }
-            if (id.includes("/src/features/inventory/")) {
-              return "app-features-inventory";
-            }
-            return "app-features";
-          }
+          // DON'T SPLIT APPLICATION CODE
+          // Let Vite automatically bundle app code to prevent React being undefined
+          // Only node_modules are manually chunked above
         },
       },
     },
-    chunkSizeWarningLimit: 500, // Lower the warning limit to catch issues earlier
+    chunkSizeWarningLimit: 1000,
   },
 });

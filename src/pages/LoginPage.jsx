@@ -1,6 +1,6 @@
 import React from "react";
 import { useAuth } from "../hooks/useAuth";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, Link } from "react-router-dom";
 import LoginForm from "../features/auth/components/LoginForm";
 import { useAuthForm } from "../features/auth/hooks/useAuthForm";
 import {
@@ -10,6 +10,7 @@ import {
   Users,
   TrendingUp,
   Package,
+  ArrowLeft,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -156,16 +157,33 @@ export default function LoginPage() {
           </div>
 
           {/* Footer Links */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Need help?{" "}
-              <a
-                href="#"
-                className="text-blue-600 hover:text-blue-700 font-medium"
+          <div className="mt-6 space-y-3">
+            {/* Back to Homepage */}
+            <div className="text-center">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors duration-300 group"
               >
-                Contact Support
-              </a>
-            </p>
+                <ArrowLeft 
+                  size={16} 
+                  className="group-hover:-translate-x-0.5 transition-transform duration-300" 
+                />
+                <span>Back to Homepage</span>
+              </Link>
+            </div>
+            
+            {/* Support Link */}
+            <div className="text-center">
+              <p className="text-sm text-gray-600">
+                Need help?{" "}
+                <a
+                  href="#"
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Contact Support
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       </div>

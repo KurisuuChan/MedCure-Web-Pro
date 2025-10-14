@@ -12,6 +12,17 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ReportsService } from "../../../services/domains/analytics/auditReportsService";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+// Currency formatter utility - PDF-safe version without special symbols
+const formatCurrency = (amount) => {
+  if (amount == null || isNaN(amount)) return "P 0.00";
+  const formatted = Number(amount)
+    .toFixed(2)
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `P ${formatted}`;
+};
 
 // Utility to create helpful no-data messages
 const createNoDataMessage = (dateRange, reportType = "sales") => {
@@ -365,6 +376,360 @@ const AnalyticsReportsPage = () => {
     }
   };
 
+  // Export to PDF - Professional and Modern Design
+  const exportToPDF = (reportData, reportName) => {
+    try {
+      console.log("📊 [PDF Export] Starting export for:", reportName);
+      console.log("📊 [PDF Export] Report data:", reportData);
+
+      const doc = new jsPDF();
+
+      // Set the document to use UTF-8 encoding for special characters
+      doc.setLanguage("en-US");
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Professional color scheme (subtle, not flashy)
+      const colors = {
+        primary: [37, 99, 235], // Blue-600
+        secondary: [107, 114, 128], // Gray-500
+        success: [34, 197, 94], // Green-500
+        warning: [234, 179, 8], // Yellow-500
+        danger: [239, 68, 68], // Red-500
+        text: [17, 24, 39], // Gray-900
+        lightGray: [243, 244, 246], // Gray-100
+      };
+
+      // Header Section
+      doc.setFillColor(...colors.primary);
+      doc.rect(0, 0, pageWidth, 35, "F");
+
+      // Company Logo/Name
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont(undefined, "bold");
+      doc.text("MedCure Pharmacy", 14, 15);
+
+      // Report Title
+      doc.setFontSize(12);
+      doc.setFont(undefined, "normal");
+      const reportTitle = reportName.replace(/_/g, " ").toUpperCase();
+      doc.text(reportTitle, 14, 25);
+
+      // Generation Date
+      doc.setFontSize(9);
+      doc.text(
+        `Generated: ${format(new Date(), "MMM dd, yyyy HH:mm")}`,
+        pageWidth - 14,
+        15,
+        { align: "right" }
+      );
+
+      let yPosition = 45;
+
+      // Report Content based on type
+      if (reportName.includes("inventory")) {
+        // Summary Section
+        doc.setFillColor(...colors.lightGray);
+        doc.rect(14, yPosition, pageWidth - 28, 8, "F");
+        doc.setTextColor(...colors.text);
+        doc.setFontSize(11);
+        doc.setFont(undefined, "bold");
+        doc.text("INVENTORY SUMMARY", 16, yPosition + 5.5);
+        yPosition += 12;
+
+        // Key Metrics in Grid
+        const metrics = [
+          ["Total Products", reportData.totalProducts || 0],
+          ["Total Value", formatCurrency(reportData.totalValue || 0)],
+          ["Low Stock Items", reportData.lowStockCount || 0],
+          ["Out of Stock", reportData.outOfStock || 0],
+          ["Normal Stock", reportData.normalStock || 0],
+          ["Expiring Soon (30 days)", reportData.expiringItems || 0],
+        ];
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Metric", "Value"]],
+          body: metrics,
+          theme: "plain",
+          headStyles: {
+            fillColor: colors.primary,
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            fontSize: 10,
+          },
+          bodyStyles: {
+            fontSize: 9,
+            textColor: colors.text,
+          },
+          alternateRowStyles: {
+            fillColor: colors.lightGray,
+          },
+          margin: { left: 14, right: 14 },
+        });
+
+        // Top Value Products Table
+        if (
+          reportData.topValueProducts &&
+          reportData.topValueProducts.length > 0
+        ) {
+          console.log(
+            "📊 [PDF Export] Top Value Products:",
+            reportData.topValueProducts
+          );
+          yPosition = doc.lastAutoTable.finalY + 10;
+
+          doc.setFillColor(...colors.lightGray);
+          doc.rect(14, yPosition, pageWidth - 28, 8, "F");
+          doc.setFontSize(11);
+          doc.setFont(undefined, "bold");
+          doc.text("TOP VALUE PRODUCTS", 16, yPosition + 5.5);
+          yPosition += 10;
+
+          const productData = reportData.topValueProducts
+            .slice(0, 10)
+            .map((p) => {
+              const price = Number(p.price_per_piece) || 0;
+              const stock = Number(p.stock_in_pieces) || 0;
+              const totalValue = price * stock;
+              console.log(
+                "📊 [PDF Export] Processing product:",
+                p.brand_name,
+                "Price:",
+                price,
+                "Stock:",
+                stock,
+                "Total:",
+                totalValue
+              );
+              return [
+                p.brand_name || p.generic_name || "N/A",
+                stock,
+                formatCurrency(totalValue),
+              ];
+            });
+
+          autoTable(doc, {
+            startY: yPosition,
+            head: [["Product Name", "Stock", "Total Value"]],
+            body: productData,
+            theme: "plain",
+            headStyles: {
+              fillColor: colors.primary,
+              textColor: [255, 255, 255],
+              fontStyle: "bold",
+              fontSize: 9,
+            },
+            bodyStyles: {
+              fontSize: 8,
+              textColor: colors.text,
+            },
+            alternateRowStyles: {
+              fillColor: colors.lightGray,
+            },
+            margin: { left: 14, right: 14 },
+          });
+        }
+      } else if (reportName.includes("sales")) {
+        // Summary Section
+        doc.setFillColor(...colors.lightGray);
+        doc.rect(14, yPosition, pageWidth - 28, 8, "F");
+        doc.setTextColor(...colors.text);
+        doc.setFontSize(11);
+        doc.setFont(undefined, "bold");
+        doc.text("SALES SUMMARY", 16, yPosition + 5.5);
+        yPosition += 12;
+
+        const metrics = [
+          ["Total Sales", formatCurrency(reportData.totalSales || 0)],
+          ["Total Transactions", reportData.transactionCount || 0],
+          [
+            "Average Transaction",
+            formatCurrency(reportData.averageTransaction || 0),
+          ],
+          ["Total Cost", formatCurrency(reportData.totalCost || 0)],
+          ["Gross Profit", formatCurrency(reportData.grossProfit || 0)],
+          ["Profit Margin", `${(reportData.profitMargin || 0).toFixed(2)}%`],
+        ];
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Metric", "Value"]],
+          body: metrics,
+          theme: "plain",
+          headStyles: {
+            fillColor: colors.primary,
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            fontSize: 10,
+          },
+          bodyStyles: {
+            fontSize: 9,
+            textColor: colors.text,
+          },
+          alternateRowStyles: {
+            fillColor: colors.lightGray,
+          },
+          margin: { left: 14, right: 14 },
+        });
+
+        // Top Selling Products
+        if (reportData.topProducts && reportData.topProducts.length > 0) {
+          yPosition = doc.lastAutoTable.finalY + 10;
+
+          doc.setFillColor(...colors.lightGray);
+          doc.rect(14, yPosition, pageWidth - 28, 8, "F");
+          doc.setFontSize(11);
+          doc.setFont(undefined, "bold");
+          doc.text("TOP SELLING PRODUCTS", 16, yPosition + 5.5);
+          yPosition += 10;
+
+          const productData = reportData.topProducts
+            .slice(0, 10)
+            .map((p) => [
+              p.name || p.productName || "N/A",
+              p.quantity || p.quantitySold || 0,
+              formatCurrency(p.revenue || 0),
+            ]);
+
+          autoTable(doc, {
+            startY: yPosition,
+            head: [["Product Name", "Qty Sold", "Revenue"]],
+            body: productData,
+            theme: "plain",
+            headStyles: {
+              fillColor: colors.primary,
+              textColor: [255, 255, 255],
+              fontStyle: "bold",
+              fontSize: 9,
+            },
+            bodyStyles: {
+              fontSize: 8,
+              textColor: colors.text,
+            },
+            alternateRowStyles: {
+              fillColor: colors.lightGray,
+            },
+            margin: { left: 14, right: 14 },
+          });
+        }
+      } else if (reportName.includes("stock_alerts")) {
+        // Summary Section
+        doc.setFillColor(...colors.lightGray);
+        doc.rect(14, yPosition, pageWidth - 28, 8, "F");
+        doc.setTextColor(...colors.text);
+        doc.setFontSize(11);
+        doc.setFont(undefined, "bold");
+        doc.text("STOCK ALERTS SUMMARY", 16, yPosition + 5.5);
+        yPosition += 12;
+
+        const lowStockCount = Array.isArray(reportData.lowStockItems)
+          ? reportData.lowStockItems.length
+          : Number(reportData.lowStockItems) || 0;
+        const outOfStockCount = Array.isArray(reportData.outOfStockItems)
+          ? reportData.outOfStockItems.length
+          : Number(reportData.outOfStockItems) || 0;
+        const expiringCount = Array.isArray(reportData.expiringItems)
+          ? reportData.expiringItems.length
+          : Number(reportData.expiringItems) || 0;
+
+        const metrics = [
+          ["Low Stock Items", lowStockCount],
+          ["Out of Stock", outOfStockCount],
+          ["Expiring Soon (30 days)", expiringCount],
+          ["Total Alerts", lowStockCount + outOfStockCount + expiringCount],
+        ];
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Alert Type", "Count"]],
+          body: metrics,
+          theme: "plain",
+          headStyles: {
+            fillColor: colors.warning,
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            fontSize: 10,
+          },
+          bodyStyles: {
+            fontSize: 9,
+            textColor: colors.text,
+          },
+          alternateRowStyles: {
+            fillColor: colors.lightGray,
+          },
+          margin: { left: 14, right: 14 },
+        });
+      } else if (reportName.includes("performance")) {
+        // Summary Section
+        doc.setFillColor(...colors.lightGray);
+        doc.rect(14, yPosition, pageWidth - 28, 8, "F");
+        doc.setTextColor(...colors.text);
+        doc.setFontSize(11);
+        doc.setFont(undefined, "bold");
+        doc.text("PERFORMANCE METRICS", 16, yPosition + 5.5);
+        yPosition += 12;
+
+        const metrics = [
+          ["Profit Margin", `${(reportData.profitMargin || 0).toFixed(2)}%`],
+          [
+            "Inventory Turnover Ratio",
+            (reportData.inventoryTurnover || 0).toFixed(2),
+          ],
+          [
+            "Return on Investment (ROI)",
+            `${(reportData.roi || 0).toFixed(2)}%`,
+          ],
+          [
+            "Average Days to Sell",
+            Math.round(reportData.averageDaysToSell || 0),
+          ],
+        ];
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Metric", "Value"]],
+          body: metrics,
+          theme: "plain",
+          headStyles: {
+            fillColor: colors.success,
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            fontSize: 10,
+          },
+          bodyStyles: {
+            fontSize: 9,
+            textColor: colors.text,
+          },
+          alternateRowStyles: {
+            fillColor: colors.lightGray,
+          },
+          margin: { left: 14, right: 14 },
+        });
+      }
+
+      // Footer
+      const footerY = pageHeight - 15;
+      doc.setDrawColor(...colors.secondary);
+      doc.setLineWidth(0.5);
+      doc.line(14, footerY - 5, pageWidth - 14, footerY - 5);
+      doc.setFontSize(8);
+      doc.setTextColor(...colors.secondary);
+      doc.setFont(undefined, "normal");
+      doc.text("MedCure Pharmacy Management System", 14, footerY);
+      doc.text(`Page 1 of 1`, pageWidth - 14, footerY, { align: "right" });
+
+      // Save PDF
+      doc.save(`${reportName}_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      console.log(`✅ ${reportName} exported to PDF successfully!`);
+    } catch (error) {
+      console.error("Error exporting to PDF:", error);
+      alert("Failed to export report to PDF");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Header */}
@@ -611,6 +976,15 @@ const AnalyticsReportsPage = () => {
                     <Download className="h-3.5 w-3.5" />
                     CSV
                   </button>
+                  <button
+                    onClick={() =>
+                      exportToPDF(reports.inventory, "inventory_report")
+                    }
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    PDF
+                  </button>
                 </div>
               </div>
             )}
@@ -781,6 +1155,15 @@ const AnalyticsReportsPage = () => {
                         <Download className="h-3.5 w-3.5" />
                         CSV
                       </button>
+                      <button
+                        onClick={() =>
+                          exportToPDF(reports.sales, "sales_report")
+                        }
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        PDF
+                      </button>
                     </div>
                   </>
                 )}
@@ -862,6 +1245,15 @@ const AnalyticsReportsPage = () => {
                   >
                     <Download className="h-3.5 w-3.5" />
                     CSV
+                  </button>
+                  <button
+                    onClick={() =>
+                      exportToPDF(reports.stockAlerts, "stock_alerts_report")
+                    }
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    PDF
                   </button>
                 </div>
               </div>
@@ -1052,6 +1444,15 @@ const AnalyticsReportsPage = () => {
                       >
                         <Download className="h-3.5 w-3.5" />
                         CSV
+                      </button>
+                      <button
+                        onClick={() =>
+                          exportToPDF(reports.performance, "performance_report")
+                        }
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        PDF
                       </button>
                     </div>
                   </>

@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { X, Download, FileText, Database } from "lucide-react";
 import { UnifiedCategoryService } from "../../services/domains/inventory/unifiedCategoryService";
+import { UnifiedSpinner } from "./loading/UnifiedSpinner";
 
 const ExportModal = ({ isOpen, onClose, products, categories }) => {
   const [isExporting, setIsExporting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [exportOptions, setExportOptions] = useState({
     exportType: "products", // "products" or "categories"
     format: "csv",
@@ -29,6 +31,20 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
       unitConversion: false,
     },
   });
+
+  const handleExportClick = () => {
+    // Show confirmation modal before export
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmExport = async () => {
+    setShowConfirmation(false);
+    await handleExport();
+  };
+
+  const handleCancelExport = () => {
+    setShowConfirmation(false);
+  };
 
   const handleExport = async () => {
     console.log("🔄 Starting export...");
@@ -1169,13 +1185,13 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
             Cancel
           </button>
           <button
-            onClick={handleExport}
+            onClick={handleExportClick}
             disabled={isExporting}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-600 border border-transparent rounded-xl hover:from-emerald-600 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-md hover:shadow-lg transition-all duration-200"
+            className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-600 border border-transparent rounded-xl hover:from-emerald-600 hover:to-teal-700 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-md hover:shadow-lg transition-all duration-200"
           >
             {isExporting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <UnifiedSpinner variant="dots" size="xs" color="white" />
                 <span>Exporting...</span>
               </>
             ) : (
@@ -1187,6 +1203,153 @@ const ExportModal = ({ isOpen, onClose, products, categories }) => {
           </button>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-10"
+          onClick={handleCancelExport}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden transform transition-all duration-300 scale-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Confirmation Header */}
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6">
+              <div className="flex items-center space-x-3 text-white">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <Download className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Confirm Export</h3>
+                  <p className="text-sm text-emerald-50">
+                    Ready to download your data
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Confirmation Content */}
+            <div className="p-6 space-y-4">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  You are about to export{" "}
+                  <span className="font-semibold text-emerald-700">
+                    {exportOptions.exportType === "products"
+                      ? (() => {
+                          // Calculate filtered count
+                          let filteredProducts = products || [];
+
+                          if (exportOptions.filters.category !== "all") {
+                            filteredProducts = filteredProducts.filter(
+                              (product) =>
+                                product.category ===
+                                exportOptions.filters.category
+                            );
+                          }
+
+                          if (exportOptions.filters.stockStatus !== "all") {
+                            filteredProducts = filteredProducts.filter(
+                              (product) => {
+                                const stockLevel = product.stock_in_pieces || 0;
+                                const reorderLevel = product.reorder_level || 0;
+
+                                switch (exportOptions.filters.stockStatus) {
+                                  case "low":
+                                    return (
+                                      stockLevel <= reorderLevel &&
+                                      stockLevel > 0
+                                    );
+                                  case "out":
+                                    return stockLevel === 0;
+                                  case "normal":
+                                    return stockLevel > reorderLevel;
+                                  default:
+                                    return true;
+                                }
+                              }
+                            );
+                          }
+
+                          if (exportOptions.filters.expiryStatus !== "all") {
+                            filteredProducts = filteredProducts.filter(
+                              (product) => {
+                                const expiryDate = new Date(
+                                  product.expiry_date
+                                );
+                                const today = new Date();
+                                const daysUntilExpiry = Math.ceil(
+                                  (expiryDate - today) / (1000 * 60 * 60 * 24)
+                                );
+
+                                switch (exportOptions.filters.expiryStatus) {
+                                  case "expired":
+                                    return daysUntilExpiry < 0;
+                                  case "expiring":
+                                    return (
+                                      daysUntilExpiry >= 0 &&
+                                      daysUntilExpiry <= 30
+                                    );
+                                  case "fresh":
+                                    return daysUntilExpiry > 30;
+                                  default:
+                                    return true;
+                                }
+                              }
+                            );
+                          }
+
+                          return `${filteredProducts.length} product${
+                            filteredProducts.length !== 1 ? "s" : ""
+                          }`;
+                        })()
+                      : "category insights"}
+                  </span>{" "}
+                  in{" "}
+                  <span className="font-semibold text-emerald-700">
+                    {exportOptions.format.toUpperCase()}
+                  </span>{" "}
+                  format.
+                </p>
+              </div>
+
+              <div className="flex items-start space-x-2 text-sm text-gray-600">
+                <div className="mt-0.5">📥</div>
+                <p>
+                  The file will be downloaded to your default downloads folder.
+                </p>
+              </div>
+            </div>
+
+            {/* Confirmation Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={handleCancelExport}
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmExport}
+                disabled={isExporting}
+                className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-600 border border-transparent rounded-xl hover:from-emerald-600 hover:to-teal-700 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                {isExporting ? (
+                  <>
+                    <UnifiedSpinner variant="dots" size="xs" color="white" />
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    <span>Confirm Export</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

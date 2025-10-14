@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { useCustomers } from "../hooks/useCustomers";
 import unifiedTransactionService from "../services/domains/sales/transactionService";
+import { UnifiedSpinner } from "../components/ui/loading/UnifiedSpinner";
 import "../debug/customerStatisticsValidator.js";
 import { formatCurrency, formatDate } from "../utils/formatting";
 import SimpleReceipt from "../components/ui/SimpleReceipt";
@@ -300,24 +301,29 @@ const CustomerInformationPage = () => {
       console.log("🗑️ Permanently deleting customer:", customerId);
 
       // Call anonymization function from Supabase
-      const { data: result, error } = await supabase
-        .rpc('anonymize_customer_data', { customer_uuid: customerId });
+      const { data: result, error } = await supabase.rpc(
+        "anonymize_customer_data",
+        { customer_uuid: customerId }
+      );
 
       if (error) {
-        console.warn("⚠️ Anonymization function failed, trying fallback:", error.message);
-        
+        console.warn(
+          "⚠️ Anonymization function failed, trying fallback:",
+          error.message
+        );
+
         // Fallback to direct update if function doesn't exist
         const { error: updateError } = await supabase
-          .from('customers')
+          .from("customers")
           .update({
-            customer_name: '[DELETED CUSTOMER]',
+            customer_name: "[DELETED CUSTOMER]",
             phone: null,
             email: null,
             address: null,
             is_active: false,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
-          .eq('id', customerId);
+          .eq("id", customerId);
 
         if (updateError) {
           throw new Error(`Delete failed: ${updateError.message}`);
@@ -327,7 +333,7 @@ const CustomerInformationPage = () => {
       } else if (result && result.success) {
         console.log("✅ Customer deleted using stored function:", result);
       } else {
-        throw new Error(result?.error || 'Delete function returned failure');
+        throw new Error(result?.error || "Delete function returned failure");
       }
 
       // Refresh customer data
@@ -341,15 +347,17 @@ const CustomerInformationPage = () => {
           action: {
             label: "Undo",
             onClick: () => {
-              showInfo("Undo functionality requires database backup restoration.", { duration: 4000 });
-            }
-          }
+              showInfo(
+                "Undo functionality requires database backup restoration.",
+                { duration: 4000 }
+              );
+            },
+          },
         }
       );
 
       // Success is handled by the modal
       closeAllModals();
-      
     } catch (error) {
       console.error("❌ Delete customer error:", error);
       handleOperationError(error, "delete");
@@ -399,8 +407,8 @@ const CustomerInformationPage = () => {
             onClick: () => {
               setSelectedCustomer({ ...selectedCustomer, ...editForm });
               setShowCustomerModal(true);
-            }
-          }
+            },
+          },
         }
       );
 
@@ -757,7 +765,9 @@ const CustomerInformationPage = () => {
     const validationResult = validateNewCustomer(newCustomerForm);
     if (!validationResult.isValid) {
       showError(
-        `Please fix the following issues: ${validationResult.errors.join(" • ")}`,
+        `Please fix the following issues: ${validationResult.errors.join(
+          " • "
+        )}`,
         { duration: 5000 }
       );
       return;
@@ -783,8 +793,8 @@ const CustomerInformationPage = () => {
             onClick: () => {
               setSelectedCustomer(savedCustomer);
               setShowCustomerModal(true);
-            }
-          }
+            },
+          },
         }
       );
 
@@ -833,21 +843,18 @@ const CustomerInformationPage = () => {
       }
 
       setError({ title, message, retryable: true });
-      
+
       // Show error toast with retry option
-      showError(
-        `${title}: ${message}`,
-        {
-          duration: 6000,
-          action: {
-            label: "Try Again",
-            onClick: () => {
-              clearError();
-              handleCreateNewCustomer();
-            }
-          }
-        }
-      );
+      showError(`${title}: ${message}`, {
+        duration: 6000,
+        action: {
+          label: "Try Again",
+          onClick: () => {
+            clearError();
+            handleCreateNewCustomer();
+          },
+        },
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -1449,7 +1456,10 @@ const CustomerInformationPage = () => {
                     value={editForm.phone}
                     onChange={(e) => {
                       // Allow only numbers, spaces, dashes, parentheses, plus
-                      const value = e.target.value.replace(/[^0-9\s\-\(\)\+\.]/g, '');
+                      const value = e.target.value.replace(
+                        /[^0-9\s\-\(\)\+\.]/g,
+                        ""
+                      );
                       setEditForm({ ...editForm, phone: value });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1458,14 +1468,18 @@ const CustomerInformationPage = () => {
                   />
                   {editForm.phone &&
                     (() => {
-                      const cleanPhone = PhoneValidator.cleanPhone(editForm.phone);
+                      const cleanPhone = PhoneValidator.cleanPhone(
+                        editForm.phone
+                      );
                       const existingCustomer = customers.find(
                         (c) =>
                           c.phone &&
                           PhoneValidator.cleanPhone(c.phone) === cleanPhone &&
                           c.id !== selectedCustomer.id // Exclude current customer
                       );
-                      const validation = PhoneValidator.validatePhone(editForm.phone);
+                      const validation = PhoneValidator.validatePhone(
+                        editForm.phone
+                      );
 
                       if (existingCustomer) {
                         return (
@@ -1475,21 +1489,21 @@ const CustomerInformationPage = () => {
                             {existingCustomer.customer_name}
                           </p>
                         );
-                      } else if (validation.type === 'error') {
+                      } else if (validation.type === "error") {
                         return (
                           <p className="mt-1 text-sm text-red-600 flex items-center">
                             <AlertTriangle className="h-4 w-4 mr-1" />
                             {validation.message}
                           </p>
                         );
-                      } else if (validation.type === 'warning') {
+                      } else if (validation.type === "warning") {
                         return (
                           <p className="mt-1 text-sm text-amber-600 flex items-center">
                             <AlertTriangle className="h-4 w-4 mr-1" />
                             {validation.message}
                           </p>
                         );
-                      } else if (validation.type === 'success') {
+                      } else if (validation.type === "success") {
                         return (
                           <p className="mt-1 text-sm text-green-600 flex items-center">
                             <CheckCircle className="h-4 w-4 mr-1" />
@@ -1544,13 +1558,17 @@ const CustomerInformationPage = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
+                    className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
                     disabled={isUpdating}
                   >
                     {isUpdating ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
+                        <UnifiedSpinner
+                          variant="dots"
+                          size="xs"
+                          color="white"
+                        />
+                        <span className="ml-2">Updating...</span>
                       </>
                     ) : (
                       "Update Customer"
@@ -1728,7 +1746,7 @@ const CustomerInformationPage = () => {
               >
                 {loadingTransactions ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <UnifiedSpinner variant="pulse" size="md" color="purple" />
                     <span className="ml-3 text-gray-600">
                       Loading transactions...
                     </span>
@@ -1862,8 +1880,7 @@ const CustomerInformationPage = () => {
                                   )}
                                 </span>
                                 <span>
-                                  Tax:{" "}
-                                  {formatCurrency(0)} {/* VAT EXEMPT */}
+                                  Tax: {formatCurrency(0)} {/* VAT EXEMPT */}
                                 </span>
                                 {transaction.discount &&
                                   parseFloat(transaction.discount) > 0 && (
@@ -2085,7 +2102,10 @@ const CustomerInformationPage = () => {
                   value={newCustomerForm.phone}
                   onChange={(e) => {
                     // Allow only numbers, spaces, dashes, parentheses, plus
-                    const value = e.target.value.replace(/[^0-9\s\-\(\)\+\.]/g, '');
+                    const value = e.target.value.replace(
+                      /[^0-9\s\-\(\)\+\.]/g,
+                      ""
+                    );
                     setNewCustomerForm({
                       ...newCustomerForm,
                       phone: value,
@@ -2097,13 +2117,17 @@ const CustomerInformationPage = () => {
                 />
                 {newCustomerForm.phone &&
                   (() => {
-                    const cleanPhone = PhoneValidator.cleanPhone(newCustomerForm.phone);
+                    const cleanPhone = PhoneValidator.cleanPhone(
+                      newCustomerForm.phone
+                    );
                     const existingCustomer = customers.find(
                       (c) =>
                         c.phone &&
                         PhoneValidator.cleanPhone(c.phone) === cleanPhone
                     );
-                    const validation = PhoneValidator.validatePhone(newCustomerForm.phone);
+                    const validation = PhoneValidator.validatePhone(
+                      newCustomerForm.phone
+                    );
 
                     if (existingCustomer) {
                       return (
@@ -2113,21 +2137,21 @@ const CustomerInformationPage = () => {
                           {existingCustomer.customer_name}
                         </p>
                       );
-                    } else if (validation.type === 'error') {
+                    } else if (validation.type === "error") {
                       return (
                         <p className="mt-1 text-sm text-red-600 flex items-center">
                           <AlertTriangle className="h-4 w-4 mr-1" />
                           {validation.message}
                         </p>
                       );
-                    } else if (validation.type === 'warning') {
+                    } else if (validation.type === "warning") {
                       return (
                         <p className="mt-1 text-sm text-amber-600 flex items-center">
                           <AlertTriangle className="h-4 w-4 mr-1" />
                           {validation.message}
                         </p>
                       );
-                    } else if (validation.type === 'success') {
+                    } else if (validation.type === "success") {
                       return (
                         <p className="mt-1 text-sm text-green-600 flex items-center">
                           <CheckCircle className="h-4 w-4 mr-1" />
@@ -2231,14 +2255,15 @@ const CustomerInformationPage = () => {
                     !newCustomerForm.customer_name ||
                     !newCustomerForm.phone ||
                     !newCustomerForm.address ||
-                    !PhoneValidator.validatePhone(newCustomerForm.phone).isValid ||
+                    !PhoneValidator.validatePhone(newCustomerForm.phone)
+                      .isValid ||
                     isUpdating
                   }
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 hover:scale-105 font-medium transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   {isUpdating ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <UnifiedSpinner variant="dots" size="xs" color="white" />
                       <span>Creating...</span>
                     </>
                   ) : (

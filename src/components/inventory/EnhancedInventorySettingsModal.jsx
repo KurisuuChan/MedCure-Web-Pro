@@ -28,6 +28,7 @@ import {
   Cpu,
   Activity,
 } from "lucide-react";
+import { UnifiedSpinner } from "../ui/loading/UnifiedSpinner";
 
 /**
  * Enhanced Inventory Settings Modal
@@ -860,10 +861,10 @@ const EnhancedInventorySettingsModal = ({ isOpen, onClose, onSave }) => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50"
+              className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 hover:scale-105 hover:shadow-xl transition-all duration-200 shadow-md disabled:opacity-50"
             >
               {saving ? (
-                <Clock className="h-4 w-4 animate-spin" />
+                <UnifiedSpinner variant="dots" size="xs" color="white" />
               ) : (
                 <Save className="h-4 w-4" />
               )}

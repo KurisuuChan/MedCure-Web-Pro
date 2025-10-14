@@ -22,9 +22,9 @@
  * Supported email providers
  */
 const EMAIL_PROVIDER = {
-  SENDGRID: "sendgrid",
-  RESEND: "resend",
-  SMTP: "smtp",
+  FORMSUBMIT: "formsubmit", // Primary: No signup required, no CORS issues
+  RESEND: "resend", // Alternative: Production-grade service
+  SENDGRID: "sendgrid", // Alternative: Enterprise option
   NONE: "none",
 };
 
@@ -45,6 +45,29 @@ class EmailService {
    */
   initializeProvider() {
     try {
+      // Check for FormSubmit (Primary - No signup required, no CORS)
+      if (import.meta.env.VITE_FORMSUBMIT_EMAIL) {
+        this.provider = EMAIL_PROVIDER.FORMSUBMIT;
+        this.fromEmail = import.meta.env.VITE_FORMSUBMIT_EMAIL;
+        this.fromName =
+          import.meta.env.VITE_FORMSUBMIT_FROM_NAME || this.fromName;
+        this.isConfigured = true;
+        console.log("✅ EmailService configured with FormSubmit");
+        return;
+      }
+
+      // Check for Resend (Production ready)
+      if (import.meta.env.VITE_RESEND_API_KEY) {
+        this.provider = EMAIL_PROVIDER.RESEND;
+        this.apiKey = import.meta.env.VITE_RESEND_API_KEY;
+        this.fromEmail =
+          import.meta.env.VITE_RESEND_FROM_EMAIL || "onboarding@resend.dev";
+        this.fromName = import.meta.env.VITE_RESEND_FROM_NAME || this.fromName;
+        this.isConfigured = true;
+        console.log("✅ EmailService configured with Resend");
+        return;
+      }
+
       // Check for SendGrid
       if (import.meta.env.VITE_SENDGRID_API_KEY) {
         this.provider = EMAIL_PROVIDER.SENDGRID;
@@ -58,27 +81,12 @@ class EmailService {
         return;
       }
 
-      // Check for Resend
-      if (import.meta.env.VITE_RESEND_API_KEY) {
-        this.provider = EMAIL_PROVIDER.RESEND;
-        this.apiKey = import.meta.env.VITE_RESEND_API_KEY;
-        this.fromEmail =
-          import.meta.env.VITE_RESEND_FROM_EMAIL || "no-reply@medcure.com";
-        this.fromName = import.meta.env.VITE_RESEND_FROM_NAME || this.fromName;
-        this.isConfigured = true;
-        console.log("✅ EmailService configured with Resend");
-        return;
-      }
-
       // No provider configured
       this.provider = EMAIL_PROVIDER.NONE;
       this.isConfigured = false;
       console.warn(
-        "⚠️ EmailService: No email provider configured. Emails will not be sent."
+        "⚠️ No email provider configured. Set VITE_FORMSUBMIT_EMAIL to enable notifications."
       );
-      console.warn("⚠️ To enable emails, set one of:");
-      console.warn("   - VITE_SENDGRID_API_KEY & VITE_SENDGRID_FROM_EMAIL");
-      console.warn("   - VITE_RESEND_API_KEY & VITE_RESEND_FROM_EMAIL");
     } catch (error) {
       console.error("❌ Failed to initialize EmailService:", error);
       this.provider = EMAIL_PROVIDER.NONE;
@@ -137,6 +145,9 @@ class EmailService {
 
       // Send using appropriate provider
       switch (this.provider) {
+        case EMAIL_PROVIDER.FORMSUBMIT:
+          return await this.sendViaFormSubmit({ to, subject, html, text });
+
         case EMAIL_PROVIDER.SENDGRID:
           return await this.sendViaSendGrid({ to, subject, html, text });
 
@@ -155,6 +166,48 @@ class EmailService {
       return {
         success: false,
         reason: "error",
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Send email via FormSubmit (no signup required, no CORS issues)
+   * @private
+   */
+  async sendViaFormSubmit({ to, subject, html, text }) {
+    try {
+      const formData = new FormData();
+      formData.append("email", to);
+      formData.append("subject", `[MedCure] ${subject}`);
+      formData.append(
+        "message",
+        text || html.replace(/<[^>]*>/g, "").replace(/&[^;]+;/g, " ")
+      );
+      formData.append("_next", "https://formsubmit.co/thankyou");
+      formData.append("_captcha", "false");
+      formData.append("_template", "table");
+
+      const response = await fetch(`https://formsubmit.co/${this.fromEmail}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        return {
+          success: true,
+          provider: "formsubmit",
+          messageId: "formsubmit-" + Date.now(),
+        };
+      } else {
+        throw new Error(
+          `FormSubmit error: ${response.status} ${response.statusText}`
+        );
+      }
+    } catch (error) {
+      return {
+        success: false,
+        reason: "formsubmit_error",
         error: error.message,
       };
     }
@@ -241,10 +294,74 @@ class EmailService {
   }
 
   /**
-   * Send email via Resend
+   * Send email via Resend (using Supabase Edge Function)
    * @private
    */
   async sendViaResend({ to, subject, html, text }) {
+    try {
+      // Use Supabase Edge Function to avoid CORS issues
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/send-notification-email`;
+
+      const response = await fetch(edgeFunctionUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          to,
+          subject,
+          html,
+          ...(text ? { text } : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        let errorDetails;
+
+        try {
+          errorDetails = JSON.parse(errorBody);
+        } catch {
+          errorDetails = { message: errorBody };
+        }
+
+        throw new Error(
+          `Email function error (${response.status}): ${
+            errorDetails?.error || errorDetails?.message || "Unknown error"
+          }`
+        );
+      }
+
+      const data = await response.json();
+      console.log(
+        "✅ Email sent successfully via Supabase Edge Function to:",
+        to,
+        "(ID:",
+        data.emailId || "unknown",
+        ")"
+      );
+
+      return {
+        success: true,
+        provider: "resend-edge-function",
+        emailId: data.emailId,
+      };
+    } catch (error) {
+      console.error("❌ Edge function email send failed:", error);
+
+      // Fallback: Try direct API call (will likely fail due to CORS but worth trying)
+      console.log("📧 Attempting direct API fallback...");
+      return await this.sendViaResendDirect({ to, subject, html, text });
+    }
+  }
+
+  /**
+   * Fallback: Direct Resend API call (will likely fail due to CORS)
+   * @private
+   */
+  async sendViaResendDirect({ to, subject, html, text }) {
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -280,7 +397,7 @@ class EmailService {
 
       const data = await response.json();
       console.log(
-        "✅ Email sent successfully via Resend to:",
+        "✅ Email sent successfully via direct Resend API to:",
         to,
         "(ID:",
         data.id,
@@ -289,14 +406,21 @@ class EmailService {
 
       return {
         success: true,
-        provider: "resend",
+        provider: "resend-direct",
         emailId: data.id,
       };
     } catch (error) {
-      console.error("❌ Resend send failed:", error);
+      console.error(
+        "❌ Direct Resend API failed (expected due to CORS):",
+        error
+      );
       return {
         success: false,
-        reason: "resend_error",
+        reason:
+          error.message.includes("NetworkError") ||
+          error.message.includes("CORS")
+            ? "cors_expected"
+            : "resend_error",
         error: error.message,
       };
     }
@@ -312,97 +436,104 @@ class EmailService {
   }
 
   /**
-   * Test email configuration
-   * Sends a test email to verify setup
+   * Test email configuration by sending a test email
    *
    * @param {string} testEmail - Email address to send test to
-   * @returns {Promise<Object>} Result object
+   * @returns {Promise<Object>} Test result
    */
   async testConfiguration(testEmail) {
-    if (!this.isReady()) {
-      return {
-        success: false,
-        message:
-          "Email service is not configured. Check your environment variables.",
-      };
+    if (!testEmail) {
+      throw new Error("Test email address is required");
     }
 
-    const testResult = await this.send({
-      to: testEmail,
-      subject: "[MedCure] Email Configuration Test",
-      html: `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Email Configuration Test</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f3f4f6; }
-            .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-            .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 32px 24px; text-align: center; }
-            .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
-            .content { padding: 32px 24px; }
-            .success-icon { font-size: 48px; text-align: center; margin-bottom: 24px; }
-            .message { font-size: 16px; text-align: center; color: #4b5563; }
-            .details { background: #f9fafb; padding: 16px; border-radius: 8px; margin-top: 24px; font-size: 14px; color: #6b7280; }
-            .footer { text-align: center; padding: 24px; background: #f9fafb; color: #6b7280; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🏥 MedCure Pharmacy</h1>
-            </div>
-            
-            <div class="content">
-              <div class="success-icon">✅</div>
-              <p class="message">
-                <strong>Success!</strong><br>
-                Your email configuration is working correctly.
-              </p>
-              
-              <div class="details">
-                <strong>Provider:</strong> ${this.provider}<br>
-                <strong>From:</strong> ${this.fromName} &lt;${
-        this.fromEmail
-      }&gt;<br>
-                <strong>Time:</strong> ${new Date().toLocaleString()}
-              </div>
-            </div>
-            
-            <div class="footer">
-              <p>This is a test email from MedCure Pharmacy Notification System.</p>
-              <p>© ${new Date().getFullYear()} MedCure Pharmacy. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-      text: `Email Configuration Test\n\nSuccess! Your email configuration is working correctly.\n\nProvider: ${
-        this.provider
-      }\nFrom: ${this.fromName} <${
-        this.fromEmail
-      }>\nTime: ${new Date().toLocaleString()}`,
-    });
+    if (!this.isReady()) {
+      throw new Error("Email service is not configured or ready");
+    }
 
-    if (testResult.success) {
-      return {
-        success: true,
-        message: `Test email sent successfully via ${this.provider} to ${testEmail}`,
-      };
-    } else {
+    try {
+      console.log(`📧 Testing email configuration - sending to ${testEmail}`);
+
+      const result = await this.send({
+        to: testEmail,
+        subject: "MedCure Email Test - Configuration Verification",
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Email Test</title>
+          </head>
+          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 24px; text-align: center; border-radius: 8px;">
+              <h1 style="margin: 0; font-size: 24px;">🏥 MedCure Pharmacy</h1>
+              <p style="margin: 8px 0 0; opacity: 0.9;">Email Configuration Test</p>
+            </div>
+            
+            <div style="padding: 24px; background: #f8fafc; margin: 16px 0; border-radius: 8px;">
+              <h2 style="color: #059669; margin-top: 0;">✅ Email Test Successful!</h2>
+              <p>Your MedCure email system is configured correctly and working properly.</p>
+              
+              <div style="background: white; padding: 16px; border-radius: 6px; margin: 16px 0;">
+                <strong>Configuration Details:</strong><br>
+                📧 Provider: ${this.provider}<br>
+                📨 From Email: ${this.fromEmail}<br>
+                👤 From Name: ${this.fromName}<br>
+                🕒 Test Time: ${new Date().toLocaleString()}
+              </div>
+              
+              <p><strong>✅ Ready to receive:</strong></p>
+              <ul style="color: #374151;">
+                <li>🚨 Low stock alerts</li>
+                <li>❌ Out of stock warnings</li>
+                <li>📅 Product expiry notifications</li>
+                <li>🔄 System health updates</li>
+              </ul>
+            </div>
+            
+            <div style="text-align: center; padding: 16px; color: #6b7280; font-size: 14px;">
+              © ${new Date().getFullYear()} MedCure Pharmacy Management System
+            </div>
+          </body>
+          </html>
+        `,
+        text: `MedCure Email Test - SUCCESS! Your email system is working correctly. Provider: ${
+          this.provider
+        }, Time: ${new Date().toLocaleString()}`,
+      });
+
+      if (result.success) {
+        console.log("✅ Email test successful:", result);
+        return {
+          success: true,
+          message: `Test email sent successfully to ${testEmail}`,
+          provider: this.provider,
+          timestamp: new Date().toISOString(),
+          details: result,
+        };
+      } else {
+        console.error("❌ Email test failed:", result);
+        return {
+          success: false,
+          message: `Test email failed: ${result.error}`,
+          provider: this.provider,
+          timestamp: new Date().toISOString(),
+          error: result.error,
+        };
+      }
+    } catch (error) {
+      console.error("❌ Email test error:", error);
       return {
         success: false,
-        message: `Failed to send test email: ${
-          testResult.error || testResult.reason
-        }`,
+        message: `Test email error: ${error.message}`,
+        provider: this.provider,
+        timestamp: new Date().toISOString(),
+        error: error.message,
       };
     }
   }
 
   /**
-   * Get configuration status
+   * Get current configuration status
    *
    * @returns {Object} Configuration details
    */

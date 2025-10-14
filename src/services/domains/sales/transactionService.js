@@ -135,7 +135,11 @@ class UnifiedTransactionService {
         const total_price = item.total_price || item.totalPrice;
 
         // Use the correct unit_price sent from frontend (price per piece)
-        const unit_price = item.unit_price || item.price_per_piece || item.pricePerPiece || (total_price / quantity);
+        const unit_price =
+          item.unit_price ||
+          item.price_per_piece ||
+          item.pricePerPiece ||
+          total_price / quantity;
 
         console.log("🔍 Item mapping debug:", {
           original: item,
@@ -167,25 +171,63 @@ class UnifiedTransactionService {
       // 🔍 ENHANCED VALIDATION: Check product availability with detailed validation
       console.log("🔍 Validating products with enhanced checks...");
       const productIds = mappedItems.map((item) => item.product_id);
+
+      // Debug: Check product IDs format
+      console.log("🔍 Product IDs being sent to RPC:", productIds);
+      console.log("🔍 Product IDs validation:", {
+        count: productIds.length,
+        sample: productIds[0],
+        types: productIds.map((id) => typeof id),
+        uuidPattern: productIds.map((id) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            id
+          )
+        ),
+      });
+
+      // Filter out invalid UUIDs to prevent RPC errors
+      const validUuids = productIds.filter(id => 
+        id && typeof id === 'string' && 
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      );
       
+      console.log("🔍 Valid UUIDs after filtering:", {
+        originalCount: productIds.length,
+        validCount: validUuids.length,
+        invalidIds: productIds.filter(id => !validUuids.includes(id))
+      });
+
+      // Skip RPC call if no valid UUIDs found
+      if (validUuids.length === 0) {
+        console.warn("⚠️ No valid UUIDs found, skipping RPC validation");
+        throw new Error("No valid product IDs found for validation");
+      }
+
       // Use enhanced validation function if available, fallback to basic check
       let validationResult;
       try {
-        const { data: validation, error: validationError } = await supabase
-          .rpc('validate_pos_products', { product_ids: productIds });
-        
+        const { data: validation, error: validationError } = await supabase.rpc(
+          "validate_pos_products",
+          { product_ids: validUuids }
+        );
+
         if (validationError) {
-          console.warn("⚠️ Enhanced validation failed, using basic check:", validationError);
+          console.warn(
+            "⚠️ Enhanced validation failed, using basic check:",
+            validationError
+          );
           throw validationError;
         }
         validationResult = validation;
       } catch (enhancedError) {
         // Fallback to basic product existence check
-        console.log("🔄 Using fallback product validation...");
+        console.log("🔄 Using fallback product validation due to error:", enhancedError.message);
         const { data: existingProducts, error: productCheckError } =
           await supabase
             .from("products")
-            .select("id, brand_name, generic_name, is_active, is_archived, stock_in_pieces")
+            .select(
+              "id, brand_name, generic_name, is_active, is_archived, stock_in_pieces"
+            )
             .in("id", productIds);
 
         if (productCheckError) {
@@ -196,19 +238,26 @@ class UnifiedTransactionService {
         }
 
         // Convert to validation format
-        validationResult = existingProducts.map(p => ({
+        validationResult = existingProducts.map((p) => ({
           product_id: p.id,
-          name: p.brand_name || p.generic_name || 'Unknown Product',
+          name: p.brand_name || p.generic_name || "Unknown Product",
           stock_in_pieces: p.stock_in_pieces || 0,
-          is_available: p.is_active && !p.is_archived && (p.stock_in_pieces || 0) > 0,
-          issue_reason: !p.is_active ? 'Product is inactive' : 
-                       p.is_archived ? 'Product is archived' : 
-                       (p.stock_in_pieces || 0) <= 0 ? 'Out of stock' : 'Available'
+          is_available:
+            p.is_active && !p.is_archived && (p.stock_in_pieces || 0) > 0,
+          issue_reason: !p.is_active
+            ? "Product is inactive"
+            : p.is_archived
+            ? "Product is archived"
+            : (p.stock_in_pieces || 0) <= 0
+            ? "Out of stock"
+            : "Available",
         }));
       }
 
       // Check for missing products
-      const foundProductIds = new Set(validationResult.map(v => v.product_id));
+      const foundProductIds = new Set(
+        validationResult.map((v) => v.product_id)
+      );
       const missingProducts = mappedItems.filter(
         (item) => !foundProductIds.has(item.product_id)
       );
@@ -223,10 +272,17 @@ class UnifiedTransactionService {
       }
 
       // Check for unavailable products
-      const unavailableProducts = validationResult.filter(v => !v.is_available);
+      const unavailableProducts = validationResult.filter(
+        (v) => !v.is_available
+      );
       if (unavailableProducts.length > 0) {
-        console.error("❌ Products not available for sale:", unavailableProducts);
-        const issues = unavailableProducts.map(p => `${p.name}: ${p.issue_reason}`).join("; ");
+        console.error(
+          "❌ Products not available for sale:",
+          unavailableProducts
+        );
+        const issues = unavailableProducts
+          .map((p) => `${p.name}: ${p.issue_reason}`)
+          .join("; ");
         throw new Error(
           `The following products are not available for sale: ${issues}. ` +
             `Please refresh the product list and try again.`
@@ -236,7 +292,9 @@ class UnifiedTransactionService {
       // Check stock levels for each item
       const stockIssues = [];
       for (const item of mappedItems) {
-        const validation = validationResult.find(v => v.product_id === item.product_id);
+        const validation = validationResult.find(
+          (v) => v.product_id === item.product_id
+        );
         if (validation && validation.stock_in_pieces < item.quantity) {
           stockIssues.push(
             `${validation.name}: requested ${item.quantity}, available ${validation.stock_in_pieces}`
@@ -248,11 +306,13 @@ class UnifiedTransactionService {
         console.error("❌ Insufficient stock:", stockIssues);
         throw new Error(
           `Insufficient stock: ${stockIssues.join("; ")}. ` +
-          `Please adjust quantities or refresh stock levels.`
+            `Please adjust quantities or refresh stock levels.`
         );
       }
 
-      console.log("✅ All products validated successfully with enhanced checks");
+      console.log(
+        "✅ All products validated successfully with enhanced checks"
+      );
 
       // Validate constraint before sending to database
       const constraintViolations = mappedItems.filter((item) => {
@@ -300,11 +360,14 @@ class UnifiedTransactionService {
         sale_items: mappedItems,
       });
 
-      console.log("🔍 [STOCK DEBUG] Sale items being processed:", mappedItems.map(item => ({
-        product_id: item.product_id,
-        quantity: item.quantity,
-        note: "This quantity should be deducted from stock"
-      })));
+      console.log(
+        "🔍 [STOCK DEBUG] Sale items being processed:",
+        mappedItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          note: "This quantity should be deducted from stock",
+        }))
+      );
 
       if (error) throw error;
 
@@ -396,9 +459,9 @@ class UnifiedTransactionService {
       // Use the robust database function for undo operations
       // This handles missing products gracefully without manual product lookups
       console.log("🔄 Calling robust database undo function...");
-      
+
       const { data: undoResult, error: undoError } = await supabase.rpc(
-        'undo_transaction_completely',
+        "undo_transaction_completely",
         { p_transaction_id: transactionId }
       );
 
@@ -408,7 +471,8 @@ class UnifiedTransactionService {
       }
 
       if (!undoResult || !undoResult.success) {
-        const errorMessage = undoResult?.message || undoResult?.error || "Unknown error";
+        const errorMessage =
+          undoResult?.message || undoResult?.error || "Unknown error";
         console.error("❌ Undo operation failed:", errorMessage);
         throw new Error(`Undo failed: ${errorMessage}`);
       }
@@ -449,12 +513,14 @@ class UnifiedTransactionService {
       if (undoResult.products_not_found > 0) {
         response.warning = `${undoResult.products_not_found} products were not found and could not have stock restored`;
         response.data.missing_products = undoResult.missing_product_ids;
-        console.warn("⚠️ Some products were missing during undo:", undoResult.missing_product_ids);
+        console.warn(
+          "⚠️ Some products were missing during undo:",
+          undoResult.missing_product_ids
+        );
       }
 
       console.log("✅ Transaction undone successfully:", response);
       return response;
-
     } catch (error) {
       console.error("❌ Undo transaction failed:", error);
       throw new Error(`Failed to undo transaction: ${error.message}`);

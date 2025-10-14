@@ -6,71 +6,27 @@
  * A React component that displays:
  * - Bell icon in the navigation bar
  * - Unread notification count badge
- * - Real-time updates via Supabase subscriptions
+ * - Real-time updates via NotificationContext (no manual refresh needed!)
  * - Click to open NotificationPanel
+ * - Automatic sync across all components
  *
  * Usage:
- *   <NotificationBell userId={currentUser.id} />
+ *   <NotificationBell />  // No userId needed - uses context
  *
- * @version 1.0.0
- * @date 2025-10-05
+ * @version 2.0.0
+ * @date 2025-10-09
  */
 
 import React, { useState, useEffect, useRef } from "react";
 import { Bell } from "lucide-react";
-import { notificationService } from "../../services/notifications/NotificationService.js";
+import { useNotifications } from "../../contexts/NotificationContext";
 import NotificationPanel from "./NotificationPanel.jsx";
-import { logger } from "../../utils/logger.js";
 
-const NotificationBell = ({ userId }) => {
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+const NotificationBell = () => {
+  const { unreadCount, isLoading } = useNotifications();
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const bellRef = useRef(null);
   const panelRef = useRef(null);
-
-  // ✅ FIXED: Combined useEffects to prevent race condition + added cleanup flag for memory leak
-  useEffect(() => {
-    if (!userId) {
-      logger.warn("[NotificationBell] No userId provided");
-      setIsLoading(false);
-      return;
-    }
-
-    let isMounted = true; // ✅ Cleanup flag to prevent setState after unmount
-
-    // Step 1: Load initial count
-    const loadInitial = async () => {
-      setIsLoading(true);
-      logger.debug("[NotificationBell] Loading unread count for user:", userId);
-      const count = await notificationService.getUnreadCount(userId);
-      logger.debug("[NotificationBell] Unread count:", count);
-
-      if (isMounted) {
-        setUnreadCount(count);
-        setIsLoading(false);
-      }
-    };
-
-    loadInitial();
-
-    // Step 2: Subscribe to real-time updates AFTER initial load
-    const unsubscribe = notificationService.subscribeToNotifications(
-      userId,
-      async () => {
-        // Refetch unread count on any notification change
-        const count = await notificationService.getUnreadCount(userId);
-        if (isMounted) {
-          setUnreadCount(count);
-        }
-      }
-    );
-
-    return () => {
-      isMounted = false; // ✅ Set flag before cleanup
-      unsubscribe();
-    };
-  }, [userId]);
 
   // Close panel when clicking outside
   useEffect(() => {
@@ -200,10 +156,7 @@ const NotificationBell = ({ userId }) => {
       {/* Notification Panel */}
       {isPanelOpen && (
         <div ref={panelRef}>
-          <NotificationPanel
-            userId={userId}
-            onClose={() => setIsPanelOpen(false)}
-          />
+          <NotificationPanel onClose={() => setIsPanelOpen(false)} />
         </div>
       )}
 

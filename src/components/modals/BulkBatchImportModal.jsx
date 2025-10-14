@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
-import { 
-  X, 
-  Upload, 
-  Download, 
-  FileText, 
-  AlertCircle, 
-  CheckCircle2, 
+import React, { useState } from "react";
+import {
+  X,
+  Upload,
+  Download,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
   Info,
   ChevronRight,
-  AlertTriangle
-} from 'lucide-react';
-import { useToast } from '../ui/Toast';
-import { ProductService } from '../../services/domains/inventory/productService';
+  AlertTriangle,
+} from "lucide-react";
+import { useToast } from "../ui/Toast";
+import { ProductService } from "../../services/domains/inventory/productService";
+import { UnifiedSpinner } from "../ui/loading/UnifiedSpinner";
 
 const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
   const [file, setFile] = useState(null);
@@ -23,13 +24,13 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
 
   const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
-    if (selectedFile && selectedFile.type === 'text/csv') {
+    if (selectedFile && selectedFile.type === "text/csv") {
       setFile(selectedFile);
       setErrors([]);
       setResults(null);
       previewCSV(selectedFile);
     } else {
-      setErrors(['Please select a valid CSV file']);
+      setErrors(["Please select a valid CSV file"]);
       setFile(null);
       setPreviewData([]);
     }
@@ -39,15 +40,19 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const csv = e.target.result;
-      const lines = csv.split('\n').filter(line => line.trim());
-      
+      const lines = csv.split("\n").filter((line) => line.trim());
+
       if (lines.length < 2) {
-        setErrors(['CSV file must have at least a header row and one data row']);
+        setErrors([
+          "CSV file must have at least a header row and one data row",
+        ]);
         return;
       }
 
       // Show first few rows as preview
-      const preview = lines.slice(0, 6).map(line => line.split(',').map(cell => cell.trim()));
+      const preview = lines
+        .slice(0, 6)
+        .map((line) => line.split(",").map((cell) => cell.trim()));
       setPreviewData(preview);
     };
     reader.readAsText(file);
@@ -57,68 +62,80 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
     try {
       // Get all products with current stock levels
       const allProducts = await ProductService.getProducts();
-      
+
       console.log(`📦 Total products fetched: ${allProducts.length}`);
-      console.log('🔍 Sample product structure:', allProducts[0]);
-      
+      console.log("🔍 Sample product structure:", allProducts[0]);
+
       // Filter for low stock and out of stock items
-      const lowStockItems = allProducts.filter(product => {
-        const currentStock = product.stock_in_pieces || product.stock_quantity || 0;
+      const lowStockItems = allProducts.filter((product) => {
+        const currentStock =
+          product.stock_in_pieces || product.stock_quantity || 0;
         const minimumStock = product.reorder_level || 10; // Default minimum
-        
+
         const isLowStock = currentStock === 0 || currentStock <= minimumStock;
-        
+
         // Debug logging for first few products
         if (allProducts.indexOf(product) < 5) {
-          console.log(`🔍 ${product.generic_name}: stock=${currentStock}, min=${minimumStock}, isLowStock=${isLowStock}`);
+          console.log(
+            `🔍 ${product.generic_name}: stock=${currentStock}, min=${minimumStock}, isLowStock=${isLowStock}`
+          );
         }
-        
+
         return isLowStock;
       });
-      
-      console.log(`🎯 Found ${lowStockItems.length} low stock items out of ${allProducts.length} total products`);
+
+      console.log(
+        `🎯 Found ${lowStockItems.length} low stock items out of ${allProducts.length} total products`
+      );
 
       // Create CSV header with simplified details
       const headers = [
-        'generic_name',
-        'brand_name', 
-        'current_stock',
-        'stock_status',
-        'expiry_date',
-        'quantity_to_add'
+        "generic_name",
+        "brand_name",
+        "current_stock",
+        "stock_status",
+        "expiry_date",
+        "quantity_to_add",
       ];
 
       // Generate CSV rows
-      const csvRows = [headers.join(',')];
-      
+      const csvRows = [headers.join(",")];
+
       if (lowStockItems.length === 0) {
         // If no low stock items, create a CSV with instructions
-        csvRows.push('"No items need restocking","All medicines are well stocked",0,"WELL_STOCKED","",""');
-        csvRows.push('"Instructions: ","All medicines have sufficient stock levels",,,"",""');
+        csvRows.push(
+          '"No items need restocking","All medicines are well stocked",0,"WELL_STOCKED","",""'
+        );
+        csvRows.push(
+          '"Instructions: ","All medicines have sufficient stock levels",,,"",""'
+        );
       } else {
-        lowStockItems.forEach(product => {
-          const currentStock = product.stock_in_pieces || product.stock_quantity || 0;
-          const stockStatus = currentStock === 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK';
-          
+        lowStockItems.forEach((product) => {
+          const currentStock =
+            product.stock_in_pieces || product.stock_quantity || 0;
+          const stockStatus = currentStock === 0 ? "OUT_OF_STOCK" : "LOW_STOCK";
+
           const row = [
-            `"${product.generic_name || product.name || 'Unknown'}"`,
-            `"${product.brand_name || 'Generic'}"`,
+            `"${product.generic_name || product.name || "Unknown"}"`,
+            `"${product.brand_name || "Generic"}"`,
             currentStock,
             stockStatus,
-            '', // Empty expiry_date for user to fill
-            '' // Empty quantity_to_add for user to fill
+            "", // Empty expiry_date for user to fill
+            "", // Empty quantity_to_add for user to fill
           ];
-          
-          csvRows.push(row.join(','));
+
+          csvRows.push(row.join(","));
         });
       }
 
-      const csvContent = csvRows.join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const csvContent = csvRows.join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `low_stock_items_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `low_stock_items_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -131,31 +148,30 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
           duration: 6000,
           action: {
             label: "Got it!",
-            onClick: () => {}
-          }
+            onClick: () => {},
+          },
         }
       );
-      
+
       // Show additional info toast with instructions
       setTimeout(() => {
         showInfo(
           "📝 Next steps: Fill in expiry_date (MM-DD-YY format) and quantity_to_add columns, then upload the file back here",
           {
             duration: 8000,
-            persistent: false
+            persistent: false,
           }
         );
       }, 1000);
-
     } catch (error) {
-      console.error('Error generating smart template:', error);
-      alert('Failed to generate smart template: ' + error.message);
+      console.error("Error generating smart template:", error);
+      alert("Failed to generate smart template: " + error.message);
     }
   };
 
   const handleImport = async () => {
     if (!file) {
-      setErrors(['Please select a CSV file first']);
+      setErrors(["Please select a CSV file first"]);
       return;
     }
 
@@ -168,20 +184,24 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
       reader.onload = async (e) => {
         try {
           const csv = e.target.result;
-          const lines = csv.split('\n').filter(line => line.trim());
-          
+          const lines = csv.split("\n").filter((line) => line.trim());
+
           if (lines.length < 2) {
-            throw new Error('CSV file must have at least a header row and one data row');
+            throw new Error(
+              "CSV file must have at least a header row and one data row"
+            );
           }
 
-          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          const headers = lines[0]
+            .split(",")
+            .map((h) => h.trim().replace(/"/g, ""));
           const dataLines = lines.slice(1);
 
           const importResults = {
             total: dataLines.length,
             successful: 0,
             failed: 0,
-            errors: []
+            errors: [],
           };
 
           // Get all products for name matching
@@ -189,92 +209,117 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
 
           for (let i = 0; i < dataLines.length; i++) {
             const rowNum = i + 2; // +2 because we start from line 2 (after header)
-            const values = dataLines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-            
+            const values = dataLines[i]
+              .split(",")
+              .map((v) => v.trim().replace(/"/g, ""));
+
             try {
               const rowData = {};
               headers.forEach((header, index) => {
-                rowData[header] = values[index] || '';
+                rowData[header] = values[index] || "";
               });
 
               // Handle both simple and smart template formats
-              const quantityToAdd = rowData.quantity_to_add || rowData.stock_to_add;
-              
+              const quantityToAdd =
+                rowData.quantity_to_add || rowData.stock_to_add;
+
               // Skip empty rows or rows with no quantity to add
-              if (!quantityToAdd || quantityToAdd.toString().trim() === '') {
+              if (!quantityToAdd || quantityToAdd.toString().trim() === "") {
                 console.log(`Skipping row ${rowNum}: No quantity specified`);
                 continue;
               }
 
               // Validate required CSV columns
-              if (!rowData.generic_name || !rowData.brand_name || !rowData.expiry_date) {
-                throw new Error('Missing required fields. Need: generic_name, brand_name, expiry_date');
+              if (
+                !rowData.generic_name ||
+                !rowData.brand_name ||
+                !rowData.expiry_date
+              ) {
+                throw new Error(
+                  "Missing required fields. Need: generic_name, brand_name, expiry_date"
+                );
               }
 
               // Find product by generic name and brand name combination
-              const matchedProduct = allProducts.find(p => {
-                const productGeneric = (p.generic_name || '').toLowerCase().trim();
-                const productBrand = (p.brand_name || '').toLowerCase().trim();
+              const matchedProduct = allProducts.find((p) => {
+                const productGeneric = (p.generic_name || "")
+                  .toLowerCase()
+                  .trim();
+                const productBrand = (p.brand_name || "").toLowerCase().trim();
                 const csvGeneric = rowData.generic_name.toLowerCase().trim();
                 const csvBrand = rowData.brand_name.toLowerCase().trim();
-                
-                return productGeneric === csvGeneric && productBrand === csvBrand;
+
+                return (
+                  productGeneric === csvGeneric && productBrand === csvBrand
+                );
               });
 
               if (!matchedProduct) {
-                throw new Error(`Medicine not found in system: ${rowData.generic_name} (${rowData.brand_name})`);
+                throw new Error(
+                  `Medicine not found in system: ${rowData.generic_name} (${rowData.brand_name})`
+                );
               }
 
               // Validate stock quantity
               const quantity = parseInt(quantityToAdd);
               if (!quantity || quantity <= 0) {
-                throw new Error('Quantity to add must be a positive number');
+                throw new Error("Quantity to add must be a positive number");
               }
 
               // Parse and validate expiry date (MM-DD-YY format)
               const expiryDateStr = rowData.expiry_date.trim();
-              if (expiryDateStr.length !== 8 || !/^\d{2}-\d{2}-\d{2}$/.test(expiryDateStr)) {
-                throw new Error('Invalid expiry date format. Use MM-DD-YY (example: 12-31-25 for Dec 31, 2025)');
+              if (
+                expiryDateStr.length !== 8 ||
+                !/^\d{2}-\d{2}-\d{2}$/.test(expiryDateStr)
+              ) {
+                throw new Error(
+                  "Invalid expiry date format. Use MM-DD-YY (example: 12-31-25 for Dec 31, 2025)"
+                );
               }
-              
+
               // Parse MM-DD-YY format
-              const [monthStr, dayStr, yearStr] = expiryDateStr.split('-');
+              const [monthStr, dayStr, yearStr] = expiryDateStr.split("-");
               const month = parseInt(monthStr);
               const day = parseInt(dayStr);
-              const year = parseInt('20' + yearStr); // Assume 20xx
-              
+              const year = parseInt("20" + yearStr); // Assume 20xx
+
               // Validate month and day
               if (month < 1 || month > 12) {
-                throw new Error('Invalid month in expiry date. Month must be 01-12');
+                throw new Error(
+                  "Invalid month in expiry date. Month must be 01-12"
+                );
               }
               if (day < 1 || day > 31) {
-                throw new Error('Invalid day in expiry date. Day must be 01-31');
+                throw new Error(
+                  "Invalid day in expiry date. Day must be 01-31"
+                );
               }
-              
+
               const expiryDate = new Date(year, month - 1, day); // month is 0-indexed
               if (isNaN(expiryDate.getTime())) {
-                throw new Error('Invalid expiry date. Please check the date values');
+                throw new Error(
+                  "Invalid expiry date. Please check the date values"
+                );
               }
 
               // Check if expiry date is not in the past
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               if (expiryDate < today) {
-                throw new Error('Expiry date cannot be in the past');
+                throw new Error("Expiry date cannot be in the past");
               }
 
               // Add the batch (batch_number will be auto-generated)
               const batchData = {
                 productId: matchedProduct.id,
                 quantity: quantity,
-                expiryDate: expiryDate.toISOString().split('T')[0],
+                expiryDate: expiryDate.toISOString().split("T")[0],
                 supplier: null, // Not included in simple template
-                notes: `Bulk import - ${rowData.generic_name} (${rowData.brand_name})`
+                notes: `Bulk import - ${rowData.generic_name} (${rowData.brand_name})`,
               };
 
               await ProductService.addProductBatch(batchData);
               importResults.successful++;
-
             } catch (rowError) {
               importResults.failed++;
               importResults.errors.push(`Row ${rowNum}: ${rowError.message}`);
@@ -282,11 +327,37 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
           }
 
           setResults(importResults);
-          
-          if (importResults.successful > 0) {
-            onSuccess?.(importResults);
-          }
 
+          if (importResults.successful > 0) {
+            // ✅ Show success toast notification
+            showSuccess(
+              `Successfully imported ${importResults.successful} batch${
+                importResults.successful > 1 ? "es" : ""
+              }!${
+                importResults.failed > 0
+                  ? ` (${importResults.failed} failed)`
+                  : ""
+              }`,
+              {
+                duration: 5000,
+                action: {
+                  label: "View Batches",
+                  onClick: () => onClose(),
+                },
+              }
+            );
+            onSuccess?.(importResults);
+          } else if (importResults.failed > 0) {
+            // Show error info for failed imports
+            showInfo(
+              `Import completed with ${importResults.failed} error${
+                importResults.failed > 1 ? "s" : ""
+              }. Check the error list below.`,
+              {
+                duration: 6000,
+              }
+            );
+          }
         } catch (parseError) {
           setErrors([`Error parsing CSV: ${parseError.message}`]);
         } finally {
@@ -295,7 +366,6 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
       };
 
       reader.readAsText(file);
-
     } catch (error) {
       setErrors([`Import failed: ${error.message}`]);
       setImporting(false);
@@ -321,8 +391,12 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
               <Upload className="h-6 w-6 text-green-600" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">Bulk Batch Import</h3>
-              <p className="text-sm text-gray-600">Smart template shows low-stock items ready for restocking</p>
+              <h3 className="text-xl font-bold text-gray-900">
+                Bulk Batch Import
+              </h3>
+              <p className="text-sm text-gray-600">
+                Smart template shows low-stock items ready for restocking
+              </p>
             </div>
           </div>
           <button
@@ -341,12 +415,22 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
               <div className="flex items-start space-x-3">
                 <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="font-semibold text-blue-900 mb-2">Quick Import Instructions</h4>
+                  <h4 className="font-semibold text-blue-900 mb-2">
+                    Quick Import Instructions
+                  </h4>
                   <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• Download the smart template to get all low-stock items</li>
-                    <li>• Update the quantities you want to add to each medicine</li>
-                    <li>• Upload the completed CSV file for bulk batch creation</li>
-                    <li>• Date format: MM-DD-YY (e.g., 12-31-25 for Dec 31, 2025)</li>
+                    <li>
+                      • Download the smart template to get all low-stock items
+                    </li>
+                    <li>
+                      • Update the quantities you want to add to each medicine
+                    </li>
+                    <li>
+                      • Upload the completed CSV file for bulk batch creation
+                    </li>
+                    <li>
+                      • Date format: MM-DD-YY (e.g., 12-31-25 for Dec 31, 2025)
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -382,7 +466,9 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
                 >
                   <Upload className="h-12 w-12 text-gray-400 mb-2" />
                   <span className="text-gray-600">
-                    {file ? file.name : 'Click to select CSV file or drag and drop'}
+                    {file
+                      ? file.name
+                      : "Click to select CSV file or drag and drop"}
                   </span>
                 </label>
               </div>
@@ -391,14 +477,26 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
             {/* Preview */}
             {previewData.length > 0 && (
               <div className="mb-6">
-                <h4 className="font-semibold text-gray-900 mb-2">Preview (First 5 rows)</h4>
+                <h4 className="font-semibold text-gray-900 mb-2">
+                  Preview (First 5 rows)
+                </h4>
                 <div className="overflow-x-auto">
                   <table className="min-w-full border border-gray-200 rounded-lg">
                     <tbody>
                       {previewData.map((row, i) => (
-                        <tr key={i} className={i === 0 ? 'bg-gray-50 font-medium' : 'hover:bg-gray-50'}>
+                        <tr
+                          key={i}
+                          className={
+                            i === 0
+                              ? "bg-gray-50 font-medium"
+                              : "hover:bg-gray-50"
+                          }
+                        >
                           {row.map((cell, j) => (
-                            <td key={j} className="px-3 py-2 border-r border-gray-200 text-sm">
+                            <td
+                              key={j}
+                              className="px-3 py-2 border-r border-gray-200 text-sm"
+                            >
                               {cell}
                             </td>
                           ))}
@@ -439,7 +537,9 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
                 </div>
                 {results.errors.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-sm font-medium text-red-800 mb-1">Import Errors:</p>
+                    <p className="text-sm font-medium text-red-800 mb-1">
+                      Import Errors:
+                    </p>
                     <ul className="text-xs text-red-700 space-y-1 max-h-32 overflow-y-auto">
                       {results.errors.map((error, i) => (
                         <li key={i}>• {error}</li>
@@ -472,11 +572,11 @@ const BulkBatchImportModal = ({ isOpen, onClose, onSuccess }) => {
             <button
               onClick={handleImport}
               disabled={!file || importing}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
             >
               {importing ? (
                 <>
-                  <AlertCircle className="h-4 w-4 animate-spin" />
+                  <UnifiedSpinner variant="dots" size="xs" color="white" />
                   <span>Importing...</span>
                 </>
               ) : (

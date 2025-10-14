@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * NotificationPanel - Dropdown Notification List Panel
+ * NotificationPanel - Dropdown Notification List Panel (Context-Based)
  * ============================================================================
  *
  * A React component that displays:
@@ -8,14 +8,15 @@
  * - Actions: Mark as read, dismiss individual, mark all as read, dismiss all
  * - Navigation to linked pages (inventory, sales, etc.)
  * - Pagination for large notification lists
- * - Real-time updates via Supabase
+ * - Real-time updates via NotificationContext (no manual refresh!)
  * - Empty state when no notifications
+ * - Optimistic UI updates for instant feedback
  *
  * Usage:
- *   <NotificationPanel userId={currentUser.id} onClose={() => setOpen(false)} />
+ *   <NotificationPanel onClose={() => setOpen(false)} />
  *
- * @version 1.0.0
- * @date 2025-10-05
+ * @version 2.0.0
+ * @date 2025-10-09
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -35,17 +36,29 @@ import {
   Settings,
   ChevronDown,
 } from "lucide-react";
+import ConfirmationModal from "../ui/ConfirmationModal";
 import {
-  notificationService,
   NOTIFICATION_TYPE,
   NOTIFICATION_CATEGORY,
 } from "../../services/notifications/NotificationService.js";
+import { useNotifications } from "../../contexts/NotificationContext";
 import { logger } from "../../utils/logger.js";
 
-const NotificationPanel = ({ userId, onClose }) => {
+const NotificationPanel = ({ onClose }) => {
   const navigate = useNavigate();
   const panelRef = useRef(null);
   const closeButtonRef = useRef(null);
+
+  // Use notification context
+  const {
+    markAsRead: contextMarkAsRead,
+    markAllAsRead: contextMarkAllAsRead,
+    dismissNotification: contextDismissNotification,
+    dismissAll: contextDismissAll,
+    loadNotifications,
+  } = useNotifications();
+
+  // Local state for pagination
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
@@ -56,6 +69,9 @@ const NotificationPanel = ({ userId, onClose }) => {
   const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
   const [isDismissingAll, setIsDismissingAll] = useState(false);
   const [processingItems, setProcessingItems] = useState(new Set());
+
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // ✅ Auto-focus close button when panel opens (accessibility)
   useEffect(() => {
@@ -92,13 +108,11 @@ const NotificationPanel = ({ userId, onClose }) => {
     }
   };
 
-  // Load notifications
+  // Load notifications for current page
   useEffect(() => {
-    if (!userId) return;
-
-    const loadNotifications = async () => {
+    const loadPage = async () => {
       setIsLoading(true);
-      const result = await notificationService.getUserNotifications(userId, {
+      const result = await loadNotifications({
         limit: ITEMS_PER_PAGE,
         offset: (page - 1) * ITEMS_PER_PAGE,
       });
@@ -108,90 +122,41 @@ const NotificationPanel = ({ userId, onClose }) => {
       setIsLoading(false);
     };
 
-    loadNotifications();
-  }, [userId, page]);
+    loadPage();
+  }, [page, loadNotifications]);
 
-  // Subscribe to real-time updates with debouncing
-  useEffect(() => {
-    if (!userId) return;
-
-    let debounceTimer = null;
-    let isSubscribed = true;
-
-    const debouncedReload = () => {
-      // Clear previous timer
-      if (debounceTimer) clearTimeout(debounceTimer);
-
-      // Set new timer
-      debounceTimer = setTimeout(async () => {
-        if (!isSubscribed) return;
-
-        // Reload current page
-        const result = await notificationService.getUserNotifications(userId, {
-          limit: ITEMS_PER_PAGE,
-          offset: (page - 1) * ITEMS_PER_PAGE,
-        });
-
-        if (isSubscribed) {
-          setNotifications(result.notifications);
-          setHasMore(result.hasMore);
-        }
-      }, 500); // 500ms debounce
-    };
-
-    const unsubscribe = notificationService.subscribeToNotifications(
-      userId,
-      debouncedReload
-    );
-
-    return () => {
-      isSubscribed = false;
-      if (debounceTimer) clearTimeout(debounceTimer);
-      unsubscribe();
-    };
-  }, [userId, page]);
-
-  // ✅ Handle mark as read with OPTIMISTIC UI UPDATE
+  // ✅ Handle mark as read - Uses context (automatic sync!)
   const handleMarkAsRead = async (notificationId, e) => {
     e.stopPropagation();
 
-    // Add to processing set
     setProcessingItems((prev) => new Set([...prev, notificationId]));
 
-    // ✅ OPTIMISTIC UPDATE: Update UI immediately
+    // Optimistic UI update
     setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === notificationId ? { ...n, is_read: true } : n
-      )
+      prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
     );
 
     try {
-      const result = await notificationService.markAsRead(
-        notificationId,
-        userId
-      );
+      const result = await contextMarkAsRead(notificationId);
 
       if (!result.success) {
-        // ✅ ROLLBACK: Revert optimistic update on failure
+        // Rollback on failure
         setNotifications((prev) =>
           prev.map((n) =>
             n.id === notificationId ? { ...n, is_read: false } : n
           )
         );
-        logger.error("Failed to mark as read:", result.error);
         alert(`Failed to mark notification as read. Please try again.`);
       }
     } catch (error) {
-      // ✅ ROLLBACK: Revert on error
+      // Rollback on error
       setNotifications((prev) =>
         prev.map((n) =>
           n.id === notificationId ? { ...n, is_read: false } : n
         )
       );
-      logger.error("Error marking as read:", error);
       alert(`Failed to mark notification as read. Please try again.`);
     } finally {
-      // Remove from processing set
       setProcessingItems((prev) => {
         const next = new Set(prev);
         next.delete(notificationId);
@@ -200,96 +165,87 @@ const NotificationPanel = ({ userId, onClose }) => {
     }
   };
 
-  // ✅ Handle mark all as read with OPTIMISTIC UI UPDATE
+  // ✅ Handle mark all as read - Uses context (automatic sync!)
   const handleMarkAllAsRead = async () => {
     setIsMarkingAllAsRead(true);
 
-    // Save original state for rollback
     const originalNotifications = [...notifications];
 
-    // ✅ OPTIMISTIC UPDATE: Update UI immediately
+    // Optimistic update
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
 
     try {
-      const result = await notificationService.markAllAsRead(userId);
+      const result = await contextMarkAllAsRead();
 
       if (result.success) {
-        // Show success feedback
         if (result.count > 0) {
           logger.success(`Marked ${result.count} notification(s) as read`);
         }
       } else {
-        // ✅ ROLLBACK: Restore original state on failure
+        // Rollback on failure
         setNotifications(originalNotifications);
-        logger.error("Failed to mark all as read:", result.error);
         alert(`Failed to mark all notifications as read. Please try again.`);
       }
     } catch (error) {
-      // ✅ ROLLBACK: Restore original state on error
+      // Rollback on error
       setNotifications(originalNotifications);
-      logger.error("Unexpected error marking all as read:", error);
       alert(`Failed to mark all notifications as read. Please try again.`);
     } finally {
       setIsMarkingAllAsRead(false);
     }
   };
 
-  // ✅ Handle dismiss with OPTIMISTIC UI UPDATE
+  // ✅ Handle dismiss - Uses context (automatic sync!)
   const handleDismiss = async (notificationId, e) => {
     e.stopPropagation();
 
-    // Add to processing set
     setProcessingItems((prev) => new Set([...prev, notificationId]));
 
-    // Save dismissed notification for rollback
-    const dismissedNotification = notifications.find((n) => n.id === notificationId);
-    const dismissedIndex = notifications.findIndex((n) => n.id === notificationId);
+    const dismissedNotification = notifications.find(
+      (n) => n.id === notificationId
+    );
+    const dismissedIndex = notifications.findIndex(
+      (n) => n.id === notificationId
+    );
 
-    // ✅ OPTIMISTIC UPDATE: Remove from UI immediately
+    // Optimistic update
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
 
     try {
-      const result = await notificationService.dismiss(notificationId, userId);
+      const result = await contextDismissNotification(notificationId);
 
       if (result.success) {
         // Check if page is now empty
         const remainingCount = notifications.length - 1;
         if (remainingCount === 0 && page > 1) {
-          // Go to previous page if current page is empty
           setPage((prev) => prev - 1);
         } else if (remainingCount === 0 && page === 1) {
-          // Reload page 1 to check for more notifications
-          const reloadResult = await notificationService.getUserNotifications(
-            userId,
-            {
-              limit: ITEMS_PER_PAGE,
-              offset: 0,
-            }
-          );
+          // Reload page 1
+          const reloadResult = await loadNotifications({
+            limit: ITEMS_PER_PAGE,
+            offset: 0,
+          });
           setNotifications(reloadResult.notifications);
           setHasMore(reloadResult.hasMore);
         }
       } else {
-        // ✅ ROLLBACK: Restore dismissed notification on failure
+        // Rollback on failure
         setNotifications((prev) => {
           const newNotifications = [...prev];
           newNotifications.splice(dismissedIndex, 0, dismissedNotification);
           return newNotifications;
         });
-        logger.error("Failed to dismiss:", result.error);
         alert(`Failed to dismiss notification. Please try again.`);
       }
     } catch (error) {
-      // ✅ ROLLBACK: Restore dismissed notification on error
+      // Rollback on error
       setNotifications((prev) => {
         const newNotifications = [...prev];
         newNotifications.splice(dismissedIndex, 0, dismissedNotification);
         return newNotifications;
       });
-      logger.error("Error dismissing notification:", error);
       alert(`Failed to dismiss notification. Please try again.`);
     } finally {
-      // Remove from processing set
       setProcessingItems((prev) => {
         const next = new Set(prev);
         next.delete(notificationId);
@@ -298,53 +254,46 @@ const NotificationPanel = ({ userId, onClose }) => {
     }
   };
 
-  // ✅ Handle dismiss all with OPTIMISTIC UI UPDATE
-  const handleDismissAll = async () => {
-    // Confirmation dialog
-    const count = notifications.length;
-    const confirmMessage =
-      count > 0
-        ? `Are you sure you want to clear all ${count} notification(s)? This action cannot be undone.`
-        : "Are you sure you want to clear all notifications?";
+  // ✅ Handle dismiss all - Uses context (automatic sync!)
+  const handleDismissAll = () => {
+    setShowConfirmModal(true);
+  };
 
-    if (!window.confirm(confirmMessage)) {
-      return; // User canceled
-    }
+  // Handle confirm dismiss all
+  const handleConfirmDismissAll = async () => {
+    setShowConfirmModal(false);
 
     setIsDismissingAll(true);
 
-    // Save original state for rollback
     const originalNotifications = [...notifications];
     const originalPage = page;
     const originalHasMore = hasMore;
 
-    // ✅ OPTIMISTIC UPDATE: Clear UI immediately
+    // Optimistic update
     setNotifications([]);
     setPage(1);
     setHasMore(false);
 
     try {
-      const result = await notificationService.dismissAll(userId);
+      const result = await contextDismissAll();
 
       if (result.success) {
-        // Show success feedback
         if (result.count > 0) {
           logger.success(`Cleared ${result.count} notification(s)`);
         }
       } else {
-        // ✅ ROLLBACK: Restore original state on failure
+        // Rollback on failure
         setNotifications(originalNotifications);
         setPage(originalPage);
         setHasMore(originalHasMore);
-        logger.error("Failed to dismiss all:", result.error);
         alert(`Failed to clear all notifications. Please try again.`);
       }
     } catch (error) {
-      // ✅ ROLLBACK: Restore original state on error
+      // Rollback on error
       setNotifications(originalNotifications);
       setPage(originalPage);
       setHasMore(originalHasMore);
-      logger.error("Unexpected error dismissing all:", error);
+      console.error("Error clearing notifications:", error);
       alert(`Failed to clear all notifications. Please try again.`);
     } finally {
       setIsDismissingAll(false);
@@ -355,7 +304,7 @@ const NotificationPanel = ({ userId, onClose }) => {
   const handleNotificationClick = async (notification) => {
     // Mark as read
     if (!notification.is_read) {
-      await notificationService.markAsRead(notification.id, userId);
+      await contextMarkAsRead(notification.id);
     }
 
     // Navigate if action URL exists
@@ -367,7 +316,6 @@ const NotificationPanel = ({ userId, onClose }) => {
 
   // Get icon based on notification type
   const getNotificationIcon = (notification) => {
-    // First check type (error, warning, success, info)
     switch (notification.type) {
       case NOTIFICATION_TYPE.ERROR:
         return <AlertCircle size={20} color="#ef4444" />;
@@ -380,7 +328,6 @@ const NotificationPanel = ({ userId, onClose }) => {
         break;
     }
 
-    // Then check category
     switch (notification.category) {
       case NOTIFICATION_CATEGORY.INVENTORY:
         return <Package size={20} color="#2563eb" />;
@@ -395,7 +342,7 @@ const NotificationPanel = ({ userId, onClose }) => {
     }
   };
 
-  // Format timestamp (e.g., "5 minutes ago", "2 hours ago")
+  // Format timestamp
   const formatTimestamp = (timestamp) => {
     const now = new Date();
     const notifDate = new Date(timestamp);
@@ -421,10 +368,10 @@ const NotificationPanel = ({ userId, onClose }) => {
 
   // Get priority badge color
   const getPriorityColor = (priority) => {
-    if (priority <= 1) return "#ef4444"; // Critical
-    if (priority === 2) return "#f59e0b"; // High
-    if (priority === 3) return "#2563eb"; // Medium
-    return "#6b7280"; // Low/Info
+    if (priority <= 1) return "#ef4444";
+    if (priority === 2) return "#f59e0b";
+    if (priority === 3) return "#2563eb";
+    return "#6b7280";
   };
 
   return (
@@ -572,13 +519,7 @@ const NotificationPanel = ({ userId, onClose }) => {
       )}
 
       {/* Notification List */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          maxHeight: "450px",
-        }}
-      >
+      <div style={{ flex: 1, overflowY: "auto", maxHeight: "450px" }}>
         {isLoading ? (
           <div style={{ padding: "40px 20px", textAlign: "center" }}>
             <div
@@ -684,12 +625,7 @@ const NotificationPanel = ({ userId, onClose }) => {
                 >
                   {notification.message}
                 </div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#9ca3af",
-                  }}
-                >
+                <div style={{ fontSize: "12px", color: "#9ca3af" }}>
                   {formatTimestamp(notification.created_at)}
                 </div>
               </div>
@@ -804,6 +740,23 @@ const NotificationPanel = ({ userId, onClose }) => {
           </button>
         </div>
       )}
+
+      {/* Confirmation Modal for Clear All */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmDismissAll}
+        title="Clear All Notifications"
+        message={
+          notifications.length > 0
+            ? `Are you sure you want to clear all ${notifications.length} notification(s)? This action cannot be undone.`
+            : "Are you sure you want to clear all notifications? This action cannot be undone."
+        }
+        confirmText="Clear All"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDismissingAll}
+      />
     </div>
   );
 };
